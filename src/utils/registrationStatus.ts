@@ -5,7 +5,7 @@ import {
   GetPriceReturnType,
   GetWrapperDataReturnType,
 } from '@ensdomains/ensjs/public'
-import { ParsedInputResult } from '@ensdomains/ensjs/utils'
+import { checkIsDecrypted, ParsedInputResult } from '@ensdomains/ensjs/utils'
 
 import { getChainsFromUrl } from '@app/constants/chains'
 
@@ -49,6 +49,8 @@ export const getRegistrationStatus = ({
   name?: string
 }): RegistrationStatus => {
   if (name === '[root]') return 'owned'
+
+  if (isETH && is2LD && name && !checkIsDecrypted(name)) return 'notOwned'
 
   if (isETH && is2LD && isShort) {
     return 'short'

@@ -1,3 +1,4 @@
+import { labelhash } from 'viem'
 import { describe, expect, it } from 'vitest'
 
 import { GetOwnerReturnType, GetWrapperDataReturnType } from '@ensdomains/ensjs/public'
@@ -43,6 +44,18 @@ describe('getRegistrationStatus', () => {
         validation: { isETH: true, is2LD: true, isShort: true },
       })
       expect(result).toBe('short')
+    })
+
+    it('should return notOwned rather than short for an unowned encoded label', () => {
+      const result = getRegistrationStatus({
+        timestamp: Date.now(),
+        validation: { isETH: true, is2LD: true, isShort: true },
+        ownerData: null,
+        wrapperData: null,
+        expiryData: null,
+        name: `[${labelhash('nick').slice(2)}].eth`,
+      })
+      expect(result).toBe('notOwned')
     })
 
     it('should return invalid if no values are provided', async () => {

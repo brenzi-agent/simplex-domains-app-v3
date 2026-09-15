@@ -9,6 +9,8 @@ import { setRecords } from '@ensdomains/ensjs/wallet'
 import type { Transaction, TransactionDisplayItem, TransactionFunctionParameters } from '@app/types'
 import { profileRecordsToKeyValue, recordsWithCointypeCoins } from '@app/utils/records'
 
+import { hasRecordsToMigrate } from './utils/hasRecordsToMigrate'
+
 type Data = {
   name: string
   resolverAddress?: Address
@@ -58,6 +60,7 @@ const transaction = async ({
     contract: 'ensPublicResolver',
   })
   if (!profile) throw new Error('No profile found')
+  if (!hasRecordsToMigrate(profile)) throw new Error('No records found to migrate')
   const records = await profileRecordsToKeyValue(profile)
 
   return setRecords.makeFunctionData(connectorClient, {

@@ -9,6 +9,8 @@ import { setRecords } from '@ensdomains/ensjs/wallet'
 import { Transaction, TransactionDisplayItem, TransactionFunctionParameters } from '@app/types'
 import { profileRecordsToKeyValue, recordsWithCointypeCoins } from '@app/utils/records'
 
+import { hasRecordsToMigrate } from './utils/hasRecordsToMigrate'
+
 type Data = {
   name: string
   resolverAddress: Address
@@ -55,6 +57,8 @@ const transaction = async ({
         }
       : undefined,
   })
+
+  if (!hasRecordsToMigrate(profile)) throw new Error('No records found to migrate')
 
   const profileRecords = await profileRecordsToKeyValue(profile)
   const latestResolverAddress = getChainContractAddress({
