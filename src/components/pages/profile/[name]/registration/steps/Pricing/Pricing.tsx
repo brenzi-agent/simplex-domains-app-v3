@@ -540,32 +540,32 @@ const Pricing = ({
   const hasPendingMoonpayTransaction = moonpayTransactionStatus === 'pending'
   const hasFailedMoonpayTransaction = moonpayTransactionStatus === 'failed'
 
-  // On the .testing TLD registration is gas-only — hide the credit-card /
+  // Moonpay is not offered on any SNRC TLD — hide the credit-card /
   // Moonpay payment option entirely and pin payment-method state to
   // ethereum so the Next button isn't trapped in moonpay-default while
   // balance loads.
-  const isTestingTld = (process.env.NEXT_PUBLIC_SIMPLEX_TLD || 'testing') === 'testing'
+  const hideMoonpay = true
 
   const [paymentMethodChoice, setPaymentMethodChoice] = useState<PaymentMethod>(
-    isTestingTld
+    hideMoonpay
       ? PaymentMethod.ethereum
       : hasPendingMoonpayTransaction || !balance?.value
         ? PaymentMethod.moonpay
         : PaymentMethod.ethereum,
   )
 
-  // Keep radio button choice up to date. On .testing the credit-card path
+  // Keep radio button choice up to date. The credit-card path
   // is hidden entirely, so pin to ethereum — otherwise the default `moonpay`
   // (chosen while balance is still loading) leaves the Next button disabled.
   useEffect(() => {
     setPaymentMethodChoice(
-      isTestingTld
+      hideMoonpay
         ? PaymentMethod.ethereum
         : hasPendingMoonpayTransaction || hasFailedMoonpayTransaction || !balance?.value
           ? PaymentMethod.moonpay
           : PaymentMethod.ethereum,
     )
-  }, [balance, hasFailedMoonpayTransaction, hasPendingMoonpayTransaction, isTestingTld, setPaymentMethodChoice])
+  }, [balance, hasFailedMoonpayTransaction, hasPendingMoonpayTransaction, hideMoonpay, setPaymentMethodChoice])
 
   const fullEstimate = useEstimateFullRegistration({
     name,
@@ -604,7 +604,7 @@ const Pricing = ({
 
   const unsafeDisplayYearlyFee = yearlyFee === 0n ? previousYearlyFee : yearlyFee
 
-  const showPaymentChoice = !isPrimaryLoading && address && !isTestingTld
+  const showPaymentChoice = !isPrimaryLoading && address && !hideMoonpay
 
   const previousEstimatedGasFee = usePreviousDistinct(estimatedGasFee) || 0n
 

@@ -93,6 +93,7 @@ const SendName = ({ data: { name }, dispatch, onDismiss }: Props) => {
   }
 
   const onSubmit = ({ recipient, transactions }: SendNameForm) => {
+    if (resolver.isLoading || resolverSupport.isLoading) return
     const isOwnerOrManager =
       account.address === basic.ownerData?.owner || basic.ownerData?.registrant === account.address
 
@@ -127,7 +128,11 @@ const SendName = ({ data: { name }, dispatch, onDismiss }: Props) => {
       {match([canSend, view])
         .with([false, P._], () => <CannotSendView onDismiss={onDismiss} />)
         .with([true, 'confirmation'], () => (
-          <ConfirmationView onBack={onBack} onSubmit={form.handleSubmit(onSubmit)} />
+          <ConfirmationView
+            onBack={onBack}
+            onSubmit={form.handleSubmit(onSubmit)}
+            loading={resolver.isLoading || resolverSupport.isLoading}
+          />
         ))
         .with([true, 'summary'], () => (
           <SummaryView
