@@ -3,6 +3,7 @@ import { mockFunction, render, screen } from '@app/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import { useAccount, useBalance } from 'wagmi'
 
+import { useBlockTimestamp } from '@app/hooks/chain/useBlockTimestamp'
 import { useEstimateGasWithStateOverride } from '@app/hooks/chain/useEstimateGasWithStateOverride'
 import { useExpiry } from '@app/hooks/ensjs/public/useExpiry'
 import { usePrice } from '@app/hooks/ensjs/public/usePrice'
@@ -12,6 +13,7 @@ import { useReferrer } from '@app/hooks/useReferrer'
 import { makeMockIntersectionObserver } from '../../../../test/mock/makeMockIntersectionObserver'
 import ExtendNames from './ExtendNames-flow'
 
+vi.mock('@app/hooks/chain/useBlockTimestamp')
 vi.mock('@app/hooks/chain/useEstimateGasWithStateOverride')
 vi.mock('@app/hooks/ensjs/public/usePrice')
 vi.mock('wagmi')
@@ -19,6 +21,7 @@ vi.mock('@app/hooks/ensjs/public/useExpiry')
 vi.mock('@app/hooks/useEthPrice')
 vi.mock('@app/hooks/useReferrer')
 
+const mockUseBlockTimestamp = mockFunction(useBlockTimestamp)
 const mockUseEstimateGasWithStateOverride = mockFunction(useEstimateGasWithStateOverride)
 const mockUsePrice = mockFunction(usePrice)
 const mockUseAccount = mockFunction(useAccount)
@@ -62,6 +65,7 @@ describe('Extendnames', () => {
   mockUseBalance.mockReturnValue({ data: { balance: 100n }, isLoading: false })
   mockUseEthPrice.mockReturnValue({ data: 100n, isLoading: false })
   mockUseExpiry.mockReturnValue({ data: { expiry: { date: new Date() } }, isLoading: false })
+  mockUseBlockTimestamp.mockReturnValue({ data: undefined })
   mockUseReferrer.mockReturnValue(undefined)
   it('should render', async () => {
     render(
@@ -109,5 +113,25 @@ describe('Extendnames', () => {
     )
     const trailingButton = screen.getByTestId('extend-names-confirm')
     expect(trailingButton).toHaveAttribute('disabled')
+  })
+  it('should refuse an extension while the name is paid up close to three years ahead', () => {
+    const now = BigInt(Date.now())
+    const expiry = Number(now / 1000n) + 3 * 365 * 24 * 60 * 60
+    mockUseBlockTimestamp.mockReturnValueOnce({ data: now })
+    mockUseExpiry.mockReturnValueOnce({
+      data: { expiry: { date: new Date(expiry * 1000), value: BigInt(expiry) } },
+      isLoading: false,
+    })
+    render(
+      <ExtendNames
+        {...{
+          data: { names: ['nick.testing'], isSelf: true, hasWrapped: false },
+          dispatch: () => null,
+          onDismiss: () => null,
+        }}
+      />,
+    )
+    expect(screen.getByTestId('extend-names-too-early')).toBeVisible()
+    expect(screen.getByTestId('extend-names-confirm')).toHaveAttribute('disabled')
   })
 })

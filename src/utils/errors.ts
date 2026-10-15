@@ -36,23 +36,46 @@ const simplexControllerErrors = parseAbi([
   'error CommitmentTooNew(bytes32 commitment, uint256 minimumCommitmentTimestamp, uint256 currentTimestamp)',
   'error CommitmentTooOld(bytes32 commitment, uint256 maximumCommitmentTimestamp, uint256 currentTimestamp)',
   'error NameNotAvailable(string name)',
+  'error ReasonRequired()',
   'error DurationTooShort(uint256 duration)',
+  'error DurationTooLong(uint256 duration)',
   'error ResolverRequiredWhenDataSupplied()',
-  'error ResolverRequiredForReverseRecord()',
+  'error ReverseRecordNotSupported()',
   'error UnexpiredCommitmentExists(bytes32 commitment)',
   'error InsufficientValue()',
   'error TransferFailed()',
   'error NameNotReserved(string name)',
+  'error MinCommitmentAgeZero()',
   'error MaxCommitmentAgeTooLow()',
   'error MaxCommitmentAgeTooHigh()',
   'error NameTooShort(string name, uint8 minLength)',
   'error NameReserved(string name)',
   'error NftRequired()',
   'error MinCharLengthCanOnlyDecrease()',
+  'error MinCharLengthZero()',
   'error NftGateCanOnlyBeDisabled()',
-  'error PriceOracleAlreadyFrozen()',
   'error ZeroAddress()',
+  'error NotBeneficiary()',
+  'error NotOwnerOrBeneficiary()',
+  'error AlreadyFrozen()',
+  'error Frozen()',
+  'error PublicSalesClosed()',
+  'error OwnerMustBeCaller()',
+  'error NotSponsor()',
   'error ReentrantCall()',
+])
+
+// BaseRegistrarImplementation and ENSRegistry. `OwnerMustBeCaller` above also
+// covers the registry, which reverts with the same error.
+const snrcRegistrarErrors = parseAbi([
+  'error LabelTooLong(uint256 length, uint256 max)',
+  'error TransferToSelf()',
+  'error SignatureExpired()',
+  'error InvalidNonce()',
+  'error InvalidSignature()',
+  'error NotNameOwner()',
+  'error RecipientMustBeCaller()',
+  'error NotOffered()',
 ])
 
 export const allContractErrors = [
@@ -60,6 +83,7 @@ export const allContractErrors = [
   ...nameWrapperErrors,
   ...dnsRegistrarErrors,
   ...simplexControllerErrors,
+  ...snrcRegistrarErrors,
 ]
 
 const insufficientFundsRegex =

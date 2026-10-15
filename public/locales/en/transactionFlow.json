@@ -225,6 +225,30 @@
         }
       }
     },
+    "offerName": {
+      "title": "Offer {{name}}",
+      "description": "The recipient takes {{name}} by claiming it on its page. Until then it stays yours, and you can withdraw the offer.",
+      "toHolder": "This address already holds the name.",
+      "contract": "This is a contract. It can only take the name if it can call transferFrom on the registrar.",
+      "replaces": "This replaces your offer to {{recipient}}."
+    },
+    "claimName": {
+      "title": "Claim {{name}}",
+      "offeredBy": "Offered by",
+      "description": "Claiming makes {{name}} yours, together with the records and subnames below.",
+      "notOffered": "This name is not offered to the connected wallet.",
+      "resolver": "The name points at a resolver of its holder's choice ({{resolver}}), not the default one, so its records may differ from what is shown here.",
+      "records": "Records",
+      "subnodes": "Subnames",
+      "none": "None",
+      "unnamed": "Subname {{node}}",
+      "shadow": "Untracked subnode {{node}}, owned by {{owner}}",
+      "ownerless": "Ownerless subnode {{node}} with a resolver",
+      "shadowWarning": "The holder created subnodes the subname registrar does not track. They stay under the name after you claim it, and some can only be removed with ETH.",
+      "incomplete": "Not every subnode could be listed from the registry. Check the name's subnodes before claiming.",
+      "afterwards": "After claiming, clear any records and remove any subnames you did not expect.",
+      "acknowledge": "I have reviewed the records and subnames above. They become mine when I claim."
+    },
     "extendNames": {
       "title_one": "Extend {{name}}",
       "title_other": "Extend {{count}} Names",
@@ -240,7 +264,8 @@
         "total": "Estimated total"
       },
       "bannerMsg": "Extending for multiple years will save money on network costs by avoiding yearly transactions.",
-      "gasLimitError": "Not enough ETH in wallet"
+      "gasLimitError": "Not enough ETH in wallet",
+      "tooEarly": "A name can be paid up at most three years ahead. This one can be extended by a year from {{date}}."
     },
     "transferProfile": {
       "title": "Transfer Profile",

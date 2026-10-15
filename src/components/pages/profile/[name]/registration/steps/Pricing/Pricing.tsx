@@ -27,6 +27,7 @@ import { ConnectButton } from '@app/components/@molecules/ConnectButton/ConnectB
 import { DateSelection } from '@app/components/@molecules/DateSelection/DateSelection'
 import { Card } from '@app/components/Card'
 import { SimplexInfoPanel } from '@app/components/SimplexInfoPanel'
+import { MAX_REGISTRATION_SECONDS, MIN_REGISTRATION_SECONDS } from '@app/constants/simplex'
 import { useControllerLimits } from '@app/hooks/useControllerLimits'
 import { useNftGateStatus } from '@app/hooks/useNftGateStatus'
 import { useReservedStatus } from '@app/hooks/useReservedStatus'
@@ -35,7 +36,6 @@ import { useContractAddress } from '@app/hooks/chain/useContractAddress'
 import { useEstimateFullRegistration } from '@app/hooks/gasEstimation/useEstimateRegistration'
 import { useEthPrice } from '@app/hooks/useEthPrice'
 import { useBreakpoint } from '@app/utils/BreakpointProvider'
-import { ONE_DAY, ONE_YEAR } from '@app/utils/time'
 
 import FullInvoice from '../../FullInvoice'
 import {
@@ -498,7 +498,8 @@ export type PricingProps = {
   >['initiateMoonpayRegistrationMutation']
 }
 
-const minSeconds = 28 * ONE_DAY
+const minSeconds = MIN_REGISTRATION_SECONDS
+const maxSeconds = MAX_REGISTRATION_SECONDS
 
 const Pricing = ({
   name,
@@ -528,7 +529,7 @@ const Pricing = ({
   const isSubname = !!name && name.split('.').length > 2
   const isTooShort = !!minCharLength && !isSubname && labelLen > 0 && labelLen < minCharLength
 
-  const [seconds, setSeconds] = useState(() => registrationData.seconds ?? ONE_YEAR)
+  const [seconds, setSeconds] = useState(() => registrationData.seconds ?? minSeconds)
   const [durationType, setDurationType] = useState<'date' | 'years'>(
     registrationData.durationType ?? 'years',
   )
@@ -616,7 +617,7 @@ const Pricing = ({
       <StyledHeading>{t('heading', { name: beautifiedName })}</StyledHeading>
       <SimplexInfoPanel name={name} address={address} />
       <DateSelection
-        {...{ seconds, setSeconds, minSeconds, durationType }}
+        {...{ seconds, setSeconds, minSeconds, maxSeconds, durationType }}
         onChangeDurationType={setDurationType}
       />
       <FullInvoice {...fullEstimate} />

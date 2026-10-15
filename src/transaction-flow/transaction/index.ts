@@ -4,6 +4,7 @@ import approveSubnameRegistrar from './approveSubnameRegistrar'
 import burnFuses from './burnFuses'
 import changePermissions from './changePermissions'
 import claimDnsName from './claimDnsName'
+import claimName from './claimName'
 import commitName from './commitName'
 import createSubname from './createSubname'
 import deleteSubname from './deleteSubname'
@@ -11,6 +12,7 @@ import extendNames from './extendNames'
 import importDnsName from './importDnsName'
 import migrateProfile from './migrateProfile'
 import migrateProfileWithReset from './migrateProfileWithReset'
+import offerName from './offerName'
 import registerName from './registerName'
 import removeVerificationRecord from './removeVerificationRecord'
 import repairDesyncedName from './repairDesyncedName'
@@ -29,6 +31,7 @@ import updateProfile from './updateProfile'
 import updateProfileRecords from './updateProfileRecords'
 import updateResolver from './updateResolver'
 import updateVerificationRecord from './updateVerificationRecord'
+import withdrawOffer from './withdrawOffer'
 import wrapName from './wrapName'
 
 export const transactions = {
@@ -38,6 +41,7 @@ export const transactions = {
   burnFuses,
   changePermissions,
   claimDnsName,
+  claimName,
   commitName,
   createSubname,
   deleteSubname,
@@ -45,6 +49,7 @@ export const transactions = {
   importDnsName,
   migrateProfile,
   migrateProfileWithReset,
+  offerName,
   registerName,
   repairDesyncedName,
   resetPrimaryName,
@@ -61,6 +66,7 @@ export const transactions = {
   updateProfile,
   updateProfileRecords,
   updateResolver,
+  withdrawOffer,
   wrapName,
   updateVerificationRecord,
   removeVerificationRecord,

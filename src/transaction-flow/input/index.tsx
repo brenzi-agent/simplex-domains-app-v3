@@ -5,12 +5,14 @@ import DynamicLoadingContext from '@app/components/@molecules/TransactionDialogM
 
 import TransactionLoader from '../TransactionLoader'
 import type { Props as AdvancedEditorProps } from './AdvancedEditor/AdvancedEditor-flow'
+import type { Props as ClaimNameProps } from './ClaimName/ClaimName-flow'
 import type { Props as CreateSubnameProps } from './CreateSubname-flow'
 import type { Props as DeleteEmancipatedSubnameWarningProps } from './DeleteEmancipatedSubnameWarning/DeleteEmancipatedSubnameWarning-flow'
 import type { Props as DeleteSubnameNotParentWarningProps } from './DeleteSubnameNotParentWarning/DeleteSubnameNotParentWarning-flow'
 import type { Props as EditResolverProps } from './EditResolver/EditResolver-flow'
 import type { Props as EditRolesProps } from './EditRoles/EditRoles-flow'
 import type { Props as ExtendNamesProps } from './ExtendNames/ExtendNames-flow'
+import type { Props as OfferNameProps } from './OfferName/OfferName-flow'
 import type { Props as ProfileEditorProps } from './ProfileEditor/ProfileEditor-flow'
 import type { Props as ProfileReclaimProps } from './ProfileReclaim-flow'
 import type { Props as ResetPrimaryNameProps } from './ResetPrimaryName/ResetPrimaryName-flow'
@@ -45,6 +47,7 @@ const dynamicHelper = <P,>(name: string) =>
   )
 
 const AdvancedEditor = dynamicHelper<AdvancedEditorProps>('AdvancedEditor/AdvancedEditor')
+const ClaimName = dynamicHelper<ClaimNameProps>('ClaimName/ClaimName')
 const CreateSubname = dynamicHelper<CreateSubnameProps>('CreateSubname')
 const DeleteEmancipatedSubnameWarning = dynamicHelper<DeleteEmancipatedSubnameWarningProps>(
   'DeleteEmancipatedSubnameWarning/DeleteEmancipatedSubnameWarning',
@@ -55,6 +58,7 @@ const DeleteSubnameNotParentWarning = dynamicHelper<DeleteSubnameNotParentWarnin
 const EditResolver = dynamicHelper<EditResolverProps>('EditResolver/EditResolver')
 const EditRoles = dynamicHelper<EditRolesProps>('EditRoles/EditRoles')
 const ExtendNames = dynamicHelper<ExtendNamesProps>('ExtendNames/ExtendNames')
+const OfferName = dynamicHelper<OfferNameProps>('OfferName/OfferName')
 const ProfileEditor = dynamicHelper<ProfileEditorProps>('ProfileEditor/ProfileEditor')
 const ProfileReclaim = dynamicHelper<ProfileReclaimProps>('ProfileReclaim')
 const ResetPrimaryName = dynamicHelper<ResetPrimaryNameProps>('ResetPrimaryName/ResetPrimaryName')
@@ -71,12 +75,14 @@ const VerifyProfile = dynamicHelper<VerifyProfileProps>('VerifyProfile/VerifyPro
 
 export const DataInputComponents = {
   AdvancedEditor,
+  ClaimName,
   CreateSubname,
   DeleteEmancipatedSubnameWarning,
   DeleteSubnameNotParentWarning,
   EditResolver,
   EditRoles,
   ExtendNames,
+  OfferName,
   ProfileEditor,
   ProfileReclaim,
   ResetPrimaryName,

@@ -1,9 +1,10 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { ReactElement, useState } from 'react'
 import styled, { css } from 'styled-components'
 import { getAddress, keccak256, toBytes } from 'viem'
 import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi'
 
-import { Button, Card, Heading, Input, Typography } from '@ensdomains/thorin'
+import { Button, Card, Heading, Input, Select, Typography } from '@ensdomains/thorin'
 
 import { getSnrcAddresses } from '@app/constants/chains'
 import { Content } from '@app/layouts/Content'
@@ -33,7 +34,7 @@ const controllerAbi = [
   {
     inputs: [{ name: 'hash', type: 'bytes32' }],
     name: 'reservedNames',
-    outputs: [{ type: 'bool' }],
+    outputs: [{ type: 'uint8' }],
     stateMutability: 'view',
     type: 'function',
   },
@@ -52,7 +53,10 @@ const controllerAbi = [
     type: 'function',
   },
   {
-    inputs: [{ name: 'names', type: 'string[]' }],
+    inputs: [
+      { name: 'names', type: 'string[]' },
+      { name: 'reason', type: 'uint8' },
+    ],
     name: 'addReservedNames',
     outputs: [],
     stateMutability: 'nonpayable',
@@ -77,6 +81,11 @@ const controllerAbi = [
     type: 'function',
   },
 ] as const
+
+// SimplexController.Reason. Append-only on chain: these numbers are storage.
+const REASONS = ['None', 'Internal', 'Trademark', 'Community'] as const
+const MIN_RESERVED_DAYS = 730
+const MAX_RESERVED_DAYS = 3650
 
 const Section = styled.div(
   ({ theme }) => css`
@@ -129,6 +138,7 @@ function AdminPanel() {
   const controllerAddress = deploymentAddresses.ETHRegistrarController
   const publicClient = usePublicClient()
   const { data: walletClient } = useWalletClient()
+  const queryClient = useQueryClient()
 
   const [ownerAddress, setOwnerAddress] = useState<string>('')
   const [minCharLen, setMinCharLen] = useState<number>(0)
@@ -140,12 +150,15 @@ function AdminPanel() {
 
   const [newMinChar, setNewMinChar] = useState('')
   const [reserveName, setReserveName] = useState('')
+  const [reserveReason, setReserveReason] = useState('2')
   const [unReserveName, setUnReserveName] = useState('')
   const [checkName, setCheckName] = useState('')
   const [checkResult, setCheckResult] = useState<string | null>(null)
   const [regLabel, setRegLabel] = useState('')
   const [regOwner, setRegOwner] = useState('')
-  const [regDuration, setRegDuration] = useState('365')
+  const [regDuration, setRegDuration] = useState(String(MIN_RESERVED_DAYS))
+  const regDays = Number(regDuration)
+  const isRegDurationValid = regDays >= MIN_RESERVED_DAYS && regDays <= MAX_RESERVED_DAYS
 
   const loadState = async () => {
     if (!publicClient || !controllerAddress) return
@@ -211,6 +224,9 @@ function AdminPanel() {
       setStatus(`Tx sent: ${hash.slice(0, 10)}... waiting...`)
       await publicClient!.waitForTransactionReceipt({ hash })
       setStatus(`${functionName} confirmed`)
+      // The settings changed here (minCharLength, the NFT gate, reservations) are
+      // read elsewhere through cached, persisted queries; drop them all.
+      await queryClient.invalidateQueries()
       await loadState()
     } catch (e: any) {
       setStatus(`Error: ${e.shortMessage || e.message}`)
@@ -226,7 +242,7 @@ function AdminPanel() {
         functionName: 'reservedNames',
         args: [keccak256(toBytes(checkName))],
       })
-      setCheckResult(result ? 'RESERVED' : 'NOT RESERVED')
+      setCheckResult(result ? `RESERVED (${REASONS[result] ?? result})` : 'NOT RESERVED')
     } catch (e: any) {
       setCheckResult(`Error: ${e.message}`)
     }
@@ -352,7 +368,18 @@ function AdminPanel() {
                   value={reserveName}
                   onChange={(e) => setReserveName(e.target.value)}
                   placeholder="one name per line — submitted in a single tx"
-                  description="Newline or comma separated. ~1000 names per tx fits in the block gas limit."
+                  description="Newline or comma separated. Up to 200 names per tx stays under the per-transaction gas cap."
+                />
+                <Select
+                  label="Reason"
+                  size="small"
+                  value={reserveReason}
+                  onChange={(e) => setReserveReason(e.target.value)}
+                  options={REASONS.slice(1).map((label, i) => ({
+                    value: String(i + 1),
+                    label,
+                  }))}
+                  id="reserve-reason"
                 />
                 <Button
                   size="small"
@@ -361,7 +388,7 @@ function AdminPanel() {
                       .split(/[\n,]/)
                       .map((s) => s.trim())
                       .filter(Boolean)
-                    if (labels.length) execTx('addReservedNames', [labels])
+                    if (labels.length) execTx('addReservedNames', [labels, Number(reserveReason)])
                   }}
                   disabled={!reserveName.trim()}
                 >
@@ -415,18 +442,16 @@ function AdminPanel() {
                 label="Duration (days)"
                 value={regDuration}
                 onChange={(e) => setRegDuration(e.target.value)}
-                placeholder="365"
+                placeholder={String(MIN_RESERVED_DAYS)}
+                description={`${MIN_RESERVED_DAYS}–${MAX_RESERVED_DAYS} days`}
+                error={regDuration && !isRegDurationValid ? 'Out of range' : undefined}
               />
               <Button
                 size="small"
                 onClick={() =>
-                  execTx('registerReserved', [
-                    regLabel,
-                    regOwner,
-                    BigInt(Number(regDuration) * 86400),
-                  ])
+                  execTx('registerReserved', [regLabel, regOwner, BigInt(regDays * 86400)])
                 }
-                disabled={!regLabel || !regOwner}
+                disabled={!regLabel || !regOwner || !isRegDurationValid}
               >
                 Register
               </Button>

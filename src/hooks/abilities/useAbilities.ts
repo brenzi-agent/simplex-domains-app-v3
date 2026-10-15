@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { isSelfExtendable } from '@app/components/pages/profile/[name]/tabs/OwnershipTab/sections/ExpirySection/hooks/useExpiryActions'
+import { getSnrcTokenId } from '@app/utils/snrcOffers'
 import { checkETH2LDFromName } from '@app/utils/utils'
 
 import { useAccountSafely } from '../account/useAccountSafely'
@@ -170,6 +171,14 @@ export const useAbilities = ({ name, enabled = true }: UseAbilitiesParameters) =
         abilities.canSendManager = false
         abilities.canCreateSubdomains = false
         abilities.canCreateSubdomainsError = undefined
+      } else if (getSnrcTokenId(name) !== undefined) {
+        // SNRC: a 2LD's registry node follows its NFT (auto-reclaim), and the
+        // registry makes nobody else its owner, so there is no manager to appoint.
+        // Sending is the offer + claim flow instead (OfferName).
+        abilities.canSend = false
+        abilities.canSendOwner = false
+        abilities.canSendManager = false
+        abilities.sendNameFunctionCallDetails = undefined
       }
 
       return abilities

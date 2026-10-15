@@ -35,6 +35,9 @@ export const createTime = ({ page }: Dependencies) => {
     },
     increaseTime: async ({ seconds }: { seconds: number }) => {
       await testClient.increaseTime({ seconds })
+      // Hardhat runs calls against the latest block, so the new time only shows once a
+      // block is mined (anvil applies it to calls at once).
+      await testClient.request({ method: 'evm_mine' })
       await page.clock.fastForward(seconds * 1000)
     },
     increaseTimeByTimestamp: async ({ seconds }: { seconds: number }) => {

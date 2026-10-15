@@ -6,8 +6,9 @@ import { Typography } from '@ensdomains/thorin'
 
 import { Calendar } from '@app/components/@atoms/Calendar/Calendar'
 import { PlusMinusControl } from '@app/components/@atoms/PlusMinusControl/PlusMinusControl'
-import { calculateDatesDiff, roundDurationWithDay, secondsFromDateDiff } from '@app/utils/date'
+import { roundDurationWithDay } from '@app/utils/date'
 import { isInsideSafe } from '@app/utils/safe'
+import { ONE_YEAR, yearsToSeconds } from '@app/utils/time'
 import { formatDurationOfDates } from '@app/utils/utils'
 
 const YearsViewSwitch = styled.button(
@@ -38,6 +39,7 @@ export const DateSelection = ({
   onChangeDurationType,
   name,
   minSeconds,
+  maxSeconds,
   mode = 'register',
   expiry,
 }: {
@@ -46,6 +48,7 @@ export const DateSelection = ({
   durationType: 'years' | 'date'
   name?: string
   minSeconds: number
+  maxSeconds?: number
   mode?: 'register' | 'extend'
   expiry?: number
   onChangeDurationType?: (type: 'years' | 'date') => void
@@ -56,26 +59,23 @@ export const DateSelection = ({
 
   useEffect(() => {
     if (minSeconds > seconds) setSeconds(minSeconds)
+    else if (maxSeconds !== undefined && seconds > maxSeconds) setSeconds(maxSeconds)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [minSeconds, seconds])
+  }, [minSeconds, maxSeconds, seconds])
 
-  const dateInYears = calculateDatesDiff(
-    new Date(currentTime * 1000),
-    new Date((currentTime + seconds) * 1000),
-  ).diff.years
+  // 365-day years, as SimplexController counts them: a calendar year can be 366
+  // days, which would push a three-year term past the contract's maximum.
+  const dateInYears = Math.floor(seconds / ONE_YEAR)
 
   // When the duration type is years, normalise the seconds to a year value
   useEffect(() => {
     if (durationType === 'years' && currentTime) {
-      setSeconds(
-        secondsFromDateDiff({
-          startDate: new Date(currentTime * 1000),
-          additionalYears: Math.max(1, dateInYears),
-        }),
-      )
+      setSeconds(yearsToSeconds(Math.max(1, dateInYears)))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateInYears, durationType])
+
+  const postFix = mode === 'register' ? ' registration. ' : ' extension. '
 
   const isSafeApp = isInsideSafe()
 
@@ -93,32 +93,30 @@ export const DateSelection = ({
           highlighted
           name={name}
           min={currentTime + minSeconds}
+          max={maxSeconds === undefined ? undefined : currentTime + maxSeconds}
         />
       ) : (
         <PlusMinusControl
           highlighted
-          minValue={1}
+          minValue={Math.max(1, Math.ceil(minSeconds / ONE_YEAR))}
+          maxValue={maxSeconds === undefined ? undefined : Math.floor(maxSeconds / ONE_YEAR)}
           value={dateInYears}
           onChange={(e) => {
             const newYears = parseInt(e.target.value)
 
-            if (!Number.isNaN(newYears))
-              setSeconds(
-                secondsFromDateDiff({
-                  startDate: new Date(currentTime * 1000),
-                  additionalYears: newYears,
-                }),
-              )
+            if (!Number.isNaN(newYears)) setSeconds(yearsToSeconds(newYears))
           }}
         />
       )}
       <Typography color="greyPrimary" fontVariant="smallBold" data-testid="date-selection-info">
-        {formatDurationOfDates({
-          startDate: new Date(currentTime * 1000),
-          endDate: new Date((currentTime + seconds) * 1000),
-          postFix: mode === 'register' ? ' registration. ' : ' extension. ',
-          t,
-        })}
+        {durationType === 'years'
+          ? t('unit.years', { count: dateInYears, ns: 'common' }) + postFix
+          : formatDurationOfDates({
+              startDate: new Date(currentTime * 1000),
+              endDate: new Date((currentTime + seconds) * 1000),
+              postFix,
+              t,
+            })}
         {!isSafeApp && (
           <YearsViewSwitch
             type="button"
