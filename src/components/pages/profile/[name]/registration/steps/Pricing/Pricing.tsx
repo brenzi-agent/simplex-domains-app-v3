@@ -500,6 +500,7 @@ export type PricingProps = {
 
 const minSeconds = MIN_REGISTRATION_DURATION
 const maxSeconds = MAX_REGISTRATION_DURATION
+const hideTimeComparison = true
 
 const Pricing = ({
   name,
@@ -624,6 +625,7 @@ const Pricing = ({
       {hasPremium && gracePeriodEndDate ? (
         <TemporaryPremium startDate={gracePeriodEndDate} name={name} />
       ) : (
+        !hideTimeComparison &&
         !!unsafeDisplayYearlyFee &&
         !!unsafeDisplayEstimatedGasFee &&
         !!gasPrice && (

@@ -7,6 +7,7 @@ import { Button, CheckboxRow, Dialog, Helper, Typography } from '@ensdomains/tho
 import { AvatarWithIdentifier } from '@app/components/@molecules/AvatarWithIdentifier/AvatarWithIdentifier'
 import { useClaimChecks } from '@app/hooks/useClaimChecks'
 import { useNameOffer } from '@app/hooks/useNameOffer'
+import { DetailedSwitch } from '@app/transaction-flow/input/ProfileEditor/components/DetailedSwitch'
 import { createTransactionItem } from '@app/transaction-flow/transaction'
 import TransactionLoader from '@app/transaction-flow/TransactionLoader'
 import { TransactionDialogPassthrough } from '@app/transaction-flow/types'
@@ -76,20 +77,31 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
   const firstChecks = useRef(checks.data)
   firstChecks.current ??= checks.data
   const [acknowledgedReview, setAcknowledgedReview] = useState<string>()
+  const [acceptedIncompleteReview, setAcceptedIncompleteReview] = useState<string>()
+  const [clearRecords, setClearRecords] = useState(false)
 
   if (offer.isLoading || checks.isLoading) return <TransactionLoader />
 
   const holder = !offer.isError && offer.data?.isRecipient ? offer.data.holder : undefined
-  const review = !checks.isError && firstChecks.current?.complete ? firstChecks.current : undefined
+  const review = !checks.isError ? firstChecks.current : undefined
   const [root, ...subnodes] = review?.nodes ?? []
   const reviewKey = review && holder ? `${review.digest} ${holder}` : undefined
   const acknowledged = !!reviewKey && acknowledgedReview === reviewKey
+  const acceptedIncomplete = !!reviewKey && acceptedIncompleteReview === reviewKey
+  const clearResolver = root?.customResolver
+    ? undefined
+    : root?.records.find(({ inEffect }) => inEffect)?.resolver
 
   const onConfirm = () => {
     if (!holder || !review) return
     dispatch({
       name: 'setTransactions',
-      payload: [createTransactionItem('claimName', { name, holder, digest: review.digest })],
+      payload: [
+        createTransactionItem('claimName', { name, holder, digest: review.digest }),
+        ...(clearRecords && clearResolver
+          ? [createTransactionItem('resetProfile', { name, resolverAddress: clearResolver })]
+          : []),
+      ],
     })
     dispatch({ name: 'setFlowStage', payload: 'transaction' })
   }
@@ -121,7 +133,7 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
 
             <Typography fontVariant="bodyBold">{t('input.claimName.subnodes')}</Typography>
             {subnodes.length === 0 ? (
-              <Typography color="grey">{t('input.claimName.none')}</Typography>
+              review.complete && <Typography color="grey">{t('input.claimName.none')}</Typography>
             ) : (
               <List data-testid="claim-name-subnodes">
                 {subnodes.map((subnode) => (
@@ -142,8 +154,19 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
             {subnodes.some((subnode) => subnode.status !== 'tracked') && (
               <Helper alert="warning">{t('input.claimName.untrackedWarning')}</Helper>
             )}
+            {!review.complete && <Helper alert="warning">{t('input.claimName.incomplete')}</Helper>}
 
             <Helper alert="info">{t('input.claimName.afterwards')}</Helper>
+            {clearResolver && (
+              <DetailedSwitch
+                data-testid="claim-name-clear-records"
+                title={t('input.claimName.clearRecords.title')}
+                description={t('input.claimName.clearRecords.description')}
+                checked={clearRecords}
+                disabled={!reviewKey}
+                onChange={(e) => setClearRecords(e.currentTarget.checked)}
+              />
+            )}
             <CheckboxRow
               data-testid="claim-name-acknowledge"
               label={t('input.claimName.acknowledge')}
@@ -151,11 +174,20 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
               disabled={!reviewKey}
               onChange={(e) => setAcknowledgedReview(e.target.checked ? reviewKey : undefined)}
             />
+            {!review.complete && (
+              <CheckboxRow
+                data-testid="claim-name-accept-incomplete"
+                label={t('input.claimName.acceptIncomplete')}
+                checked={acceptedIncomplete}
+                disabled={!reviewKey}
+                onChange={(e) =>
+                  setAcceptedIncompleteReview(e.target.checked ? reviewKey : undefined)
+                }
+              />
+            )}
           </>
         ) : (
-          <Helper alert="error">
-            {t(checks.isError ? 'input.claimName.failed' : 'input.claimName.incomplete')}
-          </Helper>
+          <Helper alert="error">{t('input.claimName.failed')}</Helper>
         )}
       </Dialog.Content>
       <Dialog.Footer
@@ -167,7 +199,12 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
         trailing={
           <Button
             data-testid="claim-name-confirm"
-            disabled={!acknowledged || checks.isFetching || offer.isFetching}
+            disabled={
+              !acknowledged ||
+              (!review?.complete && !acceptedIncomplete) ||
+              checks.isFetching ||
+              offer.isFetching
+            }
             onClick={onConfirm}
           >
             {t('action.claim', { ns: 'common' })}

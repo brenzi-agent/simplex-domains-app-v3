@@ -93,6 +93,7 @@ describe('ClaimName', () => {
     render(claimName())
     expect(screen.getByTestId('claim-name-records')).toHaveTextContent('text simplex.contactlink')
     expect(screen.getByTestId('claim-name-confirm')).toBeDisabled()
+    expect(screen.queryByTestId('claim-name-accept-incomplete')).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByTestId('claim-name-acknowledge'))
     await userEvent.click(screen.getByTestId('claim-name-confirm'))
@@ -103,6 +104,42 @@ describe('ClaimName', () => {
         { name: 'claimName', data: { name: 'alice.testing', holder: HOLDER, digest: '0xaa' } },
       ],
     })
+  })
+
+  it('clears the records on the name after the claim when asked to', async () => {
+    render(claimName())
+    await userEvent.click(screen.getByTestId('claim-name-clear-records'))
+    await userEvent.click(screen.getByTestId('claim-name-acknowledge'))
+    await userEvent.click(screen.getByTestId('claim-name-confirm'))
+
+    expect(mockDispatch).toHaveBeenCalledWith({
+      name: 'setTransactions',
+      payload: [
+        { name: 'claimName', data: { name: 'alice.testing', holder: HOLDER, digest: '0xaa' } },
+        { name: 'resetProfile', data: { name: 'alice.testing', resolverAddress: RESOLVER } },
+      ],
+    })
+  })
+
+  it('offers no clearing without records in effect on a default resolver', () => {
+    mockUseClaimChecks.mockReturnValue(checks({ nodes: [{ ...root, records: [] }] }))
+    const { unmount } = render(claimName())
+    expect(screen.queryByTestId('claim-name-clear-records')).not.toBeInTheDocument()
+    unmount()
+
+    mockUseClaimChecks.mockReturnValue(
+      checks({
+        nodes: [
+          {
+            ...root,
+            customResolver: CUSTOM_RESOLVER,
+            records: [record('text url', 'x', { resolver: CUSTOM_RESOLVER })],
+          },
+        ],
+      }),
+    )
+    render(claimName())
+    expect(screen.queryByTestId('claim-name-clear-records')).not.toBeInTheDocument()
   })
 
   it('keeps the review as first read, and clears the acknowledgement when the holder changes', async () => {
@@ -159,11 +196,16 @@ describe('ClaimName', () => {
     expect(screen.getByTestId('claim-name-confirm')).toBeDisabled()
   })
 
-  it('shows the incomplete message without an acknowledgement', () => {
+  it('lets an incomplete review be claimed once the unchecked subnodes are accepted too', async () => {
     mockUseClaimChecks.mockReturnValue(checks({ complete: false }))
     render(claimName())
     expect(screen.getByText('input.claimName.incomplete')).toBeVisible()
-    expect(screen.queryByTestId('claim-name-acknowledge')).not.toBeInTheDocument()
+    expect(screen.queryByText('input.claimName.none')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByTestId('claim-name-acknowledge'))
+    expect(screen.getByTestId('claim-name-confirm')).toBeDisabled()
+    await userEvent.click(screen.getByTestId('claim-name-accept-incomplete'))
+    expect(screen.getByTestId('claim-name-confirm')).toBeEnabled()
   })
 
   it('hides the review after a failed refetch', () => {

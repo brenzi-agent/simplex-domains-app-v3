@@ -251,9 +251,14 @@
       "untracked": "Untracked subnode {{node}}, owned by {{owner}}",
       "ownerless": "Ownerless subnode {{node}}",
       "untrackedWarning": "Some subnodes may not be controlled through the name. They remain under it after you claim it; whoever owns one, or a node above it, may still change it, and this app may be unable to remove them.",
-      "incomplete": "This name has more subnodes than the app can check, so it cannot be claimed here.",
+      "incomplete": "This name has more subnodes than this app can check. Only those listed were checked; the others stay under the name after you claim it.",
       "afterwards": "After claiming, clear any records and remove any subnames you did not expect.",
-      "acknowledge": "I have reviewed everything above and accept that it stays under the name when I claim it."
+      "clearRecords": {
+        "title": "Clear records",
+        "description": "After the claim, remove every record the name holds on its resolver. This costs additional gas."
+      },
+      "acknowledge": "I have reviewed everything above and accept that it stays under the name when I claim it.",
+      "acceptIncomplete": "I accept the subnodes this app could not check."
     },
     "extendNames": {
       "title_one": "Extend {{name}}",
