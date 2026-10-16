@@ -1,0 +1,226 @@
+import { mockFunction, render, screen, userEvent } from '@app/test-utils'
+
+import { Hex, zeroAddress } from 'viem'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { useClaimChecks } from '@app/hooks/useClaimChecks'
+import { useNameOffer } from '@app/hooks/useNameOffer'
+import { ClaimNode, ClaimRecord } from '@app/utils/snrcClaimChecks'
+
+import { makeMockIntersectionObserver } from '../../../../test/mock/makeMockIntersectionObserver'
+import ClaimName from './ClaimName-flow'
+
+vi.mock('@app/hooks/useClaimChecks')
+vi.mock('@app/hooks/useNameOffer')
+vi.mock('@app/components/@molecules/AvatarWithIdentifier/AvatarWithIdentifier', () => ({
+  AvatarWithIdentifier: ({ address }: { address: string }) => <span>{address}</span>,
+}))
+
+const mockUseClaimChecks = mockFunction(useClaimChecks)
+const mockUseNameOffer = mockFunction(useNameOffer)
+const mockDispatch = vi.fn()
+
+const HOLDER = '0x2222222222222222222222222222222222222222'
+const OTHER_HOLDER = '0x4444444444444444444444444444444444444444'
+const RECIPIENT = '0x3333333333333333333333333333333333333333'
+const RESOLVER = '0x5555555555555555555555555555555555555555'
+const CUSTOM_RESOLVER = '0x6666666666666666666666666666666666666666'
+
+const record = (key: string, value: string, extra: Partial<ClaimRecord> = {}): ClaimRecord => ({
+  id: key,
+  key,
+  value,
+  resolver: RESOLVER,
+  inEffect: true,
+  ...extra,
+})
+
+const root: ClaimNode = {
+  node: '0x01',
+  status: 'tracked',
+  name: 'alice.testing',
+  owner: HOLDER,
+  recordsUnreadable: false,
+  records: [record('text simplex.contact', 'link')],
+}
+
+type QueryState = { isFetching?: boolean; isError?: boolean }
+
+const checks = (
+  state: QueryState & { digest?: string; complete?: boolean; nodes?: ClaimNode[] } = {},
+) => {
+  const { digest = '0xaa', complete = true, nodes = [root], ...query } = state
+  return {
+    data: { nodes, complete, digest },
+    isLoading: false,
+    isError: false,
+    isFetching: false,
+    ...query,
+  } as unknown as ReturnType<typeof useClaimChecks>
+}
+
+const offer = (state: QueryState & { holder?: string; isRecipient?: boolean } = {}) => {
+  const { holder = HOLDER, isRecipient = true, ...query } = state
+  return {
+    data: { holder, recipient: RECIPIENT, isHolder: false, isRecipient },
+    isLoading: false,
+    isError: false,
+    isFetching: false,
+    ...query,
+  } as unknown as ReturnType<typeof useNameOffer>
+}
+
+makeMockIntersectionObserver()
+
+const claimName = () => (
+  <ClaimName data={{ name: 'alice.testing' }} dispatch={mockDispatch} onDismiss={() => {}} />
+)
+
+describe('ClaimName', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockUseNameOffer.mockReturnValue(offer())
+    mockUseClaimChecks.mockReturnValue(checks())
+  })
+
+  it('shows None for a name without records or subnames', () => {
+    mockUseClaimChecks.mockReturnValue(checks({ nodes: [{ ...root, records: [] }] }))
+    render(claimName())
+    expect(screen.getAllByText('input.claimName.none')).toHaveLength(2)
+  })
+
+  it('dispatches the reviewed claim only after the review is acknowledged', async () => {
+    render(claimName())
+    expect(screen.getByTestId('claim-name-records')).toHaveTextContent('text simplex.contactlink')
+    expect(screen.getByTestId('claim-name-confirm')).toBeDisabled()
+
+    await userEvent.click(screen.getByTestId('claim-name-acknowledge'))
+    await userEvent.click(screen.getByTestId('claim-name-confirm'))
+
+    expect(mockDispatch).toHaveBeenCalledWith({
+      name: 'setTransactions',
+      payload: [
+        { name: 'claimName', data: { name: 'alice.testing', holder: HOLDER, digest: '0xaa' } },
+      ],
+    })
+  })
+
+  it('keeps the review as first read, and clears the acknowledgement when the holder changes', async () => {
+    const { rerender } = render(claimName())
+    await userEvent.click(screen.getByTestId('claim-name-acknowledge'))
+    expect(screen.getByTestId('claim-name-confirm')).toBeEnabled()
+
+    mockUseClaimChecks.mockReturnValue(
+      checks({ digest: '0xbb', nodes: [{ ...root, records: [record('text url', 'evil')] }] }),
+    )
+    rerender(claimName())
+    expect(screen.getByTestId('claim-name-records')).toHaveTextContent('text simplex.contactlink')
+    expect(screen.getByTestId('claim-name-acknowledge')).toBeChecked()
+    await userEvent.click(screen.getByTestId('claim-name-confirm'))
+    expect(mockDispatch).toHaveBeenCalledWith({
+      name: 'setTransactions',
+      payload: [
+        { name: 'claimName', data: { name: 'alice.testing', holder: HOLDER, digest: '0xaa' } },
+      ],
+    })
+
+    mockUseNameOffer.mockReturnValue(offer({ holder: OTHER_HOLDER }))
+    rerender(claimName())
+    expect(screen.getByTestId('claim-name-acknowledge')).not.toBeChecked()
+    expect(screen.getByTestId('claim-name-confirm')).toBeDisabled()
+  })
+
+  it('disables Claim while the checks or the offer refetch, or the offer cannot be read', async () => {
+    const { rerender } = render(claimName())
+    await userEvent.click(screen.getByTestId('claim-name-acknowledge'))
+
+    mockUseClaimChecks.mockReturnValue(checks({ isFetching: true }))
+    rerender(claimName())
+    expect(screen.getByTestId('claim-name-confirm')).toBeDisabled()
+
+    mockUseClaimChecks.mockReturnValue(checks())
+    mockUseNameOffer.mockReturnValue(offer({ isFetching: true }))
+    rerender(claimName())
+    expect(screen.getByTestId('claim-name-confirm')).toBeDisabled()
+
+    mockUseNameOffer.mockReturnValue(offer({ isError: true }))
+    rerender(claimName())
+    expect(screen.getByTestId('claim-name-confirm')).toBeDisabled()
+    expect(screen.getByText('input.claimName.offerFailed')).toBeVisible()
+    expect(screen.queryByText(HOLDER)).not.toBeInTheDocument()
+  })
+
+  it('disables Claim for a wallet the name is not offered to', () => {
+    mockUseNameOffer.mockReturnValue(offer({ isRecipient: false }))
+    render(claimName())
+    expect(screen.getByText('input.claimName.notOffered')).toBeVisible()
+    expect(screen.queryByText(HOLDER)).not.toBeInTheDocument()
+    expect(screen.getByTestId('claim-name-acknowledge')).toBeDisabled()
+    expect(screen.getByTestId('claim-name-confirm')).toBeDisabled()
+  })
+
+  it('shows the incomplete message without an acknowledgement', () => {
+    mockUseClaimChecks.mockReturnValue(checks({ complete: false }))
+    render(claimName())
+    expect(screen.getByText('input.claimName.incomplete')).toBeVisible()
+    expect(screen.queryByTestId('claim-name-acknowledge')).not.toBeInTheDocument()
+  })
+
+  it('hides the review after a failed refetch', () => {
+    const { rerender } = render(claimName())
+    expect(screen.getByTestId('claim-name-records')).toBeVisible()
+
+    mockUseClaimChecks.mockReturnValue(checks({ isError: true }))
+    rerender(claimName())
+    expect(screen.getByText('input.claimName.failed')).toBeVisible()
+    expect(screen.queryByTestId('claim-name-records')).not.toBeInTheDocument()
+    expect(screen.getByTestId('claim-name-confirm')).toBeDisabled()
+  })
+
+  it('labels each kind of subnode and flags what it cannot show as it is', () => {
+    const subnode = (node: Hex, fields: Partial<ClaimNode>): ClaimNode => ({
+      node,
+      status: 'untracked',
+      owner: OTHER_HOLDER,
+      recordsUnreadable: false,
+      records: [],
+      ...fields,
+    })
+    mockUseClaimChecks.mockReturnValue(
+      checks({
+        nodes: [
+          { ...root, customResolver: CUSTOM_RESOLVER, recordsUnreadable: true, records: [] },
+          subnode('0x02', {
+            status: 'tracked',
+            name: 'mobile.alice.testing',
+            records: [record('text 0x00', 'x', { keyAsBytes: true })],
+          }),
+          subnode('0x03', { status: 'registrar' }),
+          subnode('0x04', {
+            status: 'ownerless',
+            owner: zeroAddress,
+            records: [record('text kept', '0x00', { inEffect: false, valueAsBytes: true })],
+          }),
+          subnode('0x05', { records: [record('ABI 1', '', { valueUnread: true })] }),
+        ],
+      }),
+    )
+    render(claimName())
+    expect(screen.queryByText('input.claimName.none')).not.toBeInTheDocument()
+    expect(screen.getByText('input.claimName.resolver')).toBeVisible()
+    expect(screen.getByText('input.claimName.unreadable')).toBeVisible()
+    const subnodes = screen.getByTestId('claim-name-subnodes')
+    for (const text of [
+      'mobile.alice.testing',
+      'input.claimName.registrar',
+      'input.claimName.ownerless',
+      'input.claimName.untracked',
+      'input.claimName.notPlainText',
+      'input.claimName.notInEffect',
+      'input.claimName.notRead',
+    ])
+      expect(subnodes).toHaveTextContent(text)
+    expect(screen.getAllByText('input.claimName.notPlainText')).toHaveLength(2)
+    expect(screen.getByText('input.claimName.untrackedWarning')).toBeVisible()
+  })
+})
