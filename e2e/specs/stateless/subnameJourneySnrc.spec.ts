@@ -94,7 +94,7 @@ test('SNRC: register 2LD + subname (both with simplex.contact), then transfer th
   })
 
   await test.step('add simplex.contact to the 2LD', async () => {
-    await profilePage.goto(name)
+    await page.getByTestId('view-name').click()
     await profilePage.editProfileButton.click()
     await expect(contactInput(page)).toBeVisible()
     await contactInput(page).fill('https://smp1.example.im/2ld#H1')
