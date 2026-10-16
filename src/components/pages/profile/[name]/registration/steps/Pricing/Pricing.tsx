@@ -27,7 +27,7 @@ import { ConnectButton } from '@app/components/@molecules/ConnectButton/ConnectB
 import { DateSelection } from '@app/components/@molecules/DateSelection/DateSelection'
 import { Card } from '@app/components/Card'
 import { SimplexInfoPanel } from '@app/components/SimplexInfoPanel'
-import { MAX_REGISTRATION_SECONDS, MIN_REGISTRATION_SECONDS } from '@app/constants/simplex'
+import { MAX_REGISTRATION_DURATION, MIN_REGISTRATION_DURATION } from '@app/constants/simplex'
 import { useControllerLimits } from '@app/hooks/useControllerLimits'
 import { useNftGateStatus } from '@app/hooks/useNftGateStatus'
 import { useReservedStatus } from '@app/hooks/useReservedStatus'
@@ -498,8 +498,8 @@ export type PricingProps = {
   >['initiateMoonpayRegistrationMutation']
 }
 
-const minSeconds = MIN_REGISTRATION_SECONDS
-const maxSeconds = MAX_REGISTRATION_SECONDS
+const minSeconds = MIN_REGISTRATION_DURATION
+const maxSeconds = MAX_REGISTRATION_DURATION
 
 const Pricing = ({
   name,

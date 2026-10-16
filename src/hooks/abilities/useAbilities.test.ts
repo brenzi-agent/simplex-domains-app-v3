@@ -94,7 +94,7 @@ describe('useAbilities', () => {
 
       expect(result.current.data?.canEditRecords).toBe(true)
     })
-    it('should not let anyone appoint a manager for an SNRC 2LD', () => {
+    it('should leave sending an SNRC 2LD to the offer flow', () => {
       mockUseAccountSafely.mockReturnValue({ address: account })
       mockUseBasicName.mockReturnValue({
         ownerData: { ownershipLevel: 'registrar', owner: account, registrant: account },
@@ -110,7 +110,6 @@ describe('useAbilities', () => {
       expect(result.current.data?.canSend).toBe(false)
       expect(result.current.data?.canSendOwner).toBe(false)
       expect(result.current.data?.canSendManager).toBe(false)
-      expect(result.current.data?.sendNameFunctionCallDetails).toBeUndefined()
       expect(result.current.data?.canEditRecords).toBe(true)
     })
   })

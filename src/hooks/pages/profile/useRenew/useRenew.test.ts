@@ -517,7 +517,7 @@ describe('useRenew', () => {
     expect(mockShowExtendNamesInput).toHaveBeenCalledWith('extend-names-test.eth', {
       names: ['test.eth'],
       isSelf: true,
-      seconds: 31536000, // raised to the controller's one-year minimum renewal
+      seconds: 31536000,
     })
 
     mockRouter.push('/test.eth?renew=94608000')
@@ -548,7 +548,7 @@ describe('useRenew', () => {
     expect(mockShowExtendNamesInput).toHaveBeenCalledWith('extend-names-test.eth', {
       names: ['test.eth'],
       isSelf: true,
-      seconds: 31536000, // raised to the controller's one-year minimum renewal
+      seconds: 31536000,
     })
     expect(mockRouter.asPath).toBe('/test.eth')
   })
@@ -561,7 +561,7 @@ describe('useRenew', () => {
     expect(mockShowExtendNamesInput).toHaveBeenCalledWith('extend-names-test.eth', {
       names: ['test.eth'],
       isSelf: true,
-      seconds: 31536000, // raised to the controller's one-year minimum renewal
+      seconds: 31536000,
     })
     expect(mockRouter.asPath).toBe('/test.eth')
   })
@@ -595,7 +595,7 @@ describe('useRenew', () => {
     expect(mockShowExtendNamesInput).toHaveBeenCalledWith('extend-names-test.eth', {
       names: ['test.eth'],
       isSelf: true,
-      seconds: 31536000, // raised to the controller's one-year minimum renewal
+      seconds: 31536000,
     })
   })
 
@@ -646,7 +646,7 @@ describe('useRenew', () => {
     expect(mockShowExtendNamesInput).toHaveBeenCalledWith('extend-names-test.eth', {
       names: ['test.eth'],
       isSelf: false,
-      seconds: 31536000, // raised to the controller's one-year minimum renewal
+      seconds: 31536000,
     })
   })
 

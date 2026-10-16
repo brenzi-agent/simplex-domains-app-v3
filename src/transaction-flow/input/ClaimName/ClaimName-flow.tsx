@@ -1,20 +1,16 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
-import { zeroAddress } from 'viem'
 
 import { Button, CheckboxRow, Dialog, Helper, Typography } from '@ensdomains/thorin'
 
 import { AvatarWithIdentifier } from '@app/components/@molecules/AvatarWithIdentifier/AvatarWithIdentifier'
-import { useAccountSafely } from '@app/hooks/account/useAccountSafely'
 import { useClaimChecks } from '@app/hooks/useClaimChecks'
 import { useNameOffer } from '@app/hooks/useNameOffer'
-import { useProfile } from '@app/hooks/useProfile'
 import { createTransactionItem } from '@app/transaction-flow/transaction'
+import TransactionLoader from '@app/transaction-flow/TransactionLoader'
 import { TransactionDialogPassthrough } from '@app/transaction-flow/types'
-import { shortenAddress } from '@app/utils/utils'
-
-import { SearchViewLoadingView } from '../SendName/views/SearchView/views/SearchViewLoadingView'
+import { ClaimNode } from '@app/utils/snrcClaimChecks'
 
 const List = styled.ul(
   ({ theme }) => css`
@@ -34,33 +30,66 @@ export type Props = {
   data: Data
 } & TransactionDialogPassthrough
 
-/**
- * The recipient's half of a transfer. Claiming takes the name with everything
- * its holder left under it, so the records, the registry resolver and every
- * subnode are shown first and must be acknowledged; the claim is never automatic.
- */
+const Note = ({ children }: { children: string }) => (
+  <Typography fontVariant="extraSmall" color="grey">
+    {children}
+  </Typography>
+)
+
+const NodeRecords = ({ node, testId }: { node: ClaimNode; testId?: string }) => {
+  const { t } = useTranslation('transactionFlow')
+  const notPlainText = <Note>{t('input.claimName.notPlainText')}</Note>
+  return (
+    <>
+      {node.customResolver && (
+        <Helper alert="warning">
+          {t('input.claimName.resolver', { resolver: node.customResolver })}
+        </Helper>
+      )}
+      {node.recordsUnreadable && <Helper alert="warning">{t('input.claimName.unreadable')}</Helper>}
+      {node.records.length > 0 && (
+        <List data-testid={testId}>
+          {node.records.map(
+            ({ id, key, value, keyAsBytes, valueAsBytes, valueUnread, resolver, inEffect }) => (
+              <li key={`${resolver} ${id}`}>
+                <Typography fontVariant="smallBold">{key}</Typography>
+                {keyAsBytes && notPlainText}
+                <Typography fontVariant="small">{value}</Typography>
+                {valueAsBytes && notPlainText}
+                {valueUnread && <Note>{t('input.claimName.notRead')}</Note>}
+                {!inEffect && <Note>{t('input.claimName.notInEffect', { resolver })}</Note>}
+              </li>
+            ),
+          )}
+        </List>
+      )}
+    </>
+  )
+}
+
 const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
   const { t } = useTranslation('transactionFlow')
-  const account = useAccountSafely()
   const offer = useNameOffer({ name })
   const checks = useClaimChecks({ name })
-  const { data: profile, isLoading: isProfileLoading } = useProfile({ name })
-  const [acknowledged, setAcknowledged] = useState(false)
+  // The review stays as first read: a later change fails claimName's re-check instead of
+  // replacing what the recipient is reading.
+  const firstChecks = useRef(checks.data)
+  firstChecks.current ??= checks.data
+  const [acknowledgedReview, setAcknowledgedReview] = useState<string>()
 
-  if (offer.isLoading || checks.isLoading || isProfileLoading) return <SearchViewLoadingView />
+  if (offer.isLoading || checks.isLoading) return <TransactionLoader />
 
-  const holder = offer.data?.holder
-  const isOfferedToMe =
-    !!account.address && offer.data?.recipient?.toLowerCase() === account.address.toLowerCase()
-  const texts = profile?.texts ?? []
-  const coins = profile?.coins ?? []
-  const subnodes = checks.data?.subnodes ?? []
+  const holder = !offer.isError && offer.data?.isRecipient ? offer.data.holder : undefined
+  const review = !checks.isError && firstChecks.current?.complete ? firstChecks.current : undefined
+  const [root, ...subnodes] = review?.nodes ?? []
+  const reviewKey = review && holder ? `${review.digest} ${holder}` : undefined
+  const acknowledged = !!reviewKey && acknowledgedReview === reviewKey
 
   const onConfirm = () => {
-    if (!holder) return
+    if (!holder || !review) return
     dispatch({
       name: 'setTransactions',
-      payload: [createTransactionItem('claimName', { name, holder })],
+      payload: [createTransactionItem('claimName', { name, holder, digest: review.digest })],
     })
     dispatch({ name: 'setFlowStage', payload: 'transaction' })
   }
@@ -69,76 +98,65 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
     <>
       <Dialog.Heading title={t('input.claimName.title', { name })} />
       <Dialog.Content data-testid="claim-name-view">
-        {!isOfferedToMe && <Helper alert="error">{t('input.claimName.notOffered')}</Helper>}
-        {holder && (
-          <AvatarWithIdentifier address={holder} subtitle={t('input.claimName.offeredBy')} />
+        {holder ? (
+          <AvatarWithIdentifier
+            address={holder}
+            subtitle={t('input.claimName.offeredBy')}
+            shortenAddressAsTitle={false}
+          />
+        ) : (
+          <Helper alert="error">
+            {t(offer.isError ? 'input.claimName.offerFailed' : 'input.claimName.notOffered')}
+          </Helper>
         )}
         <Typography>{t('input.claimName.description', { name })}</Typography>
 
-        {checks.data && !checks.data.isDefaultResolver && (
-          <Helper alert="warning">
-            {t('input.claimName.resolver', { resolver: checks.data.resolver })}
+        {review ? (
+          <>
+            <Typography fontVariant="bodyBold">{t('input.claimName.records')}</Typography>
+            {root.records.length === 0 && !root.recordsUnreadable && (
+              <Typography color="grey">{t('input.claimName.none')}</Typography>
+            )}
+            <NodeRecords node={root} testId="claim-name-records" />
+
+            <Typography fontVariant="bodyBold">{t('input.claimName.subnodes')}</Typography>
+            {subnodes.length === 0 ? (
+              <Typography color="grey">{t('input.claimName.none')}</Typography>
+            ) : (
+              <List data-testid="claim-name-subnodes">
+                {subnodes.map((subnode) => (
+                  <li key={subnode.node}>
+                    <Typography fontVariant="smallBold">
+                      {subnode.status === 'tracked'
+                        ? subnode.name
+                        : t(`input.claimName.${subnode.status}`, {
+                            node: subnode.node,
+                            owner: subnode.owner,
+                          })}
+                    </Typography>
+                    <NodeRecords node={subnode} />
+                  </li>
+                ))}
+              </List>
+            )}
+            {subnodes.some((subnode) => subnode.status !== 'tracked') && (
+              <Helper alert="warning">{t('input.claimName.untrackedWarning')}</Helper>
+            )}
+
+            <Helper alert="info">{t('input.claimName.afterwards')}</Helper>
+            <CheckboxRow
+              data-testid="claim-name-acknowledge"
+              label={t('input.claimName.acknowledge')}
+              checked={acknowledged}
+              disabled={!reviewKey}
+              onChange={(e) => setAcknowledgedReview(e.target.checked ? reviewKey : undefined)}
+            />
+          </>
+        ) : (
+          <Helper alert="error">
+            {t(checks.isError ? 'input.claimName.failed' : 'input.claimName.incomplete')}
           </Helper>
         )}
-
-        <Typography fontVariant="bodyBold">{t('input.claimName.records')}</Typography>
-        {texts.length + coins.length === 0 ? (
-          <Typography color="grey">{t('input.claimName.none')}</Typography>
-        ) : (
-          <List data-testid="claim-name-records">
-            {texts.map(({ key, value }) => (
-              <li key={`text-${key}`}>
-                <Typography fontVariant="small">
-                  {key}: {value}
-                </Typography>
-              </li>
-            ))}
-            {coins.map(({ id, name: coin, value }) => (
-              <li key={`coin-${id}`}>
-                <Typography fontVariant="small">
-                  {coin}: {value}
-                </Typography>
-              </li>
-            ))}
-          </List>
-        )}
-
-        <Typography fontVariant="bodyBold">{t('input.claimName.subnodes')}</Typography>
-        {subnodes.length === 0 ? (
-          <Typography color="grey">{t('input.claimName.none')}</Typography>
-        ) : (
-          <List data-testid="claim-name-subnodes">
-            {subnodes.map((subnode) => (
-              <li key={subnode.node}>
-                <Typography fontVariant="small">
-                  {subnode.tracked
-                    ? subnode.name ?? t('input.claimName.unnamed', { node: subnode.node })
-                    : t(
-                        subnode.owner === zeroAddress
-                          ? 'input.claimName.ownerless'
-                          : 'input.claimName.shadow',
-                        { node: subnode.node, owner: shortenAddress(subnode.owner) },
-                      )}
-                </Typography>
-              </li>
-            ))}
-          </List>
-        )}
-        {subnodes.some((s) => !s.tracked) && (
-          <Helper alert="warning">{t('input.claimName.shadowWarning')}</Helper>
-        )}
-        {checks.data && !checks.data.subnodesComplete && (
-          <Helper alert="warning">{t('input.claimName.incomplete')}</Helper>
-        )}
-        {checks.isError && <Helper alert="warning">{t('input.claimName.incomplete')}</Helper>}
-
-        <Helper alert="info">{t('input.claimName.afterwards')}</Helper>
-        <CheckboxRow
-          data-testid="claim-name-acknowledge"
-          label={t('input.claimName.acknowledge')}
-          checked={acknowledged}
-          onChange={(e) => setAcknowledged(e.target.checked)}
-        />
       </Dialog.Content>
       <Dialog.Footer
         leading={
@@ -149,7 +167,7 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
         trailing={
           <Button
             data-testid="claim-name-confirm"
-            disabled={!isOfferedToMe || !holder || !acknowledged}
+            disabled={!acknowledged || checks.isFetching || offer.isFetching}
             onClick={onConfirm}
           >
             {t('action.claim', { ns: 'common' })}

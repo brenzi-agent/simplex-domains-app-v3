@@ -310,13 +310,12 @@ const isLabelReserved = async (
 ): Promise<boolean> => {
   if (!publicClient || !controllerAddress || !label) return false
   try {
-    const reason = await publicClient.readContract({
+    return !!(await publicClient.readContract({
       address: controllerAddress,
       abi: reservedAbi,
       functionName: 'reservedNames',
       args: [keccak256(toBytes(label))],
-    })
-    return reason !== 0
+    }))
   } catch {
     // If the controller call fails (unconfigured chain, RPC blip, etc.) we
     // fall through to allow the navigation — the registration flow has its

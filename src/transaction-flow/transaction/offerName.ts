@@ -43,4 +43,4 @@ const transaction = ({ client, data }: TransactionFunctionParameters<Data>) => (
   }),
 })
 
-export default { displayItems, transaction } satisfies Transaction<Data>
+export default { displayItems, transaction, backToInput: true } satisfies Transaction<Data>

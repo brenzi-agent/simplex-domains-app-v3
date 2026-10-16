@@ -1,9 +1,9 @@
-import { MIN_RENEWAL_SECONDS } from '@app/constants/simplex'
+import { MIN_RENEWAL_DURATION } from '@app/constants/simplex'
 import { ONE_YEAR } from '@app/utils/time'
 
 export const validateExtendNamesDuration = ({
   duration,
-  minDuration = MIN_RENEWAL_SECONDS,
+  minDuration = MIN_RENEWAL_DURATION,
   defaultDuration = ONE_YEAR,
 }: {
   duration?: unknown

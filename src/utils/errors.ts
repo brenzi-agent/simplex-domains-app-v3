@@ -65,9 +65,7 @@ const simplexControllerErrors = parseAbi([
   'error ReentrantCall()',
 ])
 
-// BaseRegistrarImplementation and ENSRegistry. `OwnerMustBeCaller` above also
-// covers the registry, which reverts with the same error.
-const snrcRegistrarErrors = parseAbi([
+const snrcErrors = parseAbi([
   'error LabelTooLong(uint256 length, uint256 max)',
   'error TransferToSelf()',
   'error SignatureExpired()',
@@ -76,6 +74,15 @@ const snrcRegistrarErrors = parseAbi([
   'error NotNameOwner()',
   'error RecipientMustBeCaller()',
   'error NotOffered()',
+  'error NotParentOwner()',
+  'error EmptyLabel()',
+  'error NotBaseRegistrar()',
+  'error AlreadyInitialised()',
+  'error StaleSubnameMustBePurged(bytes32 node)',
+  'error NotSubnameRegistrar()',
+  'error NodeNotOwnedByRegistrar()',
+  'error InvalidEVMAddress(bytes addressBytes)',
+  'error InvalidPriceFeed(int256 answer)',
 ])
 
 export const allContractErrors = [
@@ -83,7 +90,7 @@ export const allContractErrors = [
   ...nameWrapperErrors,
   ...dnsRegistrarErrors,
   ...simplexControllerErrors,
-  ...snrcRegistrarErrors,
+  ...snrcErrors,
 ]
 
 const insufficientFundsRegex =

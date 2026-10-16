@@ -34,8 +34,14 @@ const subnameOwnerOfAbi = [
   { name: 'ownerOf', type: 'function', stateMutability: 'view', inputs: [{ type: 'uint256' }], outputs: [{ type: 'address' }] },
 ] as const
 const baseRegistrarTransferAbi = [
-  { name: 'approve', type: 'function', stateMutability: 'nonpayable', inputs: [{ type: 'address' }, { type: 'uint256' }], outputs: [] },
-  { name: 'transferFrom', type: 'function', stateMutability: 'nonpayable', inputs: [{ type: 'address' }, { type: 'address' }, { type: 'uint256' }], outputs: [] },
+  {
+    name: 'approve',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ type: 'address' }, { type: 'uint256' }],
+    outputs: [],
+  },
+  { name: 'safeTransferFrom', type: 'function', stateMutability: 'nonpayable', inputs: [{ type: 'address' }, { type: 'address' }, { type: 'uint256' }], outputs: [] },
 ] as const
 
 test('SNRC: register 2LD + subname (both with simplex.contact), then transfer the 2LD — subname follows', async ({
@@ -155,25 +161,22 @@ test('SNRC: register 2LD + subname (both with simplex.contact), then transfer th
     })) as Address
     expect(before.toLowerCase()).toBe(owner.toLowerCase())
 
-    // A transfer is an offer by the holder, then the recipient taking the name.
-    await waitForTransaction(
-      await walletClient.writeContract({
-        address: deploymentAddresses.BaseRegistrarImplementation as Address,
-        abi: baseRegistrarTransferAbi,
-        functionName: 'approve',
-        args: [newOwner, tokenId],
-        account: owner,
-      }),
-    )
-    await waitForTransaction(
-      await walletClient.writeContract({
-        address: deploymentAddresses.BaseRegistrarImplementation as Address,
-        abi: baseRegistrarTransferAbi,
-        functionName: 'transferFrom',
-        args: [owner, newOwner, tokenId],
-        account: newOwner,
-      }),
-    )
+    const offerHash = await walletClient.writeContract({
+      address: deploymentAddresses.BaseRegistrarImplementation as Address,
+      abi: baseRegistrarTransferAbi,
+      functionName: 'approve',
+      args: [newOwner, tokenId],
+      account: owner,
+    })
+    await waitForTransaction(offerHash)
+    const hash = await walletClient.writeContract({
+      address: deploymentAddresses.BaseRegistrarImplementation as Address,
+      abi: baseRegistrarTransferAbi,
+      functionName: 'safeTransferFrom',
+      args: [owner, newOwner, tokenId],
+      account: newOwner,
+    })
+    await waitForTransaction(hash)
   })
 
   await test.step('the subname followed the 2LD to the new owner', async () => {

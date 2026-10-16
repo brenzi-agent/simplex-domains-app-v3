@@ -7,7 +7,12 @@ import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi'
 import { Button, Card, Heading, Input, Select, Typography } from '@ensdomains/thorin'
 
 import { getSnrcAddresses } from '@app/constants/chains'
+import {
+  MAX_SPONSORED_REGISTRATION_DURATION,
+  MIN_REGISTRATION_DURATION,
+} from '@app/constants/simplex'
 import { Content } from '@app/layouts/Content'
+import { ONE_DAY } from '@app/utils/time'
 
 const controllerAbi = [
   {
@@ -82,10 +87,11 @@ const controllerAbi = [
   },
 ] as const
 
-// SimplexController.Reason. Append-only on chain: these numbers are storage.
+// SimplexController.Reason; each index is the value stored on chain, so entries are only appended.
 const REASONS = ['None', 'Internal', 'Trademark', 'Community'] as const
-const MIN_RESERVED_DAYS = 730
-const MAX_RESERVED_DAYS = 3650
+const REASON_OPTIONS = REASONS.map((label, value) => ({ value: String(value), label })).slice(1)
+const MIN_RESERVED_DAYS = MIN_REGISTRATION_DURATION / ONE_DAY
+const MAX_RESERVED_DAYS = MAX_SPONSORED_REGISTRATION_DURATION / ONE_DAY
 
 const Section = styled.div(
   ({ theme }) => css`
@@ -150,7 +156,7 @@ function AdminPanel() {
 
   const [newMinChar, setNewMinChar] = useState('')
   const [reserveName, setReserveName] = useState('')
-  const [reserveReason, setReserveReason] = useState('2')
+  const [reserveReason, setReserveReason] = useState(String(REASONS.indexOf('Trademark')))
   const [unReserveName, setUnReserveName] = useState('')
   const [checkName, setCheckName] = useState('')
   const [checkResult, setCheckResult] = useState<string | null>(null)
@@ -158,7 +164,8 @@ function AdminPanel() {
   const [regOwner, setRegOwner] = useState('')
   const [regDuration, setRegDuration] = useState(String(MIN_RESERVED_DAYS))
   const regDays = Number(regDuration)
-  const isRegDurationValid = regDays >= MIN_RESERVED_DAYS && regDays <= MAX_RESERVED_DAYS
+  const isRegDurationValid =
+    Number.isInteger(regDays) && regDays >= MIN_RESERVED_DAYS && regDays <= MAX_RESERVED_DAYS
 
   const loadState = async () => {
     if (!publicClient || !controllerAddress) return
@@ -224,8 +231,6 @@ function AdminPanel() {
       setStatus(`Tx sent: ${hash.slice(0, 10)}... waiting...`)
       await publicClient!.waitForTransactionReceipt({ hash })
       setStatus(`${functionName} confirmed`)
-      // The settings changed here (minCharLength, the NFT gate, reservations) are
-      // read elsewhere through cached, persisted queries; drop them all.
       await queryClient.invalidateQueries()
       await loadState()
     } catch (e: any) {
@@ -368,17 +373,14 @@ function AdminPanel() {
                   value={reserveName}
                   onChange={(e) => setReserveName(e.target.value)}
                   placeholder="one name per line — submitted in a single tx"
-                  description="Newline or comma separated. Up to 200 names per tx stays under the per-transaction gas cap."
+                  description="Newline or comma separated. Up to 200 names per tx fit under the per-transaction gas cap."
                 />
                 <Select
                   label="Reason"
                   size="small"
                   value={reserveReason}
                   onChange={(e) => setReserveReason(e.target.value)}
-                  options={REASONS.slice(1).map((label, i) => ({
-                    value: String(i + 1),
-                    label,
-                  }))}
+                  options={REASON_OPTIONS}
                   id="reserve-reason"
                 />
                 <Button
@@ -449,7 +451,11 @@ function AdminPanel() {
               <Button
                 size="small"
                 onClick={() =>
-                  execTx('registerReserved', [regLabel, regOwner, BigInt(regDays * 86400)])
+                  execTx('registerReserved', [
+                    regLabel,
+                    regOwner,
+                    BigInt(Number(regDuration) * 86400),
+                  ])
                 }
                 disabled={!regLabel || !regOwner || !isRegDurationValid}
               >

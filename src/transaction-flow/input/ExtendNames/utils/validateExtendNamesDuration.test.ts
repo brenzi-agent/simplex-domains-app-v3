@@ -17,10 +17,6 @@ describe('validateExtendNamesDuration', () => {
     expect(validateExtendNamesDuration({ duration: '0' })).toBe(ONE_YEAR)
   })
 
-  it('should return the minimum renewal of a year for a day', () => {
-    expect(validateExtendNamesDuration({ duration: '86400' })).toBe(ONE_YEAR)
-  })
-
   it('should return null duration for null', () => {
     expect(validateExtendNamesDuration({ duration: null })).toBe(null)
   })

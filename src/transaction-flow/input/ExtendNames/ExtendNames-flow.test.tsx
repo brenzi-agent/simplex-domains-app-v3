@@ -1,14 +1,16 @@
 import { mockFunction, render, screen } from '@app/test-utils'
 
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useAccount, useBalance } from 'wagmi'
 
+import { MAX_REGISTRATION_DURATION } from '@app/constants/simplex'
 import { useBlockTimestamp } from '@app/hooks/chain/useBlockTimestamp'
 import { useEstimateGasWithStateOverride } from '@app/hooks/chain/useEstimateGasWithStateOverride'
 import { useExpiry } from '@app/hooks/ensjs/public/useExpiry'
 import { usePrice } from '@app/hooks/ensjs/public/usePrice'
 import { useEthPrice } from '@app/hooks/useEthPrice'
 import { useReferrer } from '@app/hooks/useReferrer'
+import { ONE_YEAR } from '@app/utils/time'
 
 import { makeMockIntersectionObserver } from '../../../../test/mock/makeMockIntersectionObserver'
 import ExtendNames from './ExtendNames-flow'
@@ -114,14 +116,21 @@ describe('Extendnames', () => {
     const trailingButton = screen.getByTestId('extend-names-confirm')
     expect(trailingButton).toHaveAttribute('disabled')
   })
-  it('should refuse an extension while the name is paid up close to three years ahead', () => {
+  const mockExpiryAhead = (seconds: number) => {
     const now = BigInt(Date.now())
-    const expiry = Number(now / 1000n) + 3 * 365 * 24 * 60 * 60
-    mockUseBlockTimestamp.mockReturnValueOnce({ data: now })
-    mockUseExpiry.mockReturnValueOnce({
+    const expiry = Number(now / 1000n) + seconds
+    mockUseBlockTimestamp.mockReturnValue({ data: now })
+    mockUseExpiry.mockReturnValue({
       data: { expiry: { date: new Date(expiry * 1000), value: BigInt(expiry) } },
       isLoading: false,
     })
+  }
+  afterEach(() => {
+    mockUseExpiry.mockReturnValue({ data: { expiry: { date: new Date() } }, isLoading: false })
+    mockUseBlockTimestamp.mockReturnValue({ data: undefined })
+  })
+  it('should disable extending while the name is paid up close to three years ahead', () => {
+    mockExpiryAhead(MAX_REGISTRATION_DURATION)
     render(
       <ExtendNames
         {...{
@@ -133,5 +142,18 @@ describe('Extendnames', () => {
     )
     expect(screen.getByTestId('extend-names-too-early')).toBeVisible()
     expect(screen.getByTestId('extend-names-confirm')).toHaveAttribute('disabled')
+  })
+  it('should cap the extension at three years past the current block', () => {
+    mockExpiryAhead(ONE_YEAR)
+    render(
+      <ExtendNames
+        {...{
+          data: { names: ['nick.testing'], isSelf: true, hasWrapped: false, seconds: 2 * ONE_YEAR },
+          dispatch: () => null,
+          onDismiss: () => null,
+        }}
+      />,
+    )
+    expect(screen.getByTestId('plus-minus-control-plus')).toBeDisabled()
   })
 })

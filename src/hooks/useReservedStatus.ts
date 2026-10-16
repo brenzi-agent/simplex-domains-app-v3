@@ -3,7 +3,9 @@ import { useChainId, useReadContract } from 'wagmi'
 
 import { getSnrcAddresses } from '@app/constants/chains'
 
-const reservedAbi = parseAbi(['function reservedNames(bytes32) view returns (uint8)'])
+const reservedAbi = parseAbi([
+  'function reservedNames(bytes32) view returns (uint8)',
+])
 
 /**
  * Reads `SimplexController.reservedNames(keccak256(label))` for a fully-qualified
@@ -27,8 +29,7 @@ export const useReservedStatus = ({ name }: { name?: string }) => {
   })
 
   return {
-    // `Reason.None` (0) means not reserved; any other reason means reserved.
-    isReserved: data !== undefined && data !== 0,
+    isReserved: !!data,
     loaded: enabled ? !isLoading : true,
   }
 }

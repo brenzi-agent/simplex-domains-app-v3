@@ -8,8 +8,7 @@ import { Calendar } from '@app/components/@atoms/Calendar/Calendar'
 import { PlusMinusControl } from '@app/components/@atoms/PlusMinusControl/PlusMinusControl'
 import { roundDurationWithDay } from '@app/utils/date'
 import { isInsideSafe } from '@app/utils/safe'
-import { ONE_YEAR, yearsToSeconds } from '@app/utils/time'
-import { formatDurationOfDates } from '@app/utils/utils'
+import { formatDurationOfDates, secondsToYears, yearsToSeconds } from '@app/utils/utils'
 
 const YearsViewSwitch = styled.button(
   ({ theme }) => css`
@@ -63,19 +62,17 @@ export const DateSelection = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [minSeconds, maxSeconds, seconds])
 
-  // 365-day years, as SimplexController counts them: a calendar year can be 366
-  // days, which would push a three-year term past the contract's maximum.
-  const dateInYears = Math.floor(seconds / ONE_YEAR)
+  const dateInYears = Math.floor(secondsToYears(seconds))
+  const minYears = Math.max(1, Math.ceil(secondsToYears(minSeconds)))
+  const maxYears = maxSeconds === undefined ? undefined : Math.floor(secondsToYears(maxSeconds))
 
   // When the duration type is years, normalise the seconds to a year value
   useEffect(() => {
     if (durationType === 'years' && currentTime) {
-      setSeconds(yearsToSeconds(Math.max(1, dateInYears)))
+      setSeconds(yearsToSeconds(Math.min(Math.max(minYears, dateInYears), maxYears ?? Infinity)))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateInYears, durationType])
-
-  const postFix = mode === 'register' ? ' registration. ' : ' extension. '
+  }, [dateInYears, minYears, maxYears, durationType])
 
   const isSafeApp = isInsideSafe()
 
@@ -98,8 +95,8 @@ export const DateSelection = ({
       ) : (
         <PlusMinusControl
           highlighted
-          minValue={Math.max(1, Math.ceil(minSeconds / ONE_YEAR))}
-          maxValue={maxSeconds === undefined ? undefined : Math.floor(maxSeconds / ONE_YEAR)}
+          minValue={minYears}
+          maxValue={maxYears}
           value={dateInYears}
           onChange={(e) => {
             const newYears = parseInt(e.target.value)
@@ -109,14 +106,12 @@ export const DateSelection = ({
         />
       )}
       <Typography color="greyPrimary" fontVariant="smallBold" data-testid="date-selection-info">
-        {durationType === 'years'
-          ? t('unit.years', { count: dateInYears, ns: 'common' }) + postFix
-          : formatDurationOfDates({
-              startDate: new Date(currentTime * 1000),
-              endDate: new Date((currentTime + seconds) * 1000),
-              postFix,
-              t,
-            })}
+        {formatDurationOfDates({
+          startDate: new Date(currentTime * 1000),
+          endDate: new Date((currentTime + seconds) * 1000),
+          postFix: mode === 'register' ? ' registration. ' : ' extension. ',
+          t,
+        })}
         {!isSafeApp && (
           <YearsViewSwitch
             type="button"

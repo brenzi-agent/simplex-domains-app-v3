@@ -13,6 +13,8 @@ import { TransactionDialogPassthrough } from '@app/transaction-flow/types'
 
 import { SearchView } from '../SendName/views/SearchView/SearchView'
 
+const EIP7702_DELEGATION_PREFIX = '0xef0100'
+
 type Data = {
   name: string
 }
@@ -21,19 +23,16 @@ export type Props = {
   data: Data
 } & TransactionDialogPassthrough
 
-/**
- * The holder's half of a transfer: approve the recipient to take the name. The
- * name stays with the holder until the recipient claims it on the name's page.
- */
 const OfferName = ({ data: { name }, dispatch, onDismiss }: Props) => {
   const { t } = useTranslation('transactionFlow')
   const offer = useNameOffer({ name })
   const form = useForm<{ query: string }>({ defaultValues: { query: '' } })
   const [recipient, setRecipient] = useState<Address>()
-  const { data: recipientCode } = useBytecode({
-    address: recipient,
-    query: { enabled: !!recipient },
-  })
+  const {
+    data: recipientCode,
+    isSuccess: isCodeRead,
+    isError: isCodeError,
+  } = useBytecode({ address: recipient })
 
   if (!recipient)
     return (
@@ -42,8 +41,6 @@ const OfferName = ({ data: { name }, dispatch, onDismiss }: Props) => {
       </FormProvider>
     )
 
-  const holder = offer.data?.holder
-  const isHolder = !!holder && recipient.toLowerCase() === holder.toLowerCase()
   const replaced = offer.data?.recipient
 
   const onConfirm = () => {
@@ -59,10 +56,14 @@ const OfferName = ({ data: { name }, dispatch, onDismiss }: Props) => {
       <Dialog.Heading title={t('input.offerName.title', { name })} />
       <Dialog.Content data-testid="offer-name-confirm-view">
         <Typography>{t('input.offerName.description', { name })}</Typography>
-        <AvatarWithIdentifier address={recipient} />
-        {isHolder && <Helper alert="error">{t('input.offerName.toHolder')}</Helper>}
-        {!!recipientCode && <Helper alert="warning">{t('input.offerName.contract')}</Helper>}
-        {!!replaced && !isHolder && (
+        <AvatarWithIdentifier address={recipient} shortenAddressAsTitle={false} />
+        {(offer.isError || isCodeError) && (
+          <Helper alert="error">{t('input.offerName.failed')}</Helper>
+        )}
+        {!!recipientCode && !recipientCode.startsWith(EIP7702_DELEGATION_PREFIX) && (
+          <Helper alert="warning">{t('input.offerName.contract')}</Helper>
+        )}
+        {!!replaced && replaced.toLowerCase() !== recipient.toLowerCase() && (
           <Helper alert="info">{t('input.offerName.replaces', { recipient: replaced })}</Helper>
         )}
       </Dialog.Content>
@@ -75,7 +76,7 @@ const OfferName = ({ data: { name }, dispatch, onDismiss }: Props) => {
         trailing={
           <Button
             data-testid="offer-name-confirm"
-            disabled={!holder || isHolder}
+            disabled={!offer.data || offer.isError || !isCodeRead}
             onClick={onConfirm}
           >
             {t('action.next', { ns: 'common' })}

@@ -14,7 +14,7 @@ import { Invoice, InvoiceItem } from '@app/components/@atoms/Invoice/Invoice'
 import { PlusMinusControl } from '@app/components/@atoms/PlusMinusControl/PlusMinusControl'
 import { StyledName } from '@app/components/@atoms/StyledName/StyledName'
 import { DateSelection } from '@app/components/@molecules/DateSelection/DateSelection'
-import { MAX_EXPIRY_HORIZON_SECONDS, MIN_RENEWAL_SECONDS } from '@app/constants/simplex'
+import { MAX_REGISTRATION_DURATION, MIN_RENEWAL_DURATION } from '@app/constants/simplex'
 import { useBlockTimestamp } from '@app/hooks/chain/useBlockTimestamp'
 import { useEstimateGasWithStateOverride } from '@app/hooks/chain/useEstimateGasWithStateOverride'
 import { useExpiry } from '@app/hooks/ensjs/public/useExpiry'
@@ -177,7 +177,7 @@ export type Props = {
 } & TransactionDialogPassthrough
 
 const ExtendNames = ({
-  data: { seconds: defaultSeconds, names, isSelf, minSeconds = MIN_RENEWAL_SECONDS, hasWrapped },
+  data: { seconds: defaultSeconds, names, isSelf, minSeconds = MIN_RENEWAL_DURATION, hasWrapped },
   dispatch,
   onDismiss,
 }: Props) => {
@@ -216,23 +216,21 @@ const ExtendNames = ({
     enabled: isExpiryEnabled,
     name: names[0],
   })
-  const isExpiryEnabledAndLoading = isExpiryEnabled && isExpiryLoading
+  const { data: blockTimestamp, isLoading: isBlockTimestampLoading } = useBlockTimestamp({
+    enabled: isExpiryEnabled,
+  })
+  const isExpiryEnabledAndLoading = isExpiryEnabled && (isExpiryLoading || isBlockTimestampLoading)
 
   const expiryDate = expiryData?.expiry?.date
   const extendedDate = expiryDate ? new Date(expiryDate.getTime() + seconds * 1000) : undefined
 
-  // The controller refuses a renewal whose new expiry is more than three years past
-  // the block it lands in, so the longest extension is measured from chain time.
-  const { data: blockTimestamp } = useBlockTimestamp({ enabled: isExpiryEnabled })
+  // The controller reverts a renewal whose new expiry is more than three years past
+  // the block that includes it, so the longest extension is measured from chain time.
   const maxSeconds =
     blockTimestamp && expiryData
-      ? Number(blockTimestamp / 1000n) +
-        MAX_EXPIRY_HORIZON_SECONDS -
-        Number(expiryData.expiry.value)
+      ? Number(blockTimestamp / 1000n) + MAX_REGISTRATION_DURATION - Number(expiryData.expiry.value)
       : undefined
   const isTooEarly = maxSeconds !== undefined && maxSeconds < minSeconds
-  const earliestExtension =
-    expiryDate && new Date(expiryDate.getTime() - (MAX_EXPIRY_HORIZON_SECONDS - minSeconds) * 1000)
 
   const {
     data: { gasEstimate: estimatedGasLimit, gasCost: transactionFee },
@@ -259,7 +257,7 @@ const ExtendNames = ({
         ],
       },
     ],
-    enabled: !!totalRentFee && !!address && seconds > 0 && totalRentFee > 0n,
+    enabled: !!totalRentFee && !!address && seconds > 0 && totalRentFee > 0n && !isTooEarly,
   })
 
   const previousTransactionFee = usePreviousDistinct(transactionFee) || 0n
@@ -364,36 +362,44 @@ const ExtendNames = ({
           .with(['name-list', false], () => {
             return <NamesList names={names} />
           })
+          .with(
+            ['registration', false],
+            () => isTooEarly,
+            () => {
+              const earliestExtension = new Date(
+                expiryDate!.getTime() - (MAX_REGISTRATION_DURATION - minSeconds) * 1000,
+              )
+              return (
+                <Helper alert="info" data-testid="extend-names-too-early">
+                  {t('input.extendNames.tooEarly', { date: formatExpiry(earliestExtension) })}
+                </Helper>
+              )
+            },
+          )
           .otherwise(() => (
             <>
               <PlusMinusWrapper>
-                {isTooEarly && earliestExtension && (
-                  <Helper alert="info" data-testid="extend-names-too-early">
-                    {t('input.extendNames.tooEarly', { date: formatExpiry(earliestExtension) })}
-                  </Helper>
+                {names.length === 1 ? (
+                  <DateSelection
+                    {...{ seconds, setSeconds }}
+                    name={names[0]}
+                    minSeconds={minSeconds}
+                    maxSeconds={maxSeconds}
+                    mode="extend"
+                    expiry={Number(expiryData?.expiry.value)}
+                    durationType={durationType}
+                    onChangeDurationType={setDurationType}
+                  />
+                ) : (
+                  <PlusMinusControl
+                    minValue={1}
+                    value={years}
+                    onChange={(e) => {
+                      const newYears = parseInt(e.target.value)
+                      if (!Number.isNaN(newYears)) setSeconds(yearsToSeconds(newYears))
+                    }}
+                  />
                 )}
-                {!isTooEarly &&
-                  (names.length === 1 ? (
-                    <DateSelection
-                      {...{ seconds, setSeconds }}
-                      name={names[0]}
-                      minSeconds={minSeconds}
-                      maxSeconds={maxSeconds}
-                      mode="extend"
-                      expiry={Number(expiryData?.expiry.value)}
-                      durationType={durationType}
-                      onChangeDurationType={setDurationType}
-                    />
-                  ) : (
-                    <PlusMinusControl
-                      minValue={1}
-                      value={years}
-                      onChange={(e) => {
-                        const newYears = parseInt(e.target.value)
-                        if (!Number.isNaN(newYears)) setSeconds(yearsToSeconds(newYears))
-                      }}
-                    />
-                  ))}
               </PlusMinusWrapper>
               <OptionBar $isCached={isPriceLoading}>
                 <GasDisplay gasPrice={gasPrice} />

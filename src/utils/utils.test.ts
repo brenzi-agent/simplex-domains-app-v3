@@ -20,6 +20,7 @@ import {
   isLabelTooLong,
   makeEtherscanLink,
   ONE_DAY,
+  ONE_YEAR,
   secondsToDays,
   shortenAddress,
   validateExpiry,
@@ -109,10 +110,40 @@ describe('formatDurationOfDates', () => {
     expect(
       formatDurationOfDates({
         startDate: new Date(),
-        endDate: dateFromDateDiff({ startDate: new Date(), additionalYears: 1 }),
+        endDate: dateFromDateDiff({ startDate: new Date(), additionalDays: 365 }),
         t: (x, options: any) => x + options?.count,
       }),
     ).toEqual('unit.years1')
+  })
+  it('should count the same years across a daylight-saving change as without one', () => {
+    const { TZ } = process.env
+    process.env.TZ = 'America/New_York'
+    const t = (x: string, options: any) => x + options?.count
+    try {
+      const startDate = new Date(2026, 2, 9, 0, 30)
+      const endDate = new Date(startDate.getTime() + (1094 * ONE_DAY + 3600) * 1000)
+      expect(formatDurationOfDates({ startDate, endDate, t })).toEqual('unit.years2, unit.months11')
+      const beforeChange = new Date(2026, 10, 1, 0, 30)
+      expect(
+        formatDurationOfDates({
+          startDate: beforeChange,
+          endDate: dateFromDateDiff({ startDate: beforeChange, additionalDays: 730 }),
+          t,
+        }),
+      ).toEqual('unit.years2')
+    } finally {
+      process.env.TZ = TZ
+    }
+  })
+  it('should count a duration a moment short of two years as two years', () => {
+    const now = Date.now()
+    expect(
+      formatDurationOfDates({
+        startDate: new Date(now + 1),
+        endDate: new Date(now + 2 * ONE_YEAR * 1000),
+        t: (x, options: any) => x + options?.count,
+      }),
+    ).toEqual('unit.years2')
   })
   it('should return a month locale', () => {
     expect(

@@ -1,5 +1,12 @@
 import { QueryFunctionContext, queryOptions } from '@tanstack/react-query'
-import { Address, zeroAddress } from 'viem'
+import {
+  Address,
+  BaseError,
+  ContractFunctionRevertedError,
+  ExecutionRevertedError,
+  namehash,
+  zeroAddress,
+} from 'viem'
 import { readContract } from 'viem/actions'
 
 import { getSnrcAddresses } from '@app/constants/chains'
@@ -10,22 +17,14 @@ import { getSnrcTokenId, registrarOfferAbi } from '@app/utils/snrcOffers'
 import { useQueryOptions } from './useQueryOptions'
 
 type UseNameOfferParameters = {
-  name?: string
+  name: string
 }
 
 type QueryKey = CreateQueryKey<UseNameOfferParameters, 'getNameOffer', 'standard'>
 
-export type NameOffer = {
-  tokenId: bigint
-  holder: Address
-  /** Who the holder offered the name to; undefined when nothing is offered. */
-  recipient: Address | undefined
-  offer: bigint
-}
-
-const getNameOfferQueryFn =
+export const getNameOfferQueryFn =
   (config: ConfigWithEns) =>
-  async ({ queryKey: [{ name }, chainId] }: QueryFunctionContext<QueryKey>) => {
+  async ({ queryKey: [{ name }, chainId, address] }: QueryFunctionContext<QueryKey>) => {
     const tokenId = getSnrcTokenId(name)
     const registrar = getSnrcAddresses(chainId).BaseRegistrarImplementation as Address | undefined
     if (tokenId === undefined || !registrar || registrar === zeroAddress) return null
@@ -33,24 +32,39 @@ const getNameOfferQueryFn =
     const client = config.getClient({ chainId })
     const target = { address: registrar, abi: registrarOfferAbi, args: [tokenId] } as const
 
-    // `ownerOf` reverts for an unregistered or lapsed name, which has no offer.
+    // `ownerOf` reverts for an unregistered or lapsed name, which has no holder.
     const holder = await readContract(client, { ...target, functionName: 'ownerOf' }).catch(
-      () => undefined,
+      (error) => {
+        if (
+          error instanceof BaseError &&
+          error.walk(
+            (e) =>
+              e instanceof ContractFunctionRevertedError || e instanceof ExecutionRevertedError,
+          )
+        )
+          return undefined
+        throw error
+      },
     )
     if (!holder) return null
-    const [approved, offer] = await Promise.all([
+    const [baseNode, approved] = await Promise.all([
+      readContract(client, {
+        address: registrar,
+        abi: registrarOfferAbi,
+        functionName: 'baseNode',
+      }),
       readContract(client, { ...target, functionName: 'getApproved' }),
-      readContract(client, { ...target, functionName: 'offers' }),
     ])
+    if (baseNode !== namehash(name.split('.')[1])) return null
+    const recipient = approved === zeroAddress ? undefined : approved
     return {
-      tokenId,
       holder,
-      recipient: approved === zeroAddress ? undefined : approved,
-      offer,
-    } satisfies NameOffer
+      recipient,
+      isHolder: !!address && holder.toLowerCase() === address.toLowerCase(),
+      isRecipient: !!address && recipient?.toLowerCase() === address.toLowerCase(),
+    }
   }
 
-/** The holder of an SNRC 2LD and whom, if anyone, they have offered it to. */
 export const useNameOffer = ({ name }: UseNameOfferParameters) => {
   const initialOptions = useQueryOptions({
     params: { name },
@@ -64,8 +78,5 @@ export const useNameOffer = ({ name }: UseNameOfferParameters) => {
     queryFn: initialOptions.queryFn,
   })
 
-  return useQuery({
-    ...preparedOptions,
-    enabled: getSnrcTokenId(name) !== undefined,
-  })
+  return useQuery(preparedOptions)
 }

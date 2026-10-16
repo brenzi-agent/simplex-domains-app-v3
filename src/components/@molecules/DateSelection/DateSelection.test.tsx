@@ -101,7 +101,7 @@ describe('DateSelection', () => {
     )
     expect(screen.getByText('unit.years.3 registration.')).toBeVisible()
     expect(screen.getByTestId('plus-minus-control-plus')).toBeDisabled()
-    for (const [value] of setSeconds.mock.calls) expect(value).toBe(3 * ONE_YEAR)
+    expect(setSeconds.mock.calls).toEqual([[3 * ONE_YEAR]])
   })
   it('should clamp a duration above the maximum', () => {
     const setSeconds = vi.fn()
@@ -115,5 +115,27 @@ describe('DateSelection', () => {
       />,
     )
     expect(setSeconds).toHaveBeenCalledWith(3 * ONE_YEAR)
+  })
+  it('should clamp whole years to the bounds', () => {
+    const setSeconds = vi.fn()
+    const { rerender } = render(
+      <DateSelection
+        minSeconds={ONE_YEAR}
+        maxSeconds={1.5 * ONE_YEAR}
+        seconds={3 * ONE_YEAR}
+        setSeconds={setSeconds}
+        durationType="years"
+      />,
+    )
+    expect(setSeconds).toHaveBeenLastCalledWith(ONE_YEAR)
+    rerender(
+      <DateSelection
+        minSeconds={2 * ONE_YEAR}
+        seconds={ONE_YEAR}
+        setSeconds={setSeconds}
+        durationType="years"
+      />,
+    )
+    expect(setSeconds).toHaveBeenLastCalledWith(2 * ONE_YEAR)
   })
 })

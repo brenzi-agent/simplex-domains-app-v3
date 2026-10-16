@@ -78,18 +78,7 @@ export const useRoleActions = ({ name, roles, details }: Props) => {
     })
     const availableRoles = getAvailableRoles({ roles, abilities: abilities.data })
     const canEditRoles = availableRoles.length > 0
-    // An SNRC 2LD moves by offer and claim, so only its holder can start a send.
-    const canOfferName =
-      !!account.address && offer.data?.holder.toLowerCase() === account.address.toLowerCase()
     return [
-      canOfferName
-        ? {
-            type: 'offer-name',
-            icon: AeroplaneIcon,
-            label: t('action.send'),
-            onClick: () => showOfferNameInput(`offer-name-${name}`, { name }),
-          }
-        : null,
       showSendDNS
         ? {
             type: 'send-dns',
@@ -126,6 +115,14 @@ export const useRoleActions = ({ name, roles, details }: Props) => {
             label: t('action.send'),
             error: canSendError,
             onClick: () => showSendNameInput(`send-name-${name}`, { name }),
+          }
+        : null,
+      offer.data?.isHolder
+        ? {
+            type: 'offer-name',
+            icon: AeroplaneIcon,
+            label: t('action.send'),
+            onClick: () => showOfferNameInput(`offer-name-${name}`, { name }),
           }
         : null,
       canEditRoles
