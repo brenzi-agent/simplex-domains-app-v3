@@ -15,8 +15,18 @@ const EARLIER_RECIPIENT = '0x4444444444444444444444444444444444444444'
 vi.mock('wagmi')
 vi.mock('@app/hooks/useNameOffer')
 vi.mock('../SendName/views/SearchView/SearchView', () => ({
-  SearchView: ({ onSelect }: { onSelect: (address: string) => void }) => (
-    <button type="button" data-testid="select-recipient" onClick={() => onSelect(RECIPIENT)} />
+  SearchView: ({
+    title,
+    subtitle,
+    onSelect,
+  }: {
+    title: string
+    subtitle: string
+    onSelect: (address: string) => void
+  }) => (
+    <button type="button" data-testid="select-recipient" onClick={() => onSelect(RECIPIENT)}>
+      {title} {subtitle}
+    </button>
   ),
 }))
 vi.mock('@app/components/@molecules/AvatarWithIdentifier/AvatarWithIdentifier', () => ({
@@ -46,6 +56,15 @@ describe('OfferName', () => {
     vi.clearAllMocks()
     offerTo(undefined)
     mockUseBytecode.mockReturnValue({ data: undefined, isSuccess: true } as never)
+  })
+
+  it('asks for the recipient under the offer title', () => {
+    render(
+      <OfferName data={{ name: 'alice.testing' }} dispatch={mockDispatch} onDismiss={() => {}} />,
+    )
+    expect(screen.getByTestId('select-recipient')).toHaveTextContent(
+      'input.offerName.title input.offerName.recipient',
+    )
   })
 
   it('offers the name to the selected recipient', async () => {

@@ -83,10 +83,13 @@ describe('ClaimName', () => {
     mockUseClaimChecks.mockReturnValue(checks())
   })
 
-  it('shows None for a name without records or subnames', () => {
+  it('shows None and asks for no acknowledgement for a name without records or subnames', () => {
     mockUseClaimChecks.mockReturnValue(checks({ nodes: [{ ...root, records: [] }] }))
     render(claimName())
     expect(screen.getAllByText('input.claimName.none')).toHaveLength(2)
+    expect(screen.queryByText('input.claimName.afterwards')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('claim-name-acknowledge')).not.toBeInTheDocument()
+    expect(screen.getByTestId('claim-name-confirm')).toBeEnabled()
   })
 
   it('dispatches the reviewed claim only after the review is acknowledged', async () => {
@@ -106,10 +109,10 @@ describe('ClaimName', () => {
     })
   })
 
-  it('clears the records on the name after the claim when asked to', async () => {
+  it('clears the records on the name after the claim when asked to, with nothing left to accept', async () => {
     render(claimName())
     await userEvent.click(screen.getByTestId('claim-name-clear-records'))
-    await userEvent.click(screen.getByTestId('claim-name-acknowledge'))
+    expect(screen.queryByTestId('claim-name-acknowledge')).not.toBeInTheDocument()
     await userEvent.click(screen.getByTestId('claim-name-confirm'))
 
     expect(mockDispatch).toHaveBeenCalledWith({
@@ -264,5 +267,7 @@ describe('ClaimName', () => {
       expect(subnodes).toHaveTextContent(text)
     expect(screen.getAllByText('input.claimName.notPlainText')).toHaveLength(2)
     expect(screen.getByText('input.claimName.untrackedWarning')).toBeVisible()
+    expect(screen.getByText('input.claimName.afterwards')).toBeVisible()
+    expect(screen.getByTestId('claim-name-acknowledge')).toBeVisible()
   })
 })

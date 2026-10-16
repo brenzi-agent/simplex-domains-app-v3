@@ -86,11 +86,15 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
   const review = !checks.isError ? firstChecks.current : undefined
   const [root, ...subnodes] = review?.nodes ?? []
   const reviewKey = review && holder ? `${review.digest} ${holder}` : undefined
-  const acknowledged = !!reviewKey && acknowledgedReview === reviewKey
   const acceptedIncomplete = !!reviewKey && acceptedIncompleteReview === reviewKey
   const clearResolver = root?.customResolver
     ? undefined
     : root?.records.find(({ inEffect }) => inEffect)?.resolver
+  const staysAfterClaim =
+    subnodes.length > 0 ||
+    !!root?.customResolver ||
+    !!root?.records.some(({ resolver }) => !(clearRecords && resolver === clearResolver))
+  const acknowledged = !!reviewKey && (!staysAfterClaim || acknowledgedReview === reviewKey)
 
   const onConfirm = () => {
     if (!holder || !review) return
@@ -156,7 +160,9 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
             )}
             {!review.complete && <Helper alert="warning">{t('input.claimName.incomplete')}</Helper>}
 
-            <Helper alert="info">{t('input.claimName.afterwards')}</Helper>
+            {subnodes.some((subnode) => subnode.status === 'tracked') && (
+              <Helper alert="info">{t('input.claimName.afterwards')}</Helper>
+            )}
             {clearResolver && (
               <DetailedSwitch
                 data-testid="claim-name-clear-records"
@@ -167,13 +173,15 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
                 onChange={(e) => setClearRecords(e.currentTarget.checked)}
               />
             )}
-            <CheckboxRow
-              data-testid="claim-name-acknowledge"
-              label={t('input.claimName.acknowledge')}
-              checked={acknowledged}
-              disabled={!reviewKey}
-              onChange={(e) => setAcknowledgedReview(e.target.checked ? reviewKey : undefined)}
-            />
+            {staysAfterClaim && (
+              <CheckboxRow
+                data-testid="claim-name-acknowledge"
+                label={t('input.claimName.acknowledge')}
+                checked={acknowledged}
+                disabled={!reviewKey}
+                onChange={(e) => setAcknowledgedReview(e.target.checked ? reviewKey : undefined)}
+              />
+            )}
             {!review.complete && (
               <CheckboxRow
                 data-testid="claim-name-accept-incomplete"

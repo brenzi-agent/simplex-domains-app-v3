@@ -230,7 +230,8 @@
       "description": "The recipient takes {{name}} by claiming it on its page. Until then it stays yours, and you can withdraw the offer.",
       "contract": "This is a contract. Once it takes the name, it can pass the name on only by offering it; otherwise the name stays with it until it lapses.",
       "failed": "The current offer or the recipient's account could not be read, so the name cannot be offered now.",
-      "replaces": "This replaces your offer to {{recipient}}."
+      "replaces": "This replaces your offer to {{recipient}}.",
+      "recipient": "Who should receive this name? Enter their SNRC name or Ethereum address."
     },
     "claimName": {
       "title": "Claim {{name}}",
@@ -252,12 +253,12 @@
       "ownerless": "Ownerless subnode {{node}}",
       "untrackedWarning": "Some subnodes may not be controlled through the name. They remain under it after you claim it; whoever owns one, or a node above it, may still change it, and this app may be unable to remove them.",
       "incomplete": "This name has more subnodes than this app can check. Only those listed were checked; the others stay under the name after you claim it.",
-      "afterwards": "After claiming, clear any records and remove any subnames you did not expect.",
+      "afterwards": "Subnames stay after the claim; delete the ones you don't want from the Subnames tab.",
       "clearRecords": {
         "title": "Clear records",
         "description": "After the claim, remove every record the name holds on its resolver. This costs additional gas."
       },
-      "acknowledge": "I have reviewed everything above and accept that it stays under the name when I claim it.",
+      "acknowledge": "I accept that the records and subnames listed above stay with the name after I claim it.",
       "acceptIncomplete": "I accept the subnodes this app could not check."
     },
     "extendNames": {

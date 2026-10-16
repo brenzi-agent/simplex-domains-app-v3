@@ -37,7 +37,14 @@ const OfferName = ({ data: { name }, dispatch, onDismiss }: Props) => {
   if (!recipient)
     return (
       <FormProvider {...form}>
-        <SearchView name={name} senderRole="owner" onSelect={setRecipient} onCancel={onDismiss} />
+        <SearchView
+          name={name}
+          senderRole="owner"
+          title={t('input.offerName.title', { name })}
+          subtitle={t('input.offerName.recipient')}
+          onSelect={setRecipient}
+          onCancel={onDismiss}
+        />
       </FormProvider>
     )
 
