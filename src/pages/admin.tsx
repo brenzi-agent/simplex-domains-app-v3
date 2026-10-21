@@ -12,6 +12,7 @@ import {
   MIN_REGISTRATION_DURATION,
 } from '@app/constants/simplex'
 import { Content } from '@app/layouts/Content'
+import { getUnregistrableLabelsError, parseLabels } from '@app/utils/snrcLabels'
 import { ONE_DAY } from '@app/utils/time'
 
 const controllerAbi = [
@@ -166,6 +167,12 @@ function AdminPanel() {
   const regDays = Number(regDuration)
   const isRegDurationValid =
     Number.isInteger(regDays) && regDays >= MIN_RESERVED_DAYS && regDays <= MAX_RESERVED_DAYS
+  const reserveLabels = parseLabels(reserveName)
+  const unReserveLabels = parseLabels(unReserveName)
+  const checkNameError = getUnregistrableLabelsError(checkName ? [checkName] : [])
+  const reserveNameError = getUnregistrableLabelsError(reserveLabels)
+  const unReserveNameError = getUnregistrableLabelsError(unReserveLabels)
+  const regLabelError = getUnregistrableLabelsError(regLabel ? [regLabel] : [])
 
   const loadState = async () => {
     if (!publicClient || !controllerAddress) return
@@ -359,8 +366,13 @@ function AdminPanel() {
                   value={checkName}
                   onChange={(e) => setCheckName(e.target.value)}
                   placeholder="simplex"
+                  error={checkNameError}
                 />
-                <Button size="small" onClick={checkReserved} disabled={!checkName}>
+                <Button
+                  size="small"
+                  onClick={checkReserved}
+                  disabled={!checkName || !!checkNameError}
+                >
                   Check
                 </Button>
                 {checkResult && (
@@ -374,6 +386,7 @@ function AdminPanel() {
                   onChange={(e) => setReserveName(e.target.value)}
                   placeholder="one name per line — submitted in a single tx"
                   description="Newline or comma separated. Up to 200 names per tx fit under the per-transaction gas cap."
+                  error={reserveNameError}
                 />
                 <Select
                   label="Reason"
@@ -385,14 +398,8 @@ function AdminPanel() {
                 />
                 <Button
                   size="small"
-                  onClick={() => {
-                    const labels = reserveName
-                      .split(/[\n,]/)
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                    if (labels.length) execTx('addReservedNames', [labels, Number(reserveReason)])
-                  }}
-                  disabled={!reserveName.trim()}
+                  onClick={() => execTx('addReservedNames', [reserveLabels, Number(reserveReason)])}
+                  disabled={!reserveLabels.length || !!reserveNameError}
                 >
                   Reserve
                 </Button>
@@ -404,17 +411,12 @@ function AdminPanel() {
                   onChange={(e) => setUnReserveName(e.target.value)}
                   placeholder="one name per line — submitted in a single tx"
                   description="Newline or comma separated."
+                  error={unReserveNameError}
                 />
                 <Button
                   size="small"
-                  onClick={() => {
-                    const labels = unReserveName
-                      .split(/[\n,]/)
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                    if (labels.length) execTx('removeReservedNames', [labels])
-                  }}
-                  disabled={!unReserveName.trim()}
+                  onClick={() => execTx('removeReservedNames', [unReserveLabels])}
+                  disabled={!unReserveLabels.length || !!unReserveNameError}
                 >
                   Unreserve
                 </Button>
@@ -433,6 +435,7 @@ function AdminPanel() {
                 value={regLabel}
                 onChange={(e) => setRegLabel(e.target.value)}
                 placeholder="simplex"
+                error={regLabelError}
               />
               <Input
                 label="Owner address"
@@ -457,7 +460,7 @@ function AdminPanel() {
                     BigInt(Number(regDuration) * 86400),
                   ])
                 }
-                disabled={!regLabel || !regOwner || !isRegDurationValid}
+                disabled={!regLabel || !!regLabelError || !regOwner || !isRegDurationValid}
               >
                 Register
               </Button>
