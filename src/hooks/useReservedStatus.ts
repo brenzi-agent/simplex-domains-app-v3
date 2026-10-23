@@ -4,7 +4,7 @@ import { useChainId, useReadContract } from 'wagmi'
 import { getSnrcAddresses } from '@app/constants/chains'
 
 const reservedAbi = parseAbi([
-  'function reservedNames(bytes32) view returns (bool)',
+  'function reservedNames(bytes32) view returns (uint8)',
 ])
 
 /**
@@ -29,7 +29,7 @@ export const useReservedStatus = ({ name }: { name?: string }) => {
   })
 
   return {
-    isReserved: data === true,
+    isReserved: !!data,
     loaded: enabled ? !isLoading : true,
   }
 }

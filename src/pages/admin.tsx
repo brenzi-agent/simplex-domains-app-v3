@@ -1,12 +1,19 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { ReactElement, useState } from 'react'
 import styled, { css } from 'styled-components'
 import { getAddress, keccak256, toBytes } from 'viem'
 import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi'
 
-import { Button, Card, Heading, Input, Typography } from '@ensdomains/thorin'
+import { Button, Card, Heading, Input, Select, Typography } from '@ensdomains/thorin'
 
 import { getSnrcAddresses } from '@app/constants/chains'
+import {
+  MAX_SPONSORED_REGISTRATION_DURATION,
+  MIN_REGISTRATION_DURATION,
+} from '@app/constants/simplex'
 import { Content } from '@app/layouts/Content'
+import { getUnregistrableLabelsError, parseLabels } from '@app/utils/snrcLabels'
+import { ONE_DAY } from '@app/utils/time'
 
 const controllerAbi = [
   {
@@ -33,7 +40,7 @@ const controllerAbi = [
   {
     inputs: [{ name: 'hash', type: 'bytes32' }],
     name: 'reservedNames',
-    outputs: [{ type: 'bool' }],
+    outputs: [{ type: 'uint8' }],
     stateMutability: 'view',
     type: 'function',
   },
@@ -52,7 +59,10 @@ const controllerAbi = [
     type: 'function',
   },
   {
-    inputs: [{ name: 'names', type: 'string[]' }],
+    inputs: [
+      { name: 'names', type: 'string[]' },
+      { name: 'reason', type: 'uint8' },
+    ],
     name: 'addReservedNames',
     outputs: [],
     stateMutability: 'nonpayable',
@@ -77,6 +87,12 @@ const controllerAbi = [
     type: 'function',
   },
 ] as const
+
+// SimplexController.Reason; each index is the value stored on chain, so entries are only appended.
+const REASONS = ['None', 'Internal', 'Trademark', 'Community'] as const
+const REASON_OPTIONS = REASONS.map((label, value) => ({ value: String(value), label })).slice(1)
+const MIN_RESERVED_DAYS = MIN_REGISTRATION_DURATION / ONE_DAY
+const MAX_RESERVED_DAYS = MAX_SPONSORED_REGISTRATION_DURATION / ONE_DAY
 
 const Section = styled.div(
   ({ theme }) => css`
@@ -129,6 +145,7 @@ function AdminPanel() {
   const controllerAddress = deploymentAddresses.ETHRegistrarController
   const publicClient = usePublicClient()
   const { data: walletClient } = useWalletClient()
+  const queryClient = useQueryClient()
 
   const [ownerAddress, setOwnerAddress] = useState<string>('')
   const [minCharLen, setMinCharLen] = useState<number>(0)
@@ -140,12 +157,22 @@ function AdminPanel() {
 
   const [newMinChar, setNewMinChar] = useState('')
   const [reserveName, setReserveName] = useState('')
+  const [reserveReason, setReserveReason] = useState(String(REASONS.indexOf('Trademark')))
   const [unReserveName, setUnReserveName] = useState('')
   const [checkName, setCheckName] = useState('')
   const [checkResult, setCheckResult] = useState<string | null>(null)
   const [regLabel, setRegLabel] = useState('')
   const [regOwner, setRegOwner] = useState('')
-  const [regDuration, setRegDuration] = useState('365')
+  const [regDuration, setRegDuration] = useState(String(MIN_RESERVED_DAYS))
+  const regDays = Number(regDuration)
+  const isRegDurationValid =
+    Number.isInteger(regDays) && regDays >= MIN_RESERVED_DAYS && regDays <= MAX_RESERVED_DAYS
+  const reserveLabels = parseLabels(reserveName)
+  const unReserveLabels = parseLabels(unReserveName)
+  const checkNameError = getUnregistrableLabelsError(checkName ? [checkName] : [])
+  const reserveNameError = getUnregistrableLabelsError(reserveLabels)
+  const unReserveNameError = getUnregistrableLabelsError(unReserveLabels)
+  const regLabelError = getUnregistrableLabelsError(regLabel ? [regLabel] : [])
 
   const loadState = async () => {
     if (!publicClient || !controllerAddress) return
@@ -211,6 +238,7 @@ function AdminPanel() {
       setStatus(`Tx sent: ${hash.slice(0, 10)}... waiting...`)
       await publicClient!.waitForTransactionReceipt({ hash })
       setStatus(`${functionName} confirmed`)
+      await queryClient.invalidateQueries()
       await loadState()
     } catch (e: any) {
       setStatus(`Error: ${e.shortMessage || e.message}`)
@@ -226,7 +254,7 @@ function AdminPanel() {
         functionName: 'reservedNames',
         args: [keccak256(toBytes(checkName))],
       })
-      setCheckResult(result ? 'RESERVED' : 'NOT RESERVED')
+      setCheckResult(result ? `RESERVED (${REASONS[result] ?? result})` : 'NOT RESERVED')
     } catch (e: any) {
       setCheckResult(`Error: ${e.message}`)
     }
@@ -283,6 +311,27 @@ function AdminPanel() {
         </Section>
       </Card>
 
+      <Card>
+        <Section>
+          <Typography fontVariant="largeBold">Check Reserved Name</Typography>
+          <Row>
+            <Input
+              label="Check name"
+              value={checkName}
+              onChange={(e) => setCheckName(e.target.value)}
+              placeholder="simplex"
+              error={checkNameError}
+            />
+            <Button size="small" onClick={checkReserved} disabled={!checkName || !!checkNameError}>
+              Check
+            </Button>
+            {checkResult && (
+              <StatusText $success={checkResult === 'NOT RESERVED'}>{checkResult}</StatusText>
+            )}
+          </Row>
+        </Section>
+      </Card>
+
       {isOwner && (
         <>
           <Card>
@@ -334,36 +383,25 @@ function AdminPanel() {
               <Typography fontVariant="largeBold">Reserved Names</Typography>
               <Row>
                 <Input
-                  label="Check name"
-                  value={checkName}
-                  onChange={(e) => setCheckName(e.target.value)}
-                  placeholder="simplex"
-                />
-                <Button size="small" onClick={checkReserved} disabled={!checkName}>
-                  Check
-                </Button>
-                {checkResult && (
-                  <StatusText $success={checkResult === 'NOT RESERVED'}>{checkResult}</StatusText>
-                )}
-              </Row>
-              <Row>
-                <Input
                   label="Reserve name(s)"
                   value={reserveName}
                   onChange={(e) => setReserveName(e.target.value)}
                   placeholder="one name per line — submitted in a single tx"
-                  description="Newline or comma separated. ~1000 names per tx fits in the block gas limit."
+                  description="Newline or comma separated. Up to 200 names per tx fit under the per-transaction gas cap."
+                  error={reserveNameError}
+                />
+                <Select
+                  label="Reason"
+                  size="small"
+                  value={reserveReason}
+                  onChange={(e) => setReserveReason(e.target.value)}
+                  options={REASON_OPTIONS}
+                  id="reserve-reason"
                 />
                 <Button
                   size="small"
-                  onClick={() => {
-                    const labels = reserveName
-                      .split(/[\n,]/)
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                    if (labels.length) execTx('addReservedNames', [labels])
-                  }}
-                  disabled={!reserveName.trim()}
+                  onClick={() => execTx('addReservedNames', [reserveLabels, Number(reserveReason)])}
+                  disabled={!reserveLabels.length || !!reserveNameError}
                 >
                   Reserve
                 </Button>
@@ -375,17 +413,12 @@ function AdminPanel() {
                   onChange={(e) => setUnReserveName(e.target.value)}
                   placeholder="one name per line — submitted in a single tx"
                   description="Newline or comma separated."
+                  error={unReserveNameError}
                 />
                 <Button
                   size="small"
-                  onClick={() => {
-                    const labels = unReserveName
-                      .split(/[\n,]/)
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                    if (labels.length) execTx('removeReservedNames', [labels])
-                  }}
-                  disabled={!unReserveName.trim()}
+                  onClick={() => execTx('removeReservedNames', [unReserveLabels])}
+                  disabled={!unReserveLabels.length || !!unReserveNameError}
                 >
                   Unreserve
                 </Button>
@@ -404,6 +437,7 @@ function AdminPanel() {
                 value={regLabel}
                 onChange={(e) => setRegLabel(e.target.value)}
                 placeholder="simplex"
+                error={regLabelError}
               />
               <Input
                 label="Owner address"
@@ -415,7 +449,9 @@ function AdminPanel() {
                 label="Duration (days)"
                 value={regDuration}
                 onChange={(e) => setRegDuration(e.target.value)}
-                placeholder="365"
+                placeholder={String(MIN_RESERVED_DAYS)}
+                description={`${MIN_RESERVED_DAYS}–${MAX_RESERVED_DAYS} days`}
+                error={regDuration && !isRegDurationValid ? 'Out of range' : undefined}
               />
               <Button
                 size="small"
@@ -426,7 +462,7 @@ function AdminPanel() {
                     BigInt(Number(regDuration) * 86400),
                   ])
                 }
-                disabled={!regLabel || !regOwner}
+                disabled={!regLabel || !!regLabelError || !regOwner || !isRegDurationValid}
               >
                 Register
               </Button>

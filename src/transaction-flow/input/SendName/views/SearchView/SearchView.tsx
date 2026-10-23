@@ -20,11 +20,13 @@ import { SearchViewResultsView } from './views/SearchViewResultsView'
 type Props = {
   name: string
   senderRole?: 'owner' | 'manager' | null
+  title?: string
+  subtitle?: string
   onSelect: (address: Address) => void
   onCancel: () => void
 }
 
-export const SearchView = ({ name, senderRole, onCancel, onSelect }: Props) => {
+export const SearchView = ({ name, senderRole, title, subtitle, onCancel, onSelect }: Props) => {
   const { t } = useTranslation('transactionFlow')
   const { register, watch, setValue } = useFormContext<SendNameForm>()
   const query = watch('query')
@@ -38,7 +40,7 @@ export const SearchView = ({ name, senderRole, onCancel, onSelect }: Props) => {
 
   return (
     <>
-      <Dialog.Heading title="Send Name" />
+      <Dialog.Heading title={title ?? 'Send Name'} subtitle={subtitle} />
       <DialogInput
         data-testid="send-name-search-input"
         label="Name"

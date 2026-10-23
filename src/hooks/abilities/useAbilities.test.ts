@@ -94,6 +94,24 @@ describe('useAbilities', () => {
 
       expect(result.current.data?.canEditRecords).toBe(true)
     })
+    it('should leave sending an SNRC 2LD to the offer flow', () => {
+      mockUseAccountSafely.mockReturnValue({ address: account })
+      mockUseBasicName.mockReturnValue({
+        ownerData: { ownershipLevel: 'registrar', owner: account, registrant: account },
+      })
+      mockUseParentBasicName.mockReturnValueOnce({
+        ownerData: { ownershipLevel: 'registry', owner: '0x456' },
+      })
+      mockUseResolverIsAuthorised.mockReturnValue({ data: { isAuthorised: true, isValid: true } })
+      mockUseHasSubnames.mockReturnValue({ data: false, isLoading: false })
+
+      const { result } = renderHook(() => useAbilities({ name: 'nick.testing' }))
+
+      expect(result.current.data?.canSend).toBe(false)
+      expect(result.current.data?.canSendOwner).toBe(false)
+      expect(result.current.data?.canSendManager).toBe(false)
+      expect(result.current.data?.canEditRecords).toBe(true)
+    })
   })
 
   // ownerdata , registrationStatus, pccExpired

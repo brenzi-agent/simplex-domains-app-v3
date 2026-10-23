@@ -24,6 +24,18 @@
       "title": "{{name}} is available",
       "description": "This name expired on <strong>{{date}}</strong>. Click here to view the registration page."
     },
+    "offer": {
+      "recipient": {
+        "title": "{{name}} has been offered to you",
+        "description": "{{holder}} offered you this name. It becomes yours only when you claim it.",
+        "action": "Review and claim"
+      },
+      "holder": {
+        "title": "Offer pending",
+        "description": "You offered this name to {{recipient}}. It stays yours until they claim it.",
+        "action": "Withdraw offer"
+      }
+    },
     "desynced": {
       "title": "Name misconfigured",
       "description": "This name is already owned, but a transaction is required to repair the ownership display. Extending the expiry – even by a single day – will restore accurate ownership information.",

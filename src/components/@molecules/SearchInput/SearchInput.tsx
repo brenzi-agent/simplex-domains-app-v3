@@ -301,7 +301,7 @@ type CreateSearchHandlerProps = {
   controllerAddress: Address | undefined
 }
 
-const reservedAbi = parseAbi(['function reservedNames(bytes32) view returns (bool)'])
+const reservedAbi = parseAbi(['function reservedNames(bytes32) view returns (uint8)'])
 
 const isLabelReserved = async (
   publicClient: ReturnType<typeof usePublicClient>,
@@ -310,12 +310,12 @@ const isLabelReserved = async (
 ): Promise<boolean> => {
   if (!publicClient || !controllerAddress || !label) return false
   try {
-    return (await publicClient.readContract({
+    return !!(await publicClient.readContract({
       address: controllerAddress,
       abi: reservedAbi,
       functionName: 'reservedNames',
       args: [keccak256(toBytes(label))],
-    })) as boolean
+    }))
   } catch {
     // If the controller call fails (unconfigured chain, RPC blip, etc.) we
     // fall through to allow the navigation — the registration flow has its

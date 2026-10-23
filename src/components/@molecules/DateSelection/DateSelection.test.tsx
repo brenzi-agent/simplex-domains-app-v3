@@ -88,4 +88,54 @@ describe('DateSelection', () => {
 
     expect(screen.getByText('unit.years.1 registration.')).toBeVisible()
   })
+  it('should count years as 365 days and stop at the maximum', () => {
+    const setSeconds = vi.fn()
+    render(
+      <DateSelection
+        minSeconds={2 * ONE_YEAR}
+        maxSeconds={3 * ONE_YEAR}
+        seconds={3 * ONE_YEAR}
+        setSeconds={setSeconds}
+        durationType="years"
+      />,
+    )
+    expect(screen.getByText('unit.years.3 registration.')).toBeVisible()
+    expect(screen.getByTestId('plus-minus-control-plus')).toBeDisabled()
+    expect(setSeconds.mock.calls).toEqual([[3 * ONE_YEAR]])
+  })
+  it('should clamp a duration above the maximum', () => {
+    const setSeconds = vi.fn()
+    render(
+      <DateSelection
+        minSeconds={2 * ONE_YEAR}
+        maxSeconds={3 * ONE_YEAR}
+        seconds={3 * ONE_YEAR + ONE_DAY}
+        setSeconds={setSeconds}
+        durationType="date"
+      />,
+    )
+    expect(setSeconds).toHaveBeenCalledWith(3 * ONE_YEAR)
+  })
+  it('should clamp whole years to the bounds', () => {
+    const setSeconds = vi.fn()
+    const { rerender } = render(
+      <DateSelection
+        minSeconds={ONE_YEAR}
+        maxSeconds={1.5 * ONE_YEAR}
+        seconds={3 * ONE_YEAR}
+        setSeconds={setSeconds}
+        durationType="years"
+      />,
+    )
+    expect(setSeconds).toHaveBeenLastCalledWith(ONE_YEAR)
+    rerender(
+      <DateSelection
+        minSeconds={2 * ONE_YEAR}
+        seconds={ONE_YEAR}
+        setSeconds={setSeconds}
+        durationType="years"
+      />,
+    )
+    expect(setSeconds).toHaveBeenLastCalledWith(2 * ONE_YEAR)
+  })
 })

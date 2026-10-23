@@ -1,10 +1,18 @@
 import styled, { css } from 'styled-components'
+import { parseAbi } from 'viem'
+import { useReadContract } from 'wagmi'
 
 import { AlertSVG, Helper, Typography } from '@ensdomains/thorin'
 
 import { useControllerLimits } from '@app/hooks/useControllerLimits'
 import { useNftGateStatus } from '@app/hooks/useNftGateStatus'
 import { useReservedStatus } from '@app/hooks/useReservedStatus'
+import { makeDisplay } from '@app/utils/currency'
+
+const priceOracleAbi = parseAbi([
+  'struct LabelPrice { uint256 labelLength; uint256 priceCentsPerYear; }',
+  'function prices() view returns (uint256 base, LabelPrice[] exceptions)',
+])
 
 const WarnCard = styled.div(
   ({ theme }) => css`
@@ -106,12 +114,11 @@ type Props = { name?: string; address?: `0x${string}` }
 /**
  * Highlights the pricing tier matching `name`'s label length and renders the
  * SimplexController-specific banners (NFT gate, reserved name, min char length).
- * The four tier cards correspond directly to the StablePriceOracle config in
- * `scripts/deploy-local.mjs`. The `active` tier reflects what the contract will
- * charge; verify against the FullInvoice below the panel.
+ * The tier cards show the controller's price oracle curve for the lengths the
+ * controller currently accepts.
  */
 export const SimplexInfoPanel = ({ name, address }: Props) => {
-  const { minCharLength } = useControllerLimits()
+  const { minCharLength, priceOracle } = useControllerLimits()
   const { required: nftRequired, hasNft, loaded: nftLoaded, nftAddress } = useNftGateStatus({ address })
   const { isReserved } = useReservedStatus({ name })
 
@@ -122,25 +129,38 @@ export const SimplexInfoPanel = ({ name, address }: Props) => {
   // setSubnodeOwner, which doesn't apply minCharLength — so the UI gate
   // shouldn't either.
   const isSubname = !!name && name.split('.').length > 2
-  // Tier buckets correspond to the StablePriceOracle array indices: 3, 4, and 5+
-  // (the contract collapses 5+ into a single tier). The deploy script also
-  // declares the human-readable 5-char tier at $8 in the plan; if the deployed
-  // oracle ever splits 5 and 6+, this will need a matching tier card.
-  const activeTier =
-    labelLen <= 0
-      ? null
-      : labelLen <= 3
-        ? 3
-        : labelLen === 4
-          ? 4
-          : labelLen === 5
-            ? 5
-            : 6
 
   // .testing is free during the testing phase (gas only). The pricing tiers
   // panel and the NFT-holder positive callout are both noise for users on
   // that TLD; hide them.
   const isTestingTld = (process.env.NEXT_PUBLIC_SIMPLEX_TLD || 'testing') === 'testing'
+
+  const { data: priceList } = useReadContract({
+    address: priceOracle,
+    abi: priceOracleAbi,
+    functionName: 'prices',
+    query: { enabled: !!priceOracle && !isTestingTld },
+  })
+  const tiers = (() => {
+    if (!priceList || !minCharLength) return []
+    const [base, exceptions] = priceList
+    const priceOf = new Map(
+      exceptions.map(({ labelLength, priceCentsPerYear }) => [
+        Number(labelLength),
+        priceCentsPerYear,
+      ]),
+    )
+    const open = Math.max(minCharLength, ...[...priceOf.keys()].map((length) => length + 1))
+    return [
+      { length: open, caption: `${open}+ chars`, price: base },
+      ...Array.from({ length: open - minCharLength }, (_, i) => open - 1 - i).map((length) => ({
+        length,
+        caption: `${length} chars`,
+        price: priceOf.get(length) ?? base,
+      })),
+    ]
+  })()
+  const activeTier = labelLen <= 0 ? null : Math.min(labelLen, tiers[0]?.length ?? labelLen)
 
   return (
     <Container data-testid="simplex-info-panel">
@@ -182,26 +202,23 @@ export const SimplexInfoPanel = ({ name, address }: Props) => {
           </WarnText>
         </WarnCard>
       )}
-      {!isTestingTld && (
+      {!isTestingTld && tiers.length > 0 && (
         <div>
           <Typography weight="bold">SimpleX pricing (per year)</Typography>
           <TiersGrid>
-            <TierCard data-testid="simplex-tier-6" data-active={activeTier === 6} $active={activeTier === 6}>
-              <TierLabel>6+ chars</TierLabel>
-              <TierPrice>$1</TierPrice>
-            </TierCard>
-            <TierCard data-testid="simplex-tier-5" data-active={activeTier === 5} $active={activeTier === 5}>
-              <TierLabel>5 chars</TierLabel>
-              <TierPrice>$8</TierPrice>
-            </TierCard>
-            <TierCard data-testid="simplex-tier-4" data-active={activeTier === 4} $active={activeTier === 4}>
-              <TierLabel>4 chars</TierLabel>
-              <TierPrice>$32</TierPrice>
-            </TierCard>
-            <TierCard data-testid="simplex-tier-3" data-active={activeTier === 3} $active={activeTier === 3}>
-              <TierLabel>3 chars</TierLabel>
-              <TierPrice>$128</TierPrice>
-            </TierCard>
+            {tiers.map(({ length, caption, price }) => (
+              <TierCard
+                key={length}
+                data-testid={`simplex-tier-${length}`}
+                data-active={activeTier === length}
+                $active={activeTier === length}
+              >
+                <TierLabel>{caption}</TierLabel>
+                <TierPrice>
+                  {makeDisplay({ value: price, symbol: 'usd', fromDecimals: 2 })}
+                </TierPrice>
+              </TierCard>
+            ))}
           </TiersGrid>
         </div>
       )}

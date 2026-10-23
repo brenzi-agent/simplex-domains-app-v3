@@ -225,6 +225,42 @@
         }
       }
     },
+    "offerName": {
+      "title": "Offer {{name}}",
+      "description": "The recipient takes {{name}} by claiming it on its page. Until then it stays yours, and you can withdraw the offer.",
+      "contract": "This is a contract. Once it takes the name, it can pass the name on only by offering it; otherwise the name stays with it until it lapses.",
+      "failed": "The current offer or the recipient's account could not be read, so the name cannot be offered now.",
+      "replaces": "This replaces your offer to {{recipient}}.",
+      "recipient": "Who should receive this name? Enter their SNRC name or Ethereum address."
+    },
+    "claimName": {
+      "title": "Claim {{name}}",
+      "offeredBy": "Offered by",
+      "description": "Claiming makes {{name}} yours. Everything listed below stays under it after the claim.",
+      "notOffered": "This name is not offered to the connected wallet.",
+      "offerFailed": "The offer for this name could not be read, so it cannot be claimed now.",
+      "failed": "The records and subnames of this name could not be read, so it cannot be claimed now.",
+      "resolver": "It points at a resolver ({{resolver}}) that is not a default one, so its records, and those of any name below it without a resolver of its own, may differ from what is shown here.",
+      "records": "Records",
+      "notInEffect": "Stored on the default resolver {{resolver}}; it takes effect when this node points at that resolver.",
+      "notPlainText": "Not plain ASCII text; shown as bytes.",
+      "notRead": "Not read, since this resolver is not a default one.",
+      "unreadable": "The records on this resolver could not be read.",
+      "subnodes": "Subnames",
+      "none": "None",
+      "registrar": "Subnode {{node}}, owned by the subname registrar but not shown by name: it, or a node above it, is not a live subname with a label this app accepts",
+      "untracked": "Untracked subnode {{node}}, owned by {{owner}}",
+      "ownerless": "Ownerless subnode {{node}}",
+      "untrackedWarning": "Some subnodes may not be controlled through the name. They remain under it after you claim it; whoever owns one, or a node above it, may still change it, and this app may be unable to remove them.",
+      "incomplete": "This name has more subnodes than this app can check. Only those listed were checked; the others stay under the name after you claim it.",
+      "afterwards": "Subnames stay after the claim; delete the ones you don't want from the Subnames tab.",
+      "clearRecords": {
+        "title": "Clear records",
+        "description": "After the claim, remove every record the name holds on its resolver. This costs additional gas."
+      },
+      "acknowledge": "I accept that the records and subnames listed above stay with the name after I claim it.",
+      "acceptIncomplete": "I accept the subnodes this app could not check."
+    },
     "extendNames": {
       "title_one": "Extend {{name}}",
       "title_other": "Extend {{count}} Names",
@@ -240,7 +276,8 @@
         "total": "Estimated total"
       },
       "bannerMsg": "Extending for multiple years will save money on network costs by avoiding yearly transactions.",
-      "gasLimitError": "Not enough ETH in wallet"
+      "gasLimitError": "Not enough ETH in wallet",
+      "tooEarly": "A name can be paid up at most three years ahead. This one can be extended by a year from {{date}}."
     },
     "transferProfile": {
       "title": "Transfer Profile",

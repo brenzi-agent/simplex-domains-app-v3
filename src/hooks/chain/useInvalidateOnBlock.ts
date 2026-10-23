@@ -52,7 +52,7 @@ export function useInvalidateOnBlock({
         previousBlockNumber: previousBlockNumberRef.current,
       })
     )
-      queryClient.invalidateQueries({ queryKey })
+      queryClient.invalidateQueries({ queryKey }, { cancelRefetch: false })
     if (blockNumber) previousBlockNumberRef.current = blockNumber
   }, [blockInterval, blockNumber, queryClient, queryKey])
 }

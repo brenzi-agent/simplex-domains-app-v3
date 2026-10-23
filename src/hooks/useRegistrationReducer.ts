@@ -8,18 +8,18 @@ import {
   RegistrationReducerDataItem,
   SelectedItemProperties,
 } from '@app/components/pages/profile/[name]/registration/types'
+import { MIN_REGISTRATION_DURATION } from '@app/constants/simplex'
 import { useLocalStorageReducer } from '@app/hooks/useLocalStorage'
 import { useReferrer } from '@app/hooks/useReferrer'
 import { sendEvent } from '@app/utils/analytics/events'
 import { getReferrerHex } from '@app/utils/referrer'
-import { ONE_YEAR, yearsToSeconds } from '@app/utils/utils'
 
-const REGISTRATION_REDUCER_DATA_ITEM_VERSION = 4
+const REGISTRATION_REDUCER_DATA_ITEM_VERSION = 5
 
 const defaultData: RegistrationReducerDataItem = {
   stepIndex: 0,
   queue: ['pricing', 'profile', 'info', 'transactions', 'complete'],
-  seconds: yearsToSeconds(1),
+  seconds: MIN_REGISTRATION_DURATION,
   reverseRecord: false,
   records: [],
   clearRecords: false,
@@ -43,8 +43,8 @@ const isBrowser = !!(
 )
 
 // SNRC: PostHog removed. This was a feature-flagged override of the default
-// registration duration; we use the flag's own fallback of one year.
-const getDefaultRegistrationDuration = () => ONE_YEAR
+// registration duration; we use the controller's minimum.
+const getDefaultRegistrationDuration = () => MIN_REGISTRATION_DURATION
 
 const makeDefaultData = (selected: SelectedItemProperties): RegistrationReducerDataItem => ({
   stepIndex: 0,

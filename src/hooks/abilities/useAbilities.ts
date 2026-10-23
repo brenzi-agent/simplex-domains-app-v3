@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { isSelfExtendable } from '@app/components/pages/profile/[name]/tabs/OwnershipTab/sections/ExpirySection/hooks/useExpiryActions'
-import { checkETH2LDFromName } from '@app/utils/utils'
+import { checkETH2LDFromName, isEthLikeTld } from '@app/utils/utils'
 
 import { useAccountSafely } from '../account/useAccountSafely'
 import { useContractAddress } from '../chain/useContractAddress'
@@ -170,6 +170,11 @@ export const useAbilities = ({ name, enabled = true }: UseAbilitiesParameters) =
         abilities.canSendManager = false
         abilities.canCreateSubdomains = false
         abilities.canCreateSubdomainsError = undefined
+      } else if (isEthLikeTld(name)) {
+        // SNRC 2LDs are sent by offer and claim (OfferName); the registry has no appointable manager.
+        abilities.canSend = false
+        abilities.canSendOwner = false
+        abilities.canSendManager = false
       }
 
       return abilities
