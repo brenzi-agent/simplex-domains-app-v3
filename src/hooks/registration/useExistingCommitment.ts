@@ -1,5 +1,6 @@
 import { QueryFunctionContext, useQuery } from '@tanstack/react-query'
 import {
+  Address,
   decodeFunctionData,
   encodeFunctionData,
   getAddress,
@@ -15,6 +16,7 @@ import {
   getChainContractAddress,
 } from '@ensdomains/ensjs/contracts'
 
+import { getSnrcAddresses } from '@app/constants/chains'
 import { useTransactionFlow } from '@app/transaction-flow/TransactionFlowProvider'
 import { ConfigWithEns, CreateQueryKey, QueryConfig } from '@app/types'
 import { getIsCachedData } from '@app/utils/getIsCachedData'
@@ -25,6 +27,7 @@ import { useAddRecentTransaction } from '../transactions/useAddRecentTransaction
 import { useIsSafeApp } from '../useIsSafeApp'
 import { useQueryOptions } from '../useQueryOptions'
 import { getBlockMetadataByTimestamp } from './utils/getBlockMetadataByTimestamp'
+import { isCommitCallFor } from './utils/isCommitCallFor'
 
 type UseExistingCommitmentParameters = {
   commitment?: Hex
@@ -189,6 +192,11 @@ const getExistingWrappedCommitmentQueryFn =
       args: [commitment],
       functionName: 'commit',
     })
+    const isCommitCall = isCommitCallFor({
+      commitment,
+      controller: ethRegistrarControllerAddress,
+      namePolicy: getSnrcAddresses(chainId).SimplexNamePolicy as Address | undefined,
+    })
 
     const transaction = (() => {
       const checksummedAddress = getAddress(address)
@@ -211,9 +219,7 @@ const getExistingWrappedCommitmentQueryFn =
       }
       const foundTransaction = blockData.transactions.find((t) => {
         if (getAddress(t.from) !== checksummedAddress) return false
-        if (!t.to || getAddress(t.to) !== checksummedEthRegistrarControllerAddress) return false
-        if (t.input !== inputData) return false
-        return true
+        return !!t.to && isCommitCall(t.to, t.input)
       })
       return foundTransaction
     })()
@@ -232,7 +238,7 @@ const getExistingWrappedCommitmentQueryFn =
       hash: transaction.hash,
       action: 'commitName',
       key: commitKey,
-      input: inputData,
+      input: isSafeTx ? inputData : transaction.input,
       timestamp: commitmentTimestampNumber,
       isSafeTx,
       searchRetries: 0,

@@ -5,6 +5,8 @@ import styled, { css } from 'styled-components'
 import { Button, CheckboxRow, Dialog, Helper, Typography } from '@ensdomains/thorin'
 
 import { AvatarWithIdentifier } from '@app/components/@molecules/AvatarWithIdentifier/AvatarWithIdentifier'
+import { BonaFideTerms, useTermsAcceptance } from '@app/components/BonaFideTerms'
+import { useAcceptedClaimTerms, useBonaFideTerms } from '@app/hooks/useBonaFideTerms'
 import { useClaimChecks } from '@app/hooks/useClaimChecks'
 import { useNameOffer } from '@app/hooks/useNameOffer'
 import { DetailedSwitch } from '@app/transaction-flow/input/ProfileEditor/components/DetailedSwitch'
@@ -72,6 +74,14 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
   const { t } = useTranslation('transactionFlow')
   const offer = useNameOffer({ name })
   const checks = useClaimChecks({ name })
+  const bonaFide = useBonaFideTerms({ name })
+  const claimTerms = useAcceptedClaimTerms({
+    name,
+    holder: offer.data?.holder,
+    enabled: bonaFide.isListed,
+  })
+  const needsTerms = bonaFide.isListed && claimTerms.data !== bonaFide.termsHash
+  const { acceptedTermsHash, setAccepted } = useTermsAcceptance(bonaFide.termsHash)
   // The review stays as first read: a later change fails claimName's re-check instead of
   // replacing what the recipient is reading.
   const firstChecks = useRef(checks.data)
@@ -80,7 +90,8 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
   const [acceptedIncompleteReview, setAcceptedIncompleteReview] = useState<string>()
   const [clearRecords, setClearRecords] = useState(false)
 
-  if (offer.isLoading || checks.isLoading) return <TransactionLoader />
+  if (offer.isLoading || checks.isLoading || bonaFide.isLoading || claimTerms.isLoading)
+    return <TransactionLoader />
 
   const holder = !offer.isError && offer.data?.isRecipient ? offer.data.holder : undefined
   const review = !checks.isError ? firstChecks.current : undefined
@@ -101,6 +112,15 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
     dispatch({
       name: 'setTransactions',
       payload: [
+        ...(needsTerms && acceptedTermsHash
+          ? [
+              createTransactionItem('acceptBonaFideTerms', {
+                name,
+                holder,
+                termsHash: acceptedTermsHash,
+              }),
+            ]
+          : []),
         createTransactionItem('claimName', { name, holder, digest: review.digest }),
         ...(clearRecords && clearResolver
           ? [createTransactionItem('resetProfile', { name, resolverAddress: clearResolver })]
@@ -126,6 +146,13 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
           </Helper>
         )}
         <Typography>{t('input.claimName.description', { name })}</Typography>
+        {needsTerms && (
+          <BonaFideTerms
+            terms={bonaFide}
+            accepted={!!acceptedTermsHash}
+            onAcceptedChange={setAccepted}
+          />
+        )}
 
         {review ? (
           <>
@@ -210,8 +237,10 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
             disabled={
               !acknowledged ||
               (!review?.complete && !acceptedIncomplete) ||
+              (needsTerms && !acceptedTermsHash) ||
               checks.isFetching ||
-              offer.isFetching
+              offer.isFetching ||
+              claimTerms.isFetching
             }
             onClick={onConfirm}
           >

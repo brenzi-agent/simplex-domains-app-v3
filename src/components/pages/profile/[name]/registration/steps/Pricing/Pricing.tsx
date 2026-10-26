@@ -25,6 +25,7 @@ import { RegistrationTimeComparisonBanner } from '@app/components/@atoms/Registr
 import { Spacer } from '@app/components/@atoms/Spacer'
 import { ConnectButton } from '@app/components/@molecules/ConnectButton/ConnectButton'
 import { DateSelection } from '@app/components/@molecules/DateSelection/DateSelection'
+import { BonaFideTerms, useTermsAcceptance } from '@app/components/BonaFideTerms'
 import { Card } from '@app/components/Card'
 import { SimplexInfoPanel } from '@app/components/SimplexInfoPanel'
 import { MAX_REGISTRATION_DURATION, MIN_REGISTRATION_DURATION } from '@app/constants/simplex'
@@ -34,6 +35,7 @@ import { useReservedStatus } from '@app/hooks/useReservedStatus'
 import { useAccountSafely } from '@app/hooks/account/useAccountSafely'
 import { useContractAddress } from '@app/hooks/chain/useContractAddress'
 import { useEstimateFullRegistration } from '@app/hooks/gasEstimation/useEstimateRegistration'
+import { useBonaFideTerms } from '@app/hooks/useBonaFideTerms'
 import { useEthPrice } from '@app/hooks/useEthPrice'
 import { useBreakpoint } from '@app/utils/BreakpointProvider'
 
@@ -523,6 +525,11 @@ const Pricing = ({
   const { required: nftRequired, hasNft } = useNftGateStatus({ address })
   const blockedByNftGate = nftRequired && hasNft === false
   const { isReserved } = useReservedStatus({ name })
+  const bonaFide = useBonaFideTerms({ name })
+  const { acceptedTermsHash, setAccepted } = useTermsAcceptance(
+    bonaFide.termsHash,
+    registrationData.bonaFideTermsHash,
+  )
   const { minCharLength } = useControllerLimits()
   const labelLen = name ? name.split('.')[0].length : 0
   // minCharLength is only enforced on top-level register(); subname creation
@@ -617,6 +624,13 @@ const Pricing = ({
     <StyledCard>
       <StyledHeading>{t('heading', { name: beautifiedName })}</StyledHeading>
       <SimplexInfoPanel name={name} address={address} />
+      {bonaFide.isListed && (
+        <BonaFideTerms
+          terms={bonaFide}
+          accepted={!!acceptedTermsHash}
+          onAcceptedChange={setAccepted}
+        />
+      )}
       <DateSelection
         {...{ seconds, setSeconds, minSeconds, maxSeconds, durationType }}
         onChangeDurationType={setDurationType}
@@ -665,6 +679,14 @@ const Pricing = ({
           <Button data-testid="next-button" disabled>
             SimpleX NFT required
           </Button>
+        ) : bonaFide.isLoading ? (
+          <Button data-testid="next-button" disabled loading>
+            {t('action.next', { ns: 'common' })}
+          </Button>
+        ) : bonaFide.isListed && !acceptedTermsHash ? (
+          <Button data-testid="next-button" disabled>
+            Accept the terms to continue
+          </Button>
         ) : (
           <ActionButton
             {...{
@@ -673,7 +695,11 @@ const Pricing = ({
               hasFailedMoonpayTransaction,
               paymentMethodChoice,
               reverseRecord,
-              callback,
+              callback: (data: RegistrationStepData['pricing']) =>
+                callback({
+                  ...data,
+                  bonaFideTermsHash: bonaFide.isListed ? acceptedTermsHash : undefined,
+                }),
               initiateMoonpayRegistrationMutation,
               seconds,
               balance,

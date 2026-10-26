@@ -13,7 +13,8 @@ import { useTransactionFlow } from '@app/transaction-flow/TransactionFlowProvide
 
 import { useExistingCommitment } from '../useExistingCommitment'
 import { getBlockMetadataByTimestamp } from './getBlockMetadataByTimestamp'
-import { Address } from 'viem'
+import { Address, encodeFunctionData } from 'viem'
+import { namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
 
 vi.mock('@app/hooks/chain/useChainName')
 vi.mock('@app/hooks/transactions/useAddRecentTransaction')
@@ -23,6 +24,10 @@ vi.mock('@app/hooks/useIsSafeApp')
 vi.mock('wagmi')
 vi.mock('viem/actions')
 vi.mock('../utils/getBlockMetadataByTimestamp')
+vi.mock('@app/constants/chains', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getSnrcAddresses: () => ({ SimplexNamePolicy: '0x4444444444444444444444444444444444444444' }),
+}))
 vi.mock('@ensdomains/ensjs/contracts', () => ({
   ethRegistrarControllerCommitSnippet: [
     {
@@ -330,6 +335,55 @@ describe('useExistingCommitment', () => {
       await waitFor(() => {
         expect(result.current.error).toBeTruthy()
       })
+    })
+  })
+
+  describe('Commit through the name policy', () => {
+    it('finds the commitment sent through the name policy', async () => {
+      const namePolicy = '0x4444444444444444444444444444444444444444'
+      const setTransactionHashFromUpdate = vi.fn()
+      mockUseTransactionFlow.mockReturnValue({ setTransactionHashFromUpdate })
+      const client = {
+        ...mockClient,
+        chain: {
+          contracts: {
+            ...mockClient.chain.contracts,
+            ensEthRegistrarController: { address: '0x1111111111111111111111111111111111111111' },
+          },
+        },
+      }
+      mockUseConfig.mockReturnValue({ getClient: () => client, _isEns: true } as any)
+      mockReadContract
+        .mockResolvedValueOnce(mockTime)
+        .mockResolvedValueOnce(mockMaxAge)
+        .mockResolvedValueOnce(mockTime + 30n)
+      mockGetBlockMetadataByTimestamp.mockResolvedValueOnce({ ok: true, data: { hash: '0xblock' } } as any)
+      const input = encodeFunctionData({
+        abi: namePolicyBonaFideAbi,
+        functionName: 'commitUnderBonaFideCommunityTerms',
+        args: [mockCommitment, `0x${'77'.repeat(32)}`],
+      })
+      mockGetBlock.mockResolvedValueOnce({
+        transactions: [{ from: mockAddress, to: namePolicy, input, hash: '0xcommit' }],
+      } as any)
+      mockGetTransactionReceipt.mockResolvedValueOnce({ status: 'success' } as any)
+
+      const { result } = renderHook(() =>
+        useExistingCommitment({
+          commitment: mockCommitment,
+          commitKey: mockCommitKey,
+          isLegacyCommit: false,
+          scopeKey: mockAddress,
+        }),
+      )
+
+      await waitFor(() => {
+        expect(result.current.data).toEqual({
+          status: 'transactionExists',
+          timestamp: Number(mockTime),
+        })
+      })
+      expect(setTransactionHashFromUpdate).toHaveBeenCalledWith(mockCommitKey, '0xcommit')
     })
   })
 })

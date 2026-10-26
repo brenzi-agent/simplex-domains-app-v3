@@ -10,6 +10,7 @@ import { useExpiry } from '@app/hooks/ensjs/public/useExpiry'
 import { usePrice } from '@app/hooks/ensjs/public/usePrice'
 import { useEthPrice } from '@app/hooks/useEthPrice'
 import { useReferrer } from '@app/hooks/useReferrer'
+import { useReservedNames } from '@app/hooks/useReservedStatus'
 import { ONE_YEAR } from '@app/utils/time'
 
 import { makeMockIntersectionObserver } from '../../../../test/mock/makeMockIntersectionObserver'
@@ -22,6 +23,7 @@ vi.mock('wagmi')
 vi.mock('@app/hooks/ensjs/public/useExpiry')
 vi.mock('@app/hooks/useEthPrice')
 vi.mock('@app/hooks/useReferrer')
+vi.mock('@app/hooks/useReservedStatus')
 
 const mockUseBlockTimestamp = mockFunction(useBlockTimestamp)
 const mockUseEstimateGasWithStateOverride = mockFunction(useEstimateGasWithStateOverride)
@@ -31,6 +33,7 @@ const mockUseBalance = mockFunction(useBalance)
 const mockUseEthPrice = mockFunction(useEthPrice)
 const mockUseExpiry = mockFunction(useExpiry)
 const mockUseReferrer = mockFunction(useReferrer)
+const mockUseReservedNames = mockFunction(useReservedNames)
 
 vi.mock('@ensdomains/thorin', async () => {
   const originalModule = await vi.importActual('@ensdomains/thorin')
@@ -69,6 +72,7 @@ describe('Extendnames', () => {
   mockUseExpiry.mockReturnValue({ data: { expiry: { date: new Date() } }, isLoading: false })
   mockUseBlockTimestamp.mockReturnValue({ data: undefined })
   mockUseReferrer.mockReturnValue(undefined)
+  mockUseReservedNames.mockReturnValue({ reservedNames: [], isLoading: false })
   it('should render', async () => {
     render(
       <ExtendNames
@@ -155,5 +159,36 @@ describe('Extendnames', () => {
       />,
     )
     expect(screen.getByTestId('plus-minus-control-plus')).toBeDisabled()
+  })
+  it('should refuse to extend a reserved name', () => {
+    mockUseReservedNames.mockReturnValueOnce({ reservedNames: ['nick.simplex'], isLoading: false })
+    render(
+      <ExtendNames
+        {...{
+          data: { names: ['nick.simplex'], isSelf: true, hasWrapped: false },
+          dispatch: () => null,
+          onDismiss: () => null,
+        }}
+      />,
+    )
+    expect(screen.getByTestId('extend-names-reserved')).toBeVisible()
+    expect(screen.getByTestId('extend-names-confirm')).toHaveAttribute('disabled')
+    expect(mockUseEstimateGasWithStateOverride).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: false }),
+    )
+  })
+  it('should wait for the reservation read', () => {
+    mockUseReservedNames.mockReturnValueOnce({ reservedNames: [], isLoading: true })
+    render(
+      <ExtendNames
+        {...{
+          data: { names: ['nick.simplex'], isSelf: true, hasWrapped: false },
+          dispatch: () => null,
+          onDismiss: () => null,
+        }}
+      />,
+    )
+    expect(screen.queryByTestId('extend-names-confirm')).toHaveAttribute('disabled')
+    expect(screen.queryByText('Invoice')).not.toBeInTheDocument()
   })
 })

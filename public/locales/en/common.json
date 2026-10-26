@@ -222,6 +222,7 @@
       "claimDnsName": "Claim DNS name",
       "importDnsName": "Import DNS name",
       "commitName": "Start timer",
+      "acceptBonaFideTerms": "Accept terms",
       "registerName": "Register name",
       "approveNameWrapper": "Approve NameWrapper",
       "approveSubnameRegistrar": "Approve subname registrar",

@@ -132,6 +132,7 @@ const reducer = (state: RegistrationReducerData, action: RegistrationReducerActi
       item.seconds = action.payload.seconds
       item.reverseRecord = action.payload.reverseRecord
       item.durationType = action.payload.durationType
+      item.bonaFideTermsHash = action.payload.bonaFideTermsHash
       break
     }
     case 'setTransactionsData': {
