@@ -7,7 +7,7 @@ import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi'
 import { Button, Card, Heading, Input, Select, Typography } from '@ensdomains/thorin'
 
 import { TermsText } from '@app/components/BonaFideTerms'
-import { getSnrcAddresses } from '@app/constants/chains'
+import { getNamePolicyAddress, getSnrcAddresses } from '@app/constants/chains'
 import {
   MAX_SPONSORED_REGISTRATION_DURATION,
   MIN_REGISTRATION_DURATION,
@@ -182,7 +182,7 @@ function AdminPanel() {
   // deployed at each address on the connected chain? — answered by the code check below.
   const deploymentAddresses = getSnrcAddresses(chainId)
   const controllerAddress = deploymentAddresses.ETHRegistrarController
-  const namePolicyAddress = deploymentAddresses.SimplexNamePolicy
+  const namePolicyAddress = getNamePolicyAddress(chainId)
   const controller = { address: controllerAddress, abi: controllerAbi }
   const namePolicy = { address: namePolicyAddress, abi: namePolicyAbi }
   const publicClient = usePublicClient()
@@ -265,11 +265,11 @@ function AdminPanel() {
       })
       setCodeStatus(next)
       setTermsHash(
-        isZeroish(namePolicyAddress)
+        !namePolicyAddress
           ? 'not deployed'
           : await publicClient
               .readContract({
-                address: namePolicyAddress as `0x${string}`,
+                address: namePolicyAddress,
                 abi: namePolicyBonaFideAbi,
                 functionName: 'termsHash',
               })
@@ -332,7 +332,7 @@ function AdminPanel() {
     if (!publicClient || !namePolicyAddress || !checkName) return
     try {
       const result = await publicClient.readContract({
-        address: namePolicyAddress as `0x${string}`,
+        address: namePolicyAddress,
         abi: namePolicyAbi,
         functionName: 'reservedNames',
         args: [keccak256(toBytes(checkName))],

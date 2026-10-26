@@ -38,7 +38,7 @@ const getNameOffer = (name: string, address?: Address) =>
 const chain = (approved: Address, tld = 'testing') =>
   mockReadContract.mockImplementation(
     (async (_: unknown, { functionName }: { functionName: string }) =>
-      ({ baseNode: namehash(tld), ownerOf: HOLDER })[functionName] ?? approved) as never,
+      ({ baseNode: namehash(tld), ownerOf: HOLDER, offers: 3n })[functionName] ?? approved) as never,
   )
 
 describe('getNameOfferQueryFn', () => {
@@ -81,6 +81,7 @@ describe('getNameOfferQueryFn', () => {
     expect(await getNameOffer('alice.testing', HOLDER)).toEqual({
       holder: HOLDER,
       recipient: undefined,
+      offerNumber: 3n,
       isHolder: true,
       isRecipient: false,
     })
@@ -91,6 +92,7 @@ describe('getNameOfferQueryFn', () => {
     expect(await getNameOffer('alice.testing', RECIPIENT.toUpperCase() as Address)).toEqual({
       holder: HOLDER,
       recipient: RECIPIENT,
+      offerNumber: 3n,
       isHolder: false,
       isRecipient: true,
     })

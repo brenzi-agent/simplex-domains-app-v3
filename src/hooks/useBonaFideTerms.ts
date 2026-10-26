@@ -2,11 +2,11 @@ import { QueryFunctionContext, queryOptions } from '@tanstack/react-query'
 import { Address, Hex, toHex } from 'viem'
 import { readContract } from 'viem/actions'
 
-import { getNamePolicyAddress, getSnrcAddresses } from '@app/constants/chains'
+import { getNamePolicyAddress } from '@app/constants/chains'
 import { ConfigWithEns, CreateQueryKey } from '@app/types'
 import { useQuery } from '@app/utils/query/useQuery'
 import { bonaFideTermsQueryOptions, namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
-import { getSnrcTokenId, registrarOfferAbi } from '@app/utils/snrcOffers'
+import { getSnrcTokenId } from '@app/utils/snrcOffers'
 import { getTldFromName } from '@app/utils/utils'
 
 import { useQueryOptions } from './useQueryOptions'
@@ -95,7 +95,7 @@ export const useCommittedTerms = ({
 }
 
 type AcceptedClaimTermsQueryKey = CreateQueryKey<
-  { name: string; holder?: Address },
+  { name: string; holder?: Address; offerNumber?: bigint },
   'getAcceptedClaimTerms',
   'standard'
 >
@@ -103,37 +103,31 @@ type AcceptedClaimTermsQueryKey = CreateQueryKey<
 export const getAcceptedClaimTermsQueryFn =
   (config: ConfigWithEns) =>
   async ({
-    queryKey: [{ name, holder }, chainId, recipient],
+    queryKey: [{ name, holder, offerNumber }, chainId, recipient],
   }: QueryFunctionContext<AcceptedClaimTermsQueryKey>) => {
     const tokenId = getSnrcTokenId(name)
-    if (tokenId === undefined || !holder || !recipient) return null
-    const addresses = getSnrcAddresses(chainId)
-    const client = config.getClient({ chainId })
-    const offer = await readContract(client, {
-      address: addresses.BaseRegistrarImplementation as Address,
-      abi: registrarOfferAbi,
-      functionName: 'offers',
-      args: [tokenId],
-    })
-    return readContract(client, {
+    if (tokenId === undefined || !holder || offerNumber === undefined || !recipient) return null
+    return readContract(config.getClient({ chainId }), {
       address: getNamePolicyAddress(chainId)!,
       abi: namePolicyBonaFideAbi,
       functionName: 'acceptedClaimTerms',
-      args: [tokenId, holder, recipient, offer],
+      args: [tokenId, holder, recipient, offerNumber],
     })
   }
 
 export const useAcceptedClaimTerms = ({
   name,
   holder,
+  offerNumber,
   enabled,
 }: {
   name: string
   holder?: Address
+  offerNumber?: bigint
   enabled: boolean
 }) => {
   const initialOptions = useQueryOptions({
-    params: { name, holder },
+    params: { name, holder, offerNumber },
     functionName: 'getAcceptedClaimTerms',
     queryDependencyType: 'standard',
     queryFn: getAcceptedClaimTermsQueryFn,

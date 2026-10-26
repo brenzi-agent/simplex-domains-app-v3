@@ -67,7 +67,7 @@ const checks = (
 const offer = (state: QueryState & { holder?: string; isRecipient?: boolean } = {}) => {
   const { holder = HOLDER, isRecipient = true, ...query } = state
   return {
-    data: { holder, recipient: RECIPIENT, isHolder: false, isRecipient },
+    data: { holder, recipient: RECIPIENT, offerNumber: 3n, isHolder: false, isRecipient },
     isLoading: false,
     isError: false,
     isFetching: false,
@@ -309,7 +309,7 @@ describe('ClaimName', () => {
       payload: [
         {
           name: 'acceptBonaFideClaimTerms',
-          data: { name: 'alice.testing', holder: HOLDER, termsHash: TERMS },
+          data: { name: 'alice.testing', holder: HOLDER, offerNumber: 3n, termsHash: TERMS },
         },
         { name: 'claimName', data: { name: 'alice.testing', holder: HOLDER, digest: '0xaa' } },
       ],
@@ -369,6 +369,7 @@ describe('ClaimName', () => {
     expect(mockUseAcceptedClaimTerms).toHaveBeenCalledWith({
       name: 'alice.testing',
       holder: HOLDER,
+      offerNumber: 3n,
       enabled: true,
     })
     expect(screen.getByTestId('claim-name-confirm')).toBeDisabled()

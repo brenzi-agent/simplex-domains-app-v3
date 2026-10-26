@@ -79,6 +79,7 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
   const claimTerms = useAcceptedClaimTerms({
     name,
     holder: offer.data?.holder,
+    offerNumber: offer.data?.offerNumber,
     enabled: bonaFide.isListed,
   })
   const needsTermsAcceptance = bonaFide.isListed && claimTerms.data !== bonaFide.termsHash
@@ -113,11 +114,12 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
     dispatch({
       name: 'setTransactions',
       payload: [
-        ...(needsTermsAcceptance && acceptance.acceptedTermsHash
+        ...(needsTermsAcceptance && acceptance.acceptedTermsHash && offer.data
           ? [
               createTransactionItem('acceptBonaFideClaimTerms', {
                 name,
                 holder,
+                offerNumber: offer.data.offerNumber,
                 termsHash: acceptance.acceptedTermsHash,
               }),
             ]

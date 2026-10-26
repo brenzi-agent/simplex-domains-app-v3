@@ -22,14 +22,9 @@ vi.mock('./useQueryOptions', () => ({
 vi.mock('@app/constants/chains', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   getNamePolicyAddress: () => NAME_POLICY,
-  getSnrcAddresses: () => ({
-    SimplexNamePolicy: NAME_POLICY,
-    BaseRegistrarImplementation: REGISTRAR,
-  }),
 }))
 
 const NAME_POLICY = '0x4444444444444444444444444444444444444444'
-const REGISTRAR = '0x1111111111111111111111111111111111111111'
 const HOLDER = '0x2222222222222222222222222222222222222222'
 const RECIPIENT = '0x3333333333333333333333333333333333333333'
 const TERMS = `0x${'77'.repeat(32)}` as const
@@ -150,10 +145,14 @@ describe('getCommittedTermsQueryFn', () => {
 })
 
 describe('getAcceptedClaimTermsQueryFn', () => {
-  const getAcceptedClaimTerms = (holder?: `0x${string}`, recipient?: `0x${string}`) =>
+  const getAcceptedClaimTerms = (
+    holder?: `0x${string}`,
+    recipient?: `0x${string}`,
+    offerNumber?: bigint,
+  ) =>
     getAcceptedClaimTermsQueryFn(config)({
       queryKey: [
-        { name: 'alice.testing', holder },
+        { name: 'alice.testing', holder, offerNumber },
         1337,
         recipient,
         undefined,
@@ -161,29 +160,23 @@ describe('getAcceptedClaimTermsQueryFn', () => {
       ],
     } as never)
 
-  it("reads the recipient's acceptance for the holder's current offer", async () => {
-    mockReadContract.mockResolvedValueOnce(3n).mockResolvedValueOnce(TERMS)
-    expect(await getAcceptedClaimTerms(HOLDER, RECIPIENT)).toBe(TERMS)
-    const tokenId = BigInt(labelhash('alice'))
-    expect(mockReadContract).toHaveBeenNthCalledWith(
-      1,
-      expect.anything(),
-      expect.objectContaining({ address: REGISTRAR, functionName: 'offers', args: [tokenId] }),
-    )
-    expect(mockReadContract).toHaveBeenNthCalledWith(
-      2,
+  it("reads the recipient's acceptance for the reviewed offer", async () => {
+    mockReadContract.mockResolvedValueOnce(TERMS)
+    expect(await getAcceptedClaimTerms(HOLDER, RECIPIENT, 3n)).toBe(TERMS)
+    expect(mockReadContract).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         address: NAME_POLICY,
         functionName: 'acceptedClaimTerms',
-        args: [tokenId, HOLDER, RECIPIENT, 3n],
+        args: [BigInt(labelhash('alice')), HOLDER, RECIPIENT, 3n],
       }),
     )
   })
 
-  it('reads nothing without a holder or a connected recipient', async () => {
-    expect(await getAcceptedClaimTerms(undefined, RECIPIENT)).toBeNull()
-    expect(await getAcceptedClaimTerms(HOLDER, undefined)).toBeNull()
+  it('reads nothing without a holder, an offer or a connected recipient', async () => {
+    expect(await getAcceptedClaimTerms(undefined, RECIPIENT, 3n)).toBeNull()
+    expect(await getAcceptedClaimTerms(HOLDER, undefined, 3n)).toBeNull()
+    expect(await getAcceptedClaimTerms(HOLDER, RECIPIENT)).toBeNull()
     expect(mockReadContract).not.toHaveBeenCalled()
   })
 })
