@@ -680,7 +680,7 @@ const Pricing = ({
           </Button>
         ) : bonaFide.isListed && !acceptance.acceptedTermsHash ? (
           <Button data-testid="next-button" disabled>
-            Accept the terms to continue
+            {bonaFide.matches ? 'Accept the terms to continue' : 'Terms unavailable'}
           </Button>
         ) : (
           <ActionButton
@@ -691,7 +691,6 @@ const Pricing = ({
               paymentMethodChoice,
               reverseRecord,
               callback,
-              bonaFideTermsHash: acceptance.acceptedTermsHash,
               initiateMoonpayRegistrationMutation,
               seconds,
               balance,
@@ -699,6 +698,7 @@ const Pricing = ({
               estimatedTotal,
               ethPrice,
               durationType,
+              bonaFideTermsHash: acceptance.acceptedTermsHash,
             }}
           />
         )}

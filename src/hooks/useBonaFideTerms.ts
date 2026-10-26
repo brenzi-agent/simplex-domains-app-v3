@@ -54,7 +54,7 @@ export const useBonaFideTerms = ({ name }: { name: string }) => {
     isListed,
     termsHash,
     text: terms.data?.text,
-    matches: !!termsHash && terms.data?.hash === termsHash,
+    matches: isListed && terms.data?.hash === termsHash,
     isLoading: listing.isLoading || terms.isLoading,
     isFetching: listing.isFetching,
   }
@@ -69,7 +69,7 @@ export const getCommittedTermsQueryFn =
   }: QueryFunctionContext<CommittedTermsQueryKey>) => {
     if (!acceptor) return null
     return readContract(config.getClient({ chainId }), {
-      address: getSnrcAddresses(chainId).SimplexNamePolicy as Address,
+      address: getNamePolicyAddress(chainId)!,
       abi: namePolicyBonaFideAbi,
       functionName: 'acceptedTerms',
       args: [commitment, acceptor],
@@ -116,7 +116,7 @@ export const getAcceptedClaimTermsQueryFn =
       args: [tokenId],
     })
     return readContract(client, {
-      address: addresses.SimplexNamePolicy as Address,
+      address: getNamePolicyAddress(chainId)!,
       abi: namePolicyBonaFideAbi,
       functionName: 'acceptedClaimTerms',
       args: [tokenId, holder, recipient, offer],

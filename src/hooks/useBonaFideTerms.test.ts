@@ -44,10 +44,11 @@ const queries = (listing: QueryResult, terms: QueryResult = { isLoading: false }
   mockUseQuery.mockImplementation(((options: { queryKey: unknown[] }) =>
     options.queryKey[0] === 'bonaFideTerms' ? terms : listing) as never)
 
+beforeEach(() => {
+  vi.clearAllMocks()
+})
+
 describe('useBonaFideTerms', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
 
   it('shows the bundled terms of a listed name only when they hash to the terms on chain', () => {
     queries({ data: TERMS }, { data: { text: 'the terms', hash: TERMS } })
@@ -122,7 +123,6 @@ describe('getCommittedTermsQueryFn', () => {
   })
 
   it('reads nothing without a connected account', async () => {
-    mockReadContract.mockClear()
     expect(await getCommittedTerms()).toBeNull()
     expect(mockReadContract).not.toHaveBeenCalled()
   })
@@ -155,7 +155,6 @@ describe('getAcceptedClaimTermsQueryFn', () => {
   })
 
   it('reads nothing without a holder or a connected recipient', async () => {
-    mockReadContract.mockClear()
     expect(await getAcceptedClaimTerms(undefined, RECIPIENT)).toBeNull()
     expect(await getAcceptedClaimTerms(HOLDER, undefined)).toBeNull()
     expect(mockReadContract).not.toHaveBeenCalled()

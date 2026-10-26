@@ -1,12 +1,12 @@
 import type { TFunction } from 'react-i18next'
-import { Address, encodeFunctionData, Hex } from 'viem'
+import { Hex } from 'viem'
 
 import { makeCommitment, RegistrationParameters } from '@ensdomains/ensjs/utils'
 import { commitName } from '@ensdomains/ensjs/wallet'
 
-import { getSnrcAddresses } from '@app/constants/chains'
 import { Transaction, TransactionDisplayItem, TransactionFunctionParameters } from '@app/types'
-import { namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
+
+import acceptBonaFideTerms from './acceptBonaFideTerms'
 
 type Data = RegistrationParameters & { name: string; bonaFideTermsHash?: Hex }
 
@@ -38,14 +38,11 @@ const transaction = async ({
   data: { bonaFideTermsHash, ...data },
 }: TransactionFunctionParameters<Data>) => {
   if (!bonaFideTermsHash) return commitName.makeFunctionData(connectorClient, data)
-  return {
-    to: getSnrcAddresses(client.chain.id).SimplexNamePolicy as Address,
-    data: encodeFunctionData({
-      abi: namePolicyBonaFideAbi,
-      functionName: 'commitUnderBonaFideCommunityTerms',
-      args: [makeCommitment(data), bonaFideTermsHash],
-    }),
-  }
+  return acceptBonaFideTerms.transaction({
+    client,
+    connectorClient,
+    data: { name: data.name, commitment: makeCommitment(data), termsHash: bonaFideTermsHash },
+  })
 }
 
 export default { displayItems, transaction } satisfies Transaction<Data>

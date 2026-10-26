@@ -239,7 +239,11 @@ const Transactions = ({ registrationData, name, callback, onStart }: Props) => {
   const bonaFide = useBonaFideTerms({ name })
   const awaitsListedRegister =
     bonaFide.isListed && commitTx?.stage === 'complete' && !registerTx?.stage
-  const { data: committedTermsHash, isLoading: isCommittedTermsLoading } = useCommittedTerms({
+  const {
+    data: committedTermsHash,
+    isLoading: isCommittedTermsLoading,
+    isFetching: isCommittedTermsFetching,
+  } = useCommittedTerms({
     commitment,
     enabled: awaitsListedRegister,
   })
@@ -587,7 +591,11 @@ const Transactions = ({ registrationData, name, callback, onStart }: Props) => {
           <MobileFullWidth>
             <Button
               data-testid="accept-terms-button"
-              disabled={!acceptance.acceptedTermsHash || acceptTermsTx?.stage === 'sent'}
+              disabled={
+                !acceptance.acceptedTermsHash ||
+                acceptTermsTx?.stage === 'sent' ||
+                isCommittedTermsFetching
+              }
               onClick={makeAcceptTermsFlow}
             >
               {t('steps.transactions.acceptTerms')}

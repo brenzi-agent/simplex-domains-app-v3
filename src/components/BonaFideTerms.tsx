@@ -42,8 +42,7 @@ export const BonaFideTerms = ({ terms, acceptance }: Props) => (
         ))
         .otherwise(() => (
           <Typography color="red" data-testid="bona-fide-terms-mismatch">
-            The terms on chain differ from the terms this app can show, so they cannot be accepted
-            here.
+            This app cannot show the current terms, so they cannot be accepted here.
           </Typography>
         ))}
     </div>
