@@ -20,7 +20,7 @@ const displayItems = (
   },
   {
     label: 'action',
-    value: t('transaction.description.acceptBonaFideTerms'),
+    value: t('transaction.description.acceptBonaFideClaimTerms'),
   },
 ]
 

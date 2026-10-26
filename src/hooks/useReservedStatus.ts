@@ -1,7 +1,7 @@
-import { Address, keccak256, parseAbi, toBytes } from 'viem'
+import { keccak256, parseAbi, toBytes } from 'viem'
 import { useChainId, useReadContract, useReadContracts } from 'wagmi'
 
-import { getNamePolicy, getSnrcAddresses } from '@app/constants/chains'
+import { getNamePolicy } from '@app/constants/chains'
 
 const reservedAbi = parseAbi([
   'function reservedNames(bytes32) view returns (uint8)',
@@ -13,15 +13,12 @@ const reservedAbi = parseAbi([
  */
 export const useReservedStatus = ({ name }: { name?: string }) => {
   const chainId = useChainId()
-  const namePolicyAddress = getSnrcAddresses(chainId).SimplexNamePolicy as Address | undefined
+  const namePolicy = getNamePolicy(chainId)
   const label = name ? name.split('.')[0] : ''
-  const enabled =
-    !!namePolicyAddress &&
-    namePolicyAddress !== '0x0000000000000000000000000000000000000000' &&
-    !!label
+  const enabled = !!namePolicy && !!label
 
   const { data, isLoading } = useReadContract({
-    address: enabled ? namePolicyAddress! : undefined,
+    address: enabled ? namePolicy : undefined,
     abi: reservedAbi,
     functionName: 'reservedNames',
     args: enabled ? [keccak256(toBytes(label))] : undefined,

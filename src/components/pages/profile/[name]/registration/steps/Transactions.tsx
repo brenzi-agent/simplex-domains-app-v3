@@ -237,13 +237,13 @@ const Transactions = ({ registrationData, name, callback, onStart }: Props) => {
   const commitment = makeCommitment(registrationParams)
 
   const bonaFide = useBonaFideTerms({ name })
-  const awaitsRegister = bonaFide.isListed && commitTx?.stage === 'complete' && !registerTx
+  const awaitsListedRegister = bonaFide.isListed && commitTx?.stage === 'complete' && !registerTx
   const { data: committedTermsHash, isLoading: isCommittedTermsLoading } = useCommittedTerms({
     commitment,
-    enabled: awaitsRegister,
+    enabled: awaitsListedRegister,
   })
   const needsTermsAcceptance =
-    awaitsRegister && !!committedTermsHash && committedTermsHash !== bonaFide.termsHash
+    awaitsListedRegister && !!committedTermsHash && committedTermsHash !== bonaFide.termsHash
   const acceptance = useTermsAcceptance(bonaFide.termsHash)
 
   // E3 (clock-skew race): run the on-chain register simulation through the commit

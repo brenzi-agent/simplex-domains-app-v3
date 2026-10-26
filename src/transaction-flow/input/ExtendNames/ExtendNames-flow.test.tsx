@@ -188,7 +188,7 @@ describe('Extendnames', () => {
         }}
       />,
     )
-    expect(screen.queryByTestId('extend-names-confirm')).toHaveAttribute('disabled')
+    expect(screen.getByTestId('extend-names-confirm')).toHaveAttribute('disabled')
     expect(screen.queryByText('Invoice')).not.toBeInTheDocument()
   })
 })

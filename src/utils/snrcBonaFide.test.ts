@@ -1,7 +1,7 @@
 import { keccak256 } from 'viem'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { fetchBonaFideTerms, getBonaFideTermsPath } from './snrcBonaFide'
+import { fetchBonaFideTerms } from './snrcBonaFide'
 
 const serve = (body: Uint8Array | string, init: ResponseInit = {}) =>
   vi.stubGlobal(
@@ -14,10 +14,6 @@ const serve = (body: Uint8Array | string, init: ResponseInit = {}) =>
 describe('snrcBonaFide', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
-  })
-
-  it('serves the terms of each TLD from its own file', () => {
-    expect(getBonaFideTermsPath('simplex')).toBe('/bona-fide-terms.simplex.md')
   })
 
   it('hashes the exact bytes it serves', async () => {

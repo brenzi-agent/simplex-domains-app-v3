@@ -23,7 +23,7 @@ import {
 } from '@ensdomains/ensjs/public'
 import { BackdropSurface, Portal, Toast, Typography } from '@ensdomains/thorin'
 
-import { getSnrcAddresses, SupportedChain } from '@app/constants/chains'
+import { getNamePolicy, SupportedChain } from '@app/constants/chains'
 import {
   UseAddressRecordQueryKey,
   UseAddressRecordReturnType,
@@ -677,7 +677,7 @@ export const SearchInput = ({ size = 'extraLarge' }: { size?: 'medium' | 'extraL
   const { required: nftRequired, hasNft } = useNftGateStatus({ address })
   const nftGateBlocked = !!nftRequired && hasNft === false
   const publicClient = usePublicClient()
-  const namePolicyAddress = getSnrcAddresses(chainId).SimplexNamePolicy as Address | undefined
+  const namePolicyAddress = getNamePolicy(chainId)
   const [blockedReason, setBlockedReason] = useState<BlockedReason | null>(null)
   const handleBlocked = useCallback((reason: BlockedReason) => setBlockedReason(reason), [])
 

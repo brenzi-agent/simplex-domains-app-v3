@@ -50,6 +50,8 @@ const simplexControllerErrors = parseAbi([
   'error MaxCommitmentAgeTooHigh()',
   'error NameTooShort(string name, uint8 minLength)',
   'error NameReserved(string name)',
+  'error TermsMismatch(bytes32 accepted, bytes32 current)',
+  'error TermsNotAccepted(string name)',
   'error NftRequired()',
   'error MinCharLengthCanOnlyDecrease()',
   'error MinCharLengthZero()',

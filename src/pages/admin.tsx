@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ReactElement, useState } from 'react'
 import styled, { css } from 'styled-components'
-import { getAddress, keccak256, parseEventLogs, toBytes } from 'viem'
+import { Abi, getAddress, keccak256, parseEventLogs, toBytes } from 'viem'
 import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi'
 
 import { Button, Card, Heading, Input, Select, Typography } from '@ensdomains/thorin'
@@ -290,7 +290,7 @@ function AdminPanel() {
   const isOwner = address && ownerAddress && getAddress(address) === getAddress(ownerAddress)
 
   const execTx = async (
-    contract: typeof controller | typeof namePolicy,
+    contract: { address?: string; abi: Abi },
     functionName: string,
     args: any[],
   ) => {
@@ -299,7 +299,7 @@ function AdminPanel() {
       setStatus(`Sending ${functionName}...`)
       const hash = await walletClient.writeContract({
         address: contract.address as `0x${string}`,
-        abi: contract.abi as any,
+        abi: contract.abi,
         functionName: functionName as any,
         args: args as any,
       })

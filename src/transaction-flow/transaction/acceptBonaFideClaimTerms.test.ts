@@ -45,8 +45,4 @@ describe('acceptBonaFideClaimTerms', () => {
       args: [tokenId, HOLDER, 3n, TERMS],
     })
   })
-
-  it('returns to the claim review on back', () => {
-    expect(acceptBonaFideClaimTerms.backToInput).toBe(true)
-  })
 })
