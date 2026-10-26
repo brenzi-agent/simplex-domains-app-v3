@@ -9,7 +9,7 @@ import { useReservedNames } from './useReservedStatus'
 vi.mock('wagmi')
 vi.mock('@app/constants/chains', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  getNamePolicy: () => NAME_POLICY,
+  getNamePolicyAddress: () => NAME_POLICY,
 }))
 
 const NAME_POLICY = '0x4444444444444444444444444444444444444444'

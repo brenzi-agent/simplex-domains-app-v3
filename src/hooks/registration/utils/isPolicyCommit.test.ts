@@ -21,7 +21,7 @@ const acceptForClaim = encodeFunctionData({
   functionName: 'acceptBonaFideCommunityTermsForClaim',
   args: [1n, OTHER, 0n, TERMS],
 })
-const expected = { commitment: COMMITMENT, namePolicy: NAME_POLICY } as const
+const expected = { commitment: COMMITMENT, namePolicyAddress: NAME_POLICY } as const
 
 describe('isPolicyCommit', () => {
   it('matches the commitment sent through the name policy', () => {

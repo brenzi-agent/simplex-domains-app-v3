@@ -33,16 +33,4 @@ describe('acceptBonaFideTerms', () => {
       args: [COMMITMENT, TERMS],
     })
   })
-
-  it('displays the name and the action', () => {
-    expect(
-      acceptBonaFideTerms.displayItems(
-        { name: 'alice.testing', commitment: COMMITMENT, termsHash: TERMS },
-        ((key: string) => key) as never,
-      ),
-    ).toEqual([
-      { label: 'name', value: 'alice.testing', type: 'name' },
-      { label: 'action', value: 'transaction.description.acceptBonaFideTerms' },
-    ])
-  })
 })

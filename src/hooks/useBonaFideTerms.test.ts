@@ -9,8 +9,8 @@ import { useQuery } from '@app/utils/query/useQuery'
 
 import {
   getAcceptedClaimTermsQueryFn,
-  getListedTermsHashQueryFn,
   getCommittedTermsQueryFn,
+  getListedTermsHashQueryFn,
   useBonaFideTerms,
 } from './useBonaFideTerms'
 
@@ -21,7 +21,7 @@ vi.mock('./useQueryOptions', () => ({
 }))
 vi.mock('@app/constants/chains', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  getNamePolicy: () => NAME_POLICY,
+  getNamePolicyAddress: () => NAME_POLICY,
   getSnrcAddresses: () => ({
     SimplexNamePolicy: NAME_POLICY,
     BaseRegistrarImplementation: REGISTRAR,

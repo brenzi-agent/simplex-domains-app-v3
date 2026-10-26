@@ -27,7 +27,7 @@ vi.mock('viem/actions')
 vi.mock('../utils/getBlockMetadataByTimestamp')
 vi.mock('@app/constants/chains', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  getNamePolicy: () => NAME_POLICY,
+  getNamePolicyAddress: () => NAME_POLICY,
 }))
 vi.mock('@ensdomains/ensjs/contracts', () => ({
   ethRegistrarControllerCommitSnippet: [

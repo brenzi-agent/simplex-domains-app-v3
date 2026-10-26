@@ -44,9 +44,9 @@ export const getSnrcAddresses = (chainId: number | undefined) => {
   return deploymentAddresses
 }
 
-export const getNamePolicy = (chainId: number | undefined) => {
-  const namePolicy = getSnrcAddresses(chainId).SimplexNamePolicy as Address | undefined
-  return namePolicy && namePolicy !== zeroAddress ? namePolicy : undefined
+export const getNamePolicyAddress = (chainId: number | undefined) => {
+  const namePolicyAddress = getSnrcAddresses(chainId).SimplexNamePolicy as Address | undefined
+  return namePolicyAddress && namePolicyAddress !== zeroAddress ? namePolicyAddress : undefined
 }
 
 export const chainsWithEns = [mainnetWithEns, sepoliaWithEns, localhostWithEns] as const

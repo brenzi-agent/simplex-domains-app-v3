@@ -1,7 +1,7 @@
 import { keccak256, parseAbi, toBytes } from 'viem'
 import { useChainId, useReadContract, useReadContracts } from 'wagmi'
 
-import { getNamePolicy } from '@app/constants/chains'
+import { getNamePolicyAddress } from '@app/constants/chains'
 
 const reservedAbi = parseAbi([
   'function reservedNames(bytes32) view returns (uint8)',
@@ -13,12 +13,12 @@ const reservedAbi = parseAbi([
  */
 export const useReservedStatus = ({ name }: { name?: string }) => {
   const chainId = useChainId()
-  const namePolicy = getNamePolicy(chainId)
+  const namePolicyAddress = getNamePolicyAddress(chainId)
   const label = name ? name.split('.')[0] : ''
-  const enabled = !!namePolicy && !!label
+  const enabled = !!namePolicyAddress && !!label
 
   const { data, isLoading } = useReadContract({
-    address: enabled ? namePolicy : undefined,
+    address: enabled ? namePolicyAddress : undefined,
     abi: reservedAbi,
     functionName: 'reservedNames',
     args: enabled ? [keccak256(toBytes(label))] : undefined,
@@ -32,17 +32,18 @@ export const useReservedStatus = ({ name }: { name?: string }) => {
 }
 
 export const useReservedNames = ({ names }: { names: string[] }) => {
-  const namePolicy = getNamePolicy(useChainId())
+  const chainId = useChainId()
+  const namePolicyAddress = getNamePolicyAddress(chainId)
 
   const { data, isLoading } = useReadContracts({
     contracts: names.map((name) => ({
-      address: namePolicy,
+      address: namePolicyAddress,
       abi: reservedAbi,
       functionName: 'reservedNames',
       args: [keccak256(toBytes(name.split('.')[0]))],
     })),
     allowFailure: false,
-    query: { enabled: !!namePolicy, staleTime: 30_000 },
+    query: { enabled: !!namePolicyAddress, staleTime: 30_000 },
   })
 
   return {

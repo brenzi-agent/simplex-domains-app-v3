@@ -8,9 +8,9 @@ const policyCommitSelector = toFunctionSelector(
 
 export const isPolicyCommit = (
   { to, input }: { to: Address | null; input: Hex },
-  { commitment, namePolicy }: { commitment: Hex; namePolicy?: Address },
+  { commitment, namePolicyAddress }: { commitment: Hex; namePolicyAddress?: Address },
 ) => {
-  if (!to || !namePolicy || getAddress(to) !== getAddress(namePolicy)) return false
+  if (!to || !namePolicyAddress || getAddress(to) !== getAddress(namePolicyAddress)) return false
   if (!input.startsWith(policyCommitSelector)) return false
   const { args } = decodeFunctionData({ abi: namePolicyBonaFideAbi, data: input })
   return args[0] === commitment

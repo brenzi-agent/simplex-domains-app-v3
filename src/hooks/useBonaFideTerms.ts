@@ -2,11 +2,12 @@ import { QueryFunctionContext, queryOptions } from '@tanstack/react-query'
 import { Address, Hex, labelhash } from 'viem'
 import { readContract } from 'viem/actions'
 
-import { getNamePolicy, getSnrcAddresses } from '@app/constants/chains'
+import { getNamePolicyAddress, getSnrcAddresses } from '@app/constants/chains'
 import { ConfigWithEns, CreateQueryKey } from '@app/types'
 import { useQuery } from '@app/utils/query/useQuery'
 import { bonaFideTermsQueryOptions, namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
 import { getSnrcTokenId, registrarOfferAbi } from '@app/utils/snrcOffers'
+import { getTldFromName } from '@app/utils/utils'
 
 import { useQueryOptions } from './useQueryOptions'
 
@@ -15,19 +16,19 @@ type ListedTermsHashQueryKey = CreateQueryKey<{ name: string }, 'getListedTermsH
 export const getListedTermsHashQueryFn =
   (config: ConfigWithEns) =>
   async ({ queryKey: [{ name }, chainId] }: QueryFunctionContext<ListedTermsHashQueryKey>) => {
-    const namePolicy = getNamePolicy(chainId)
+    const namePolicyAddress = getNamePolicyAddress(chainId)
     const labels = name.split('.')
-    if (!namePolicy || labels.length !== 2) return null
+    if (!namePolicyAddress || labels.length !== 2) return null
     const client = config.getClient({ chainId })
     const [isListed, termsHash] = await Promise.all([
       readContract(client, {
-        address: namePolicy,
+        address: namePolicyAddress,
         abi: namePolicyBonaFideAbi,
         functionName: 'bonaFideNames',
         args: [labelhash(labels[0])],
       }),
       readContract(client, {
-        address: namePolicy,
+        address: namePolicyAddress,
         abi: namePolicyBonaFideAbi,
         functionName: 'termsHash',
       }),
@@ -47,7 +48,7 @@ export const useBonaFideTerms = ({ name }: { name: string }) => {
   )
   const termsHash = listing.data ?? undefined
   const isListed = !!termsHash
-  const terms = useQuery({ ...bonaFideTermsQueryOptions(name.split('.')[1]), enabled: isListed })
+  const terms = useQuery({ ...bonaFideTermsQueryOptions(getTldFromName(name)!), enabled: isListed })
 
   return {
     isListed,

@@ -15,7 +15,7 @@ import {
   getChainContractAddress,
 } from '@ensdomains/ensjs/contracts'
 
-import { getNamePolicy } from '@app/constants/chains'
+import { getNamePolicyAddress } from '@app/constants/chains'
 import { useTransactionFlow } from '@app/transaction-flow/TransactionFlowProvider'
 import { ConfigWithEns, CreateQueryKey, QueryConfig } from '@app/types'
 import { getIsCachedData } from '@app/utils/getIsCachedData'
@@ -191,7 +191,7 @@ const getExistingWrappedCommitmentQueryFn =
       args: [commitment],
       functionName: 'commit',
     })
-    const namePolicy = getNamePolicy(chainId)
+    const namePolicyAddress = getNamePolicyAddress(chainId)
 
     const transaction = (() => {
       const checksummedAddress = getAddress(address)
@@ -214,7 +214,7 @@ const getExistingWrappedCommitmentQueryFn =
       }
       const foundTransaction = blockData.transactions.find((t) => {
         if (getAddress(t.from) !== checksummedAddress) return false
-        if (isPolicyCommit(t, { commitment, namePolicy })) return true
+        if (isPolicyCommit(t, { commitment, namePolicyAddress })) return true
         if (!t.to || getAddress(t.to) !== checksummedEthRegistrarControllerAddress) return false
         if (t.input !== inputData) return false
         return true

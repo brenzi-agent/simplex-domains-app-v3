@@ -82,6 +82,7 @@ const bonaFide = (state: Partial<ReturnType<typeof useBonaFideTerms>> = {}) =>
     text: undefined,
     matches: false,
     isLoading: false,
+    isFetching: false,
     ...state,
   }) as ReturnType<typeof useBonaFideTerms>
 
