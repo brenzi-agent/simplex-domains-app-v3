@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Hex } from 'viem'
 
-export const useTermsCheckbox = (termsHash?: Hex, initialAcceptedTermsHash?: Hex) => {
+export const useTermsAcceptance = (termsHash?: Hex, initialAcceptedTermsHash?: Hex) => {
   const [acceptedTermsHash, setAcceptedTermsHash] = useState(initialAcceptedTermsHash)
   return {
     acceptedTermsHash: acceptedTermsHash === termsHash ? acceptedTermsHash : undefined,

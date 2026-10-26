@@ -13,7 +13,11 @@ import {
   MIN_REGISTRATION_DURATION,
 } from '@app/constants/simplex'
 import { Content } from '@app/layouts/Content'
-import { bonaFideTermsQueryOptions, getBonaFideTermsPath } from '@app/utils/snrcBonaFide'
+import {
+  bonaFideTermsQueryOptions,
+  getBonaFideTermsPath,
+  namePolicyBonaFideAbi,
+} from '@app/utils/snrcBonaFide'
 import { getUnregistrableLabelsError, parseLabels } from '@app/utils/snrcLabels'
 import { ONE_DAY } from '@app/utils/time'
 
@@ -89,13 +93,6 @@ const namePolicyAbi = [
     name: 'registerReserved',
     outputs: [],
     stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [],
-    name: 'termsHash',
-    outputs: [{ type: 'bytes32' }],
-    stateMutability: 'view',
     type: 'function',
   },
   {
@@ -273,7 +270,7 @@ function AdminPanel() {
           : await publicClient
               .readContract({
                 address: namePolicyAddress as `0x${string}`,
-                abi: namePolicyAbi,
+                abi: namePolicyBonaFideAbi,
                 functionName: 'termsHash',
               })
               .catch(() => 'unreadable'),

@@ -9,7 +9,7 @@ import { BonaFideTerms } from '@app/components/BonaFideTerms'
 import { useAcceptedClaimTerms, useBonaFideTerms } from '@app/hooks/useBonaFideTerms'
 import { useClaimChecks } from '@app/hooks/useClaimChecks'
 import { useNameOffer } from '@app/hooks/useNameOffer'
-import { useTermsCheckbox } from '@app/hooks/useTermsCheckbox'
+import { useTermsAcceptance } from '@app/hooks/useTermsAcceptance'
 import { DetailedSwitch } from '@app/transaction-flow/input/ProfileEditor/components/DetailedSwitch'
 import { createTransactionItem } from '@app/transaction-flow/transaction'
 import TransactionLoader from '@app/transaction-flow/TransactionLoader'
@@ -82,7 +82,7 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
     enabled: bonaFide.isListed,
   })
   const needsTermsAcceptance = bonaFide.isListed && claimTerms.data !== bonaFide.termsHash
-  const acceptance = useTermsCheckbox(bonaFide.termsHash)
+  const acceptance = useTermsAcceptance(bonaFide.termsHash)
   // The review stays as first read: a later change fails claimName's re-check instead of
   // replacing what the recipient is reading.
   const firstChecks = useRef(checks.data)
@@ -115,7 +115,7 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
       payload: [
         ...(needsTermsAcceptance && acceptance.acceptedTermsHash
           ? [
-              createTransactionItem('acceptBonaFideTerms', {
+              createTransactionItem('acceptBonaFideClaimTerms', {
                 name,
                 holder,
                 termsHash: acceptance.acceptedTermsHash,

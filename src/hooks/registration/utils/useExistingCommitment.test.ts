@@ -1,6 +1,7 @@
 /* eslint-disable no-promise-executor-return */
 import { mockFunction, renderHook, waitFor } from '@app/test-utils'
 
+import { encodeFunctionData } from 'viem'
 import { getBlock, getTransactionReceipt, readContract } from 'viem/actions'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAccount, useBlockNumber, useChainId, useConfig, usePublicClient } from 'wagmi'
@@ -10,11 +11,11 @@ import { useInvalidateOnBlock } from '@app/hooks/chain/useInvalidateOnBlock'
 import { useAddRecentTransaction } from '@app/hooks/transactions/useAddRecentTransaction'
 import { useIsSafeApp } from '@app/hooks/useIsSafeApp'
 import { useTransactionFlow } from '@app/transaction-flow/TransactionFlowProvider'
+import { namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
 
 import { useExistingCommitment } from '../useExistingCommitment'
 import { getBlockMetadataByTimestamp } from './getBlockMetadataByTimestamp'
-import { Address, encodeFunctionData } from 'viem'
-import { namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
+import { Address } from 'viem'
 
 vi.mock('@app/hooks/chain/useChainName')
 vi.mock('@app/hooks/transactions/useAddRecentTransaction')
@@ -26,8 +27,10 @@ vi.mock('viem/actions')
 vi.mock('../utils/getBlockMetadataByTimestamp')
 vi.mock('@app/constants/chains', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  getSnrcAddresses: () => ({ SimplexNamePolicy: '0x4444444444444444444444444444444444444444' }),
+  getNamePolicy: () => NAME_POLICY,
 }))
+
+const NAME_POLICY = '0x4444444444444444444444444444444444444444'
 vi.mock('@ensdomains/ensjs/contracts', () => ({
   ethRegistrarControllerCommitSnippet: [
     {
@@ -340,7 +343,6 @@ describe('useExistingCommitment', () => {
 
   describe('Commit through the name policy', () => {
     it('finds the commitment sent through the name policy', async () => {
-      const namePolicy = '0x4444444444444444444444444444444444444444'
       const setTransactionHashFromUpdate = vi.fn()
       mockUseTransactionFlow.mockReturnValue({ setTransactionHashFromUpdate })
       const client = {
@@ -364,7 +366,7 @@ describe('useExistingCommitment', () => {
         args: [mockCommitment, `0x${'77'.repeat(32)}`],
       })
       mockGetBlock.mockResolvedValueOnce({
-        transactions: [{ from: mockAddress, to: namePolicy, input, hash: '0xcommit' }],
+        transactions: [{ from: mockAddress, to: NAME_POLICY, input, hash: '0xcommit' }],
       } as any)
       mockGetTransactionReceipt.mockResolvedValueOnce({ status: 'success' } as any)
 

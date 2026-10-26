@@ -277,9 +277,9 @@
       },
       "bannerMsg": "Extending for multiple years will save money on network costs by avoiding yearly transactions.",
       "gasLimitError": "Not enough ETH in wallet",
-      "tooEarly": "A name can be paid up at most three years ahead. This one can be extended by a year from {{date}}.",
       "reserved_one": "{{names}} is reserved and cannot be renewed.",
-      "reserved_other": "{{names}} are reserved and cannot be renewed."
+      "reserved_other": "{{names}} are reserved and cannot be renewed.",
+      "tooEarly": "A name can be paid up at most three years ahead. This one can be extended by a year from {{date}}."
     },
     "transferProfile": {
       "title": "Transfer Profile",

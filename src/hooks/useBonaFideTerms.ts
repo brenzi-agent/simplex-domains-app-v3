@@ -1,19 +1,14 @@
 import { QueryFunctionContext, queryOptions } from '@tanstack/react-query'
-import { Address, Hex, labelhash, zeroAddress } from 'viem'
+import { Address, Hex, labelhash } from 'viem'
 import { readContract } from 'viem/actions'
 
-import { getSnrcAddresses } from '@app/constants/chains'
+import { getNamePolicy, getSnrcAddresses } from '@app/constants/chains'
 import { ConfigWithEns, CreateQueryKey } from '@app/types'
 import { useQuery } from '@app/utils/query/useQuery'
 import { bonaFideTermsQueryOptions, namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
 import { getSnrcTokenId, registrarOfferAbi } from '@app/utils/snrcOffers'
 
 import { useQueryOptions } from './useQueryOptions'
-
-const getNamePolicy = (chainId: number) => {
-  const namePolicy = getSnrcAddresses(chainId).SimplexNamePolicy as Address | undefined
-  return namePolicy && namePolicy !== zeroAddress ? namePolicy : undefined
-}
 
 type BonaFideListingQueryKey = CreateQueryKey<{ name: string }, 'getBonaFideListing', 'standard'>
 
@@ -37,36 +32,29 @@ export const getBonaFideListingQueryFn =
         functionName: 'termsHash',
       }),
     ])
-    return { isListed, termsHash }
+    return isListed ? termsHash : null
   }
 
-export const useBonaFideTerms = ({ name }: { name?: string }) => {
+export const useBonaFideTerms = ({ name }: { name: string }) => {
   const initialOptions = useQueryOptions({
-    params: { name: name ?? '' },
+    params: { name },
     functionName: 'getBonaFideListing',
     queryDependencyType: 'standard',
     queryFn: getBonaFideListingQueryFn,
   })
   const listing = useQuery(
-    queryOptions({
-      queryKey: initialOptions.queryKey,
-      queryFn: initialOptions.queryFn,
-      enabled: !!name,
-    }),
+    queryOptions({ queryKey: initialOptions.queryKey, queryFn: initialOptions.queryFn }),
   )
-  const isListed = !!listing.data?.isListed
-  const termsHash = listing.data?.termsHash
-  const terms = useQuery({
-    ...bonaFideTermsQueryOptions(name?.split('.')[1] ?? ''),
-    enabled: isListed,
-  })
+  const termsHash = listing.data ?? undefined
+  const isListed = !!termsHash
+  const terms = useQuery({ ...bonaFideTermsQueryOptions(name.split('.')[1]), enabled: isListed })
 
   return {
     isListed,
     termsHash,
     text: terms.data?.text,
     matches: !!termsHash && terms.data?.hash === termsHash,
-    isLoading: listing.isLoading || (isListed && terms.isLoading),
+    isLoading: listing.isLoading || terms.isLoading,
     isFetching: listing.isFetching,
   }
 }
@@ -78,10 +66,9 @@ export const getCommittedTermsQueryFn =
   async ({
     queryKey: [{ commitment }, chainId, acceptor],
   }: QueryFunctionContext<CommittedTermsQueryKey>) => {
-    const namePolicy = getNamePolicy(chainId)
-    if (!namePolicy || !acceptor) return null
+    if (!acceptor) return null
     return readContract(config.getClient({ chainId }), {
-      address: namePolicy,
+      address: getSnrcAddresses(chainId).SimplexNamePolicy as Address,
       abi: namePolicyBonaFideAbi,
       functionName: 'acceptedTerms',
       args: [commitment, acceptor],

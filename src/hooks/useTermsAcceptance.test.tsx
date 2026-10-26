@@ -2,14 +2,14 @@ import { act, renderHook } from '@app/test-utils'
 
 import { describe, expect, it } from 'vitest'
 
-import { useTermsCheckbox } from './useTermsCheckbox'
+import { useTermsAcceptance } from './useTermsAcceptance'
 
 const TERMS = `0x${'77'.repeat(32)}` as const
 const NEW_TERMS = `0x${'88'.repeat(32)}` as const
 
-describe('useTermsCheckbox', () => {
+describe('useTermsAcceptance', () => {
   it('keeps an acceptance only for the terms it was given for', () => {
-    const { result, rerender } = renderHook(({ terms }) => useTermsCheckbox(terms, TERMS), {
+    const { result, rerender } = renderHook(({ terms }) => useTermsAcceptance(terms, TERMS), {
       initialProps: { terms: TERMS as `0x${string}` },
     })
     expect(result.current.acceptedTermsHash).toBe(TERMS)

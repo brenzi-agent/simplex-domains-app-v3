@@ -4,7 +4,7 @@ import { match } from 'ts-pattern'
 import { CheckboxRow, Helper, Typography } from '@ensdomains/thorin'
 
 import { useBonaFideTerms } from '@app/hooks/useBonaFideTerms'
-import { useTermsCheckbox } from '@app/hooks/useTermsCheckbox'
+import { useTermsAcceptance } from '@app/hooks/useTermsAcceptance'
 
 export const TermsText = styled.pre(
   ({ theme }) => css`
@@ -17,7 +17,7 @@ export const TermsText = styled.pre(
 
 type Props = {
   terms: ReturnType<typeof useBonaFideTerms>
-  acceptance: ReturnType<typeof useTermsCheckbox>
+  acceptance: ReturnType<typeof useTermsAcceptance>
 }
 
 export const BonaFideTerms = ({ terms, acceptance }: Props) => (

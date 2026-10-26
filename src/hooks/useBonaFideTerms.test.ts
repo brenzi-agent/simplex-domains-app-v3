@@ -21,6 +21,7 @@ vi.mock('./useQueryOptions', () => ({
 }))
 vi.mock('@app/constants/chains', async (importOriginal) => ({
   ...(await importOriginal<object>()),
+  getNamePolicy: () => NAME_POLICY,
   getSnrcAddresses: () => ({
     SimplexNamePolicy: NAME_POLICY,
     BaseRegistrarImplementation: REGISTRAR,
@@ -39,7 +40,7 @@ const mockUseQuery = mockFunction(useQuery)
 const config = { getClient: () => ({}) } as unknown as ConfigWithEns
 
 type QueryResult = { data?: unknown; isLoading?: boolean; isFetching?: boolean }
-const queries = (listing: QueryResult, terms: QueryResult = {}) =>
+const queries = (listing: QueryResult, terms: QueryResult = { isLoading: false }) =>
   mockUseQuery.mockImplementation(((options: { queryKey: unknown[] }) =>
     options.queryKey[0] === 'bonaFideTerms' ? terms : listing) as never)
 
@@ -49,35 +50,31 @@ describe('useBonaFideTerms', () => {
   })
 
   it('shows the bundled terms of a listed name only when they hash to the terms on chain', () => {
-    queries({ data: { isListed: true, termsHash: TERMS } }, { data: { text: 'the terms', hash: TERMS } })
+    queries({ data: TERMS }, { data: { text: 'the terms', hash: TERMS } })
     const { result } = renderHook(() => useBonaFideTerms({ name: 'alice.simplex' }))
     expect(mockUseQuery).toHaveBeenCalledWith(
       expect.objectContaining({ queryKey: ['bonaFideTerms', '/bona-fide-terms.simplex.md'], enabled: true }),
     )
     expect(result.current).toMatchObject({ isListed: true, text: 'the terms', matches: true })
 
-    queries({ data: { isListed: true, termsHash: TERMS } }, { data: { text: 'old', hash: `0x${'88'.repeat(32)}` } })
+    queries({ data: TERMS }, { data: { text: 'old', hash: `0x${'88'.repeat(32)}` } })
     expect(renderHook(() => useBonaFideTerms({ name: 'alice.simplex' })).result.current.matches).toBe(false)
   })
 
-  it('fetches no terms for an unlisted name and reads nothing without a name', () => {
-    queries({ data: { isListed: false, termsHash: TERMS } })
+  it('fetches no terms for an unlisted name', () => {
+    queries({ data: null })
     renderHook(() => useBonaFideTerms({ name: 'alice.simplex' }))
     expect(mockUseQuery).toHaveBeenCalledWith(
       expect.objectContaining({ queryKey: ['bonaFideTerms', '/bona-fide-terms.simplex.md'], enabled: false }),
-    )
-    renderHook(() => useBonaFideTerms({}))
-    expect(mockUseQuery).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: ['getBonaFideListing'], enabled: false }),
     )
   })
 
   it('waits for the listing and for the terms text, and reports a listing refetch', () => {
     queries({ isLoading: true })
     expect(renderHook(() => useBonaFideTerms({ name: 'alice.simplex' })).result.current.isLoading).toBe(true)
-    queries({ data: { isListed: true, termsHash: TERMS } }, { isLoading: true })
+    queries({ data: TERMS }, { isLoading: true })
     expect(renderHook(() => useBonaFideTerms({ name: 'alice.simplex' })).result.current.isLoading).toBe(true)
-    queries({ data: { isListed: false, termsHash: TERMS }, isFetching: true })
+    queries({ data: null, isFetching: true })
     expect(renderHook(() => useBonaFideTerms({ name: 'alice.simplex' })).result.current).toMatchObject({
       isLoading: false,
       isFetching: true,
@@ -93,14 +90,16 @@ describe('getBonaFideListingQueryFn', () => {
 
   it("reads a 2LD's listing and the current terms from the name policy", async () => {
     mockReadContract.mockResolvedValueOnce(true).mockResolvedValueOnce(TERMS)
-    expect(await getListing('alice.simplex')).toEqual({ isListed: true, termsHash: TERMS })
+    expect(await getListing('alice.simplex')).toBe(TERMS)
     expect(mockReadContract).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ address: NAME_POLICY, functionName: 'bonaFideNames', args: [labelhash('alice')] }),
     )
   })
 
-  it('reads nothing for a subname', async () => {
+  it('returns nothing for an unlisted name and reads nothing for a subname', async () => {
+    mockReadContract.mockResolvedValueOnce(false).mockResolvedValueOnce(TERMS)
+    expect(await getListing('alice.simplex')).toBeNull()
     mockReadContract.mockClear()
     expect(await getListing('mobile.alice.simplex')).toBeNull()
     expect(mockReadContract).not.toHaveBeenCalled()

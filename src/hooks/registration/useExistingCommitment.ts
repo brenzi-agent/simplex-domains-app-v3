@@ -1,6 +1,5 @@
 import { QueryFunctionContext, useQuery } from '@tanstack/react-query'
 import {
-  Address,
   decodeFunctionData,
   encodeFunctionData,
   getAddress,
@@ -16,7 +15,7 @@ import {
   getChainContractAddress,
 } from '@ensdomains/ensjs/contracts'
 
-import { getSnrcAddresses } from '@app/constants/chains'
+import { getNamePolicy } from '@app/constants/chains'
 import { useTransactionFlow } from '@app/transaction-flow/TransactionFlowProvider'
 import { ConfigWithEns, CreateQueryKey, QueryConfig } from '@app/types'
 import { getIsCachedData } from '@app/utils/getIsCachedData'
@@ -27,7 +26,7 @@ import { useAddRecentTransaction } from '../transactions/useAddRecentTransaction
 import { useIsSafeApp } from '../useIsSafeApp'
 import { useQueryOptions } from '../useQueryOptions'
 import { getBlockMetadataByTimestamp } from './utils/getBlockMetadataByTimestamp'
-import { isPolicyCommitFor } from './utils/isPolicyCommitFor'
+import { isPolicyCommit } from './utils/isPolicyCommit'
 
 type UseExistingCommitmentParameters = {
   commitment?: Hex
@@ -192,10 +191,7 @@ const getExistingWrappedCommitmentQueryFn =
       args: [commitment],
       functionName: 'commit',
     })
-    const isPolicyCommit = isPolicyCommitFor({
-      commitment,
-      namePolicy: getSnrcAddresses(chainId).SimplexNamePolicy as Address | undefined,
-    })
+    const namePolicy = getNamePolicy(chainId)
 
     const transaction = (() => {
       const checksummedAddress = getAddress(address)
@@ -218,7 +214,7 @@ const getExistingWrappedCommitmentQueryFn =
       }
       const foundTransaction = blockData.transactions.find((t) => {
         if (getAddress(t.from) !== checksummedAddress) return false
-        if (t.to && isPolicyCommit(t.to, t.input)) return true
+        if (isPolicyCommit(t, { commitment, namePolicy })) return true
         if (!t.to || getAddress(t.to) !== checksummedEthRegistrarControllerAddress) return false
         if (t.input !== inputData) return false
         return true

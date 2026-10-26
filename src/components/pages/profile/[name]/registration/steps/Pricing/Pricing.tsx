@@ -29,7 +29,6 @@ import { BonaFideTerms } from '@app/components/BonaFideTerms'
 import { Card } from '@app/components/Card'
 import { SimplexInfoPanel } from '@app/components/SimplexInfoPanel'
 import { MAX_REGISTRATION_DURATION, MIN_REGISTRATION_DURATION } from '@app/constants/simplex'
-import { useTermsCheckbox } from '@app/hooks/useTermsCheckbox'
 import { useControllerLimits } from '@app/hooks/useControllerLimits'
 import { useNftGateStatus } from '@app/hooks/useNftGateStatus'
 import { useReservedStatus } from '@app/hooks/useReservedStatus'
@@ -38,6 +37,7 @@ import { useContractAddress } from '@app/hooks/chain/useContractAddress'
 import { useEstimateFullRegistration } from '@app/hooks/gasEstimation/useEstimateRegistration'
 import { useBonaFideTerms } from '@app/hooks/useBonaFideTerms'
 import { useEthPrice } from '@app/hooks/useEthPrice'
+import { useTermsAcceptance } from '@app/hooks/useTermsAcceptance'
 import { useBreakpoint } from '@app/utils/BreakpointProvider'
 
 import FullInvoice from '../../FullInvoice'
@@ -530,7 +530,7 @@ const Pricing = ({
   const blockedByNftGate = nftRequired && hasNft === false
   const { isReserved } = useReservedStatus({ name })
   const bonaFide = useBonaFideTerms({ name })
-  const acceptance = useTermsCheckbox(bonaFide.termsHash, registrationData.bonaFideTermsHash)
+  const acceptance = useTermsAcceptance(bonaFide.termsHash, registrationData.bonaFideTermsHash)
   const { minCharLength } = useControllerLimits()
   const labelLen = name ? name.split('.')[0].length : 0
   // minCharLength is only enforced on top-level register(); subname creation
@@ -691,7 +691,7 @@ const Pricing = ({
               paymentMethodChoice,
               reverseRecord,
               callback,
-              bonaFideTermsHash: bonaFide.isListed ? acceptance.acceptedTermsHash : undefined,
+              bonaFideTermsHash: acceptance.acceptedTermsHash,
               initiateMoonpayRegistrationMutation,
               seconds,
               balance,

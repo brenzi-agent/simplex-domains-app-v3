@@ -18,7 +18,7 @@ import { useSimulateRegistration } from '@app/hooks/registration/useSimulateRegi
 import { useDurationCountdown } from '@app/hooks/time/useDurationCountdown'
 import { useBonaFideTerms, useCommittedTerms } from '@app/hooks/useBonaFideTerms'
 import useRegistrationParams from '@app/hooks/useRegistrationParams'
-import { useTermsCheckbox } from '@app/hooks/useTermsCheckbox'
+import { useTermsAcceptance } from '@app/hooks/useTermsAcceptance'
 import { CenteredTypography } from '@app/transaction-flow/input/ProfileEditor/components/CenteredTypography'
 import { createTransactionItem } from '@app/transaction-flow/transaction'
 import { useTransactionFlow } from '@app/transaction-flow/TransactionFlowProvider'
@@ -237,16 +237,14 @@ const Transactions = ({ registrationData, name, callback, onStart }: Props) => {
   const commitment = makeCommitment(registrationParams)
 
   const bonaFide = useBonaFideTerms({ name })
-  const { data: committedTermsHash } = useCommittedTerms({
+  const awaitsRegister = bonaFide.isListed && commitTx?.stage === 'complete' && !registerTx
+  const { data: committedTermsHash, isLoading: isCommittedTermsLoading } = useCommittedTerms({
     commitment,
-    enabled: bonaFide.isListed && commitTx?.stage === 'complete' && !registerTx,
+    enabled: awaitsRegister,
   })
   const needsTermsAcceptance =
-    bonaFide.isListed &&
-    commitTx?.stage === 'complete' &&
-    !!committedTermsHash &&
-    committedTermsHash !== bonaFide.termsHash
-  const acceptance = useTermsCheckbox(bonaFide.termsHash)
+    awaitsRegister && !!committedTermsHash && committedTermsHash !== bonaFide.termsHash
+  const acceptance = useTermsAcceptance(bonaFide.termsHash)
 
   // E3 (clock-skew race): run the on-chain register simulation through the commit
   // `complete` stage too, not just `sent`. It simulates register() against real chain
@@ -642,7 +640,7 @@ const Transactions = ({ registrationData, name, callback, onStart }: Props) => {
               <MobileFullWidth>
                 <Button
                   data-testid="finish-button"
-                  disabled={needsTermsAcceptance}
+                  disabled={needsTermsAcceptance || bonaFide.isLoading || isCommittedTermsLoading}
                   onClick={!registerTx ? makeRegisterNameFlow : showRegisterTransaction}
                 >
                   {t('steps.transactions.completeRegistration')}

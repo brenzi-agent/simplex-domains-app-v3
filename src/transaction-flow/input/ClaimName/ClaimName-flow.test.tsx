@@ -307,7 +307,7 @@ describe('ClaimName', () => {
       name: 'setTransactions',
       payload: [
         {
-          name: 'acceptBonaFideTerms',
+          name: 'acceptBonaFideClaimTerms',
           data: { name: 'alice.testing', holder: HOLDER, termsHash: TERMS },
         },
         { name: 'claimName', data: { name: 'alice.testing', holder: HOLDER, digest: '0xaa' } },
