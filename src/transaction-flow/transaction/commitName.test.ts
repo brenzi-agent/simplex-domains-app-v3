@@ -14,6 +14,7 @@ const TERMS = `0x${'77'.repeat(32)}` as const
 
 vi.mock('@app/constants/chains', async (importOriginal) => ({
   ...(await importOriginal<object>()),
+  getNamePolicyAddress: () => NAME_POLICY,
   getSnrcAddresses: () => ({ SimplexNamePolicy: NAME_POLICY }),
 }))
 vi.mock('@ensdomains/ensjs/wallet', () => ({

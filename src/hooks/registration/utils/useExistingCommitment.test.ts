@@ -359,7 +359,10 @@ describe('useExistingCommitment', () => {
         .mockResolvedValueOnce(mockTime)
         .mockResolvedValueOnce(mockMaxAge)
         .mockResolvedValueOnce(mockTime + 30n)
-      mockGetBlockMetadataByTimestamp.mockResolvedValueOnce({ ok: true, data: { hash: '0xblock' } } as any)
+      mockGetBlockMetadataByTimestamp.mockResolvedValueOnce({
+        ok: true,
+        data: { hash: '0xblock' },
+      } as any)
       const input = encodeFunctionData({
         abi: namePolicyBonaFideAbi,
         functionName: 'commitUnderBonaFideCommunityTerms',

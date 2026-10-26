@@ -239,16 +239,11 @@ const Transactions = ({ registrationData, name, callback, onStart }: Props) => {
   const bonaFide = useBonaFideTerms({ name })
   const awaitsListedRegister =
     bonaFide.isListed && commitTx?.stage === 'complete' && !registerTx?.stage
-  const {
-    data: committedTermsHash,
-    isLoading: isCommittedTermsLoading,
-    isFetching: isCommittedTermsFetching,
-  } = useCommittedTerms({
-    commitment,
-    enabled: awaitsListedRegister,
-  })
+  const committedTerms = useCommittedTerms({ commitment, enabled: awaitsListedRegister })
   const needsTermsAcceptance =
-    awaitsListedRegister && committedTermsHash != null && committedTermsHash !== bonaFide.termsHash
+    awaitsListedRegister &&
+    committedTerms.data != null &&
+    committedTerms.data !== bonaFide.termsHash
   const acceptance = useTermsAcceptance(bonaFide.termsHash)
 
   // E3 (clock-skew race): run the on-chain register simulation through the commit
@@ -594,7 +589,7 @@ const Transactions = ({ registrationData, name, callback, onStart }: Props) => {
               disabled={
                 !acceptance.acceptedTermsHash ||
                 acceptTermsTx?.stage === 'sent' ||
-                isCommittedTermsFetching
+                committedTerms.isFetching
               }
               onClick={makeAcceptTermsFlow}
             >
@@ -649,7 +644,7 @@ const Transactions = ({ registrationData, name, callback, onStart }: Props) => {
               <MobileFullWidth>
                 <Button
                   data-testid="finish-button"
-                  disabled={needsTermsAcceptance || bonaFide.isLoading || isCommittedTermsLoading}
+                  disabled={needsTermsAcceptance || bonaFide.isLoading || committedTerms.isLoading}
                   onClick={!registerTx ? makeRegisterNameFlow : showRegisterTransaction}
                 >
                   {t('steps.transactions.completeRegistration')}

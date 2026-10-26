@@ -1,5 +1,5 @@
 import { QueryFunctionContext, queryOptions } from '@tanstack/react-query'
-import { Address, Hex, labelhash } from 'viem'
+import { Address, Hex, toHex } from 'viem'
 import { readContract } from 'viem/actions'
 
 import { getNamePolicyAddress, getSnrcAddresses } from '@app/constants/chains'
@@ -17,15 +17,15 @@ export const getListedTermsHashQueryFn =
   (config: ConfigWithEns) =>
   async ({ queryKey: [{ name }, chainId] }: QueryFunctionContext<ListedTermsHashQueryKey>) => {
     const namePolicyAddress = getNamePolicyAddress(chainId)
-    const labels = name.split('.')
-    if (!namePolicyAddress || labels.length !== 2) return null
+    const tokenId = getSnrcTokenId(name)
+    if (!namePolicyAddress || tokenId === undefined) return null
     const client = config.getClient({ chainId })
     const [isListed, termsHash] = await Promise.all([
       readContract(client, {
         address: namePolicyAddress,
         abi: namePolicyBonaFideAbi,
         functionName: 'bonaFideNames',
-        args: [labelhash(labels[0])],
+        args: [toHex(tokenId, { size: 32 })],
       }),
       readContract(client, {
         address: namePolicyAddress,

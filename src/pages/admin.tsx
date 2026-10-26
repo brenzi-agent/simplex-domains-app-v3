@@ -324,7 +324,7 @@ function AdminPanel() {
     }).map(({ args }) => args.name)
     if (skipped.length)
       setStatus(
-        `addBonaFideNames confirmed; skipped, registered or in grace: ${skipped.join(', ')}`,
+        `addBonaFideNames confirmed; skipped (registered or in grace): ${skipped.join(', ')}`,
       )
   }
 

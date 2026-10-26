@@ -2,7 +2,7 @@ import type { TFunction } from 'react-i18next'
 import { Address, encodeFunctionData, Hex } from 'viem'
 import { readContract } from 'viem/actions'
 
-import { getSnrcAddresses } from '@app/constants/chains'
+import { getNamePolicyAddress, getSnrcAddresses } from '@app/constants/chains'
 import { Transaction, TransactionDisplayItem, TransactionFunctionParameters } from '@app/types'
 import { namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
 import { getSnrcTokenId, registrarOfferAbi } from '@app/utils/snrcOffers'
@@ -34,7 +34,7 @@ const transaction = async ({ client, data }: TransactionFunctionParameters<Data>
     args: [tokenId],
   })
   return {
-    to: addresses.SimplexNamePolicy as Address,
+    to: getNamePolicyAddress(client.chain.id)!,
     data: encodeFunctionData({
       abi: namePolicyBonaFideAbi,
       functionName: 'acceptBonaFideCommunityTermsForClaim',

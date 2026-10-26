@@ -49,34 +49,47 @@ beforeEach(() => {
 })
 
 describe('useBonaFideTerms', () => {
-
   it('shows the bundled terms of a listed name only when they hash to the terms on chain', () => {
     queries({ data: TERMS }, { data: { text: 'the terms', hash: TERMS } })
-    const { result } = renderHook(() => useBonaFideTerms({ name: 'alice.simplex' }))
+    const { result } = renderHook(() => useBonaFideTerms({ name: 'alice.testing' }))
     expect(mockUseQuery).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: ['bonaFideTerms', '/bona-fide-terms.simplex.md'], enabled: true }),
+      expect.objectContaining({
+        queryKey: ['bonaFideTerms', '/bona-fide-terms.testing.md'],
+        enabled: true,
+      }),
     )
     expect(result.current).toMatchObject({ isListed: true, text: 'the terms', matches: true })
 
     queries({ data: TERMS }, { data: { text: 'old', hash: `0x${'88'.repeat(32)}` } })
-    expect(renderHook(() => useBonaFideTerms({ name: 'alice.simplex' })).result.current.matches).toBe(false)
+    expect(
+      renderHook(() => useBonaFideTerms({ name: 'alice.testing' })).result.current.matches,
+    ).toBe(false)
   })
 
   it('fetches no terms for an unlisted name', () => {
     queries({ data: null })
-    renderHook(() => useBonaFideTerms({ name: 'alice.simplex' }))
+    renderHook(() => useBonaFideTerms({ name: 'alice.testing' }))
     expect(mockUseQuery).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: ['bonaFideTerms', '/bona-fide-terms.simplex.md'], enabled: false }),
+      expect.objectContaining({
+        queryKey: ['bonaFideTerms', '/bona-fide-terms.testing.md'],
+        enabled: false,
+      }),
     )
   })
 
   it('waits for the listing and for the terms text, and reports a listing refetch', () => {
     queries({ isLoading: true })
-    expect(renderHook(() => useBonaFideTerms({ name: 'alice.simplex' })).result.current.isLoading).toBe(true)
+    expect(
+      renderHook(() => useBonaFideTerms({ name: 'alice.testing' })).result.current.isLoading,
+    ).toBe(true)
     queries({ data: TERMS }, { isLoading: true })
-    expect(renderHook(() => useBonaFideTerms({ name: 'alice.simplex' })).result.current.isLoading).toBe(true)
+    expect(
+      renderHook(() => useBonaFideTerms({ name: 'alice.testing' })).result.current.isLoading,
+    ).toBe(true)
     queries({ data: null, isFetching: true })
-    expect(renderHook(() => useBonaFideTerms({ name: 'alice.simplex' })).result.current).toMatchObject({
+    expect(
+      renderHook(() => useBonaFideTerms({ name: 'alice.testing' })).result.current,
+    ).toMatchObject({
       isLoading: false,
       isFetching: true,
     })
@@ -91,18 +104,22 @@ describe('getListedTermsHashQueryFn', () => {
 
   it("reads a 2LD's listing and the current terms from the name policy", async () => {
     mockReadContract.mockResolvedValueOnce(true).mockResolvedValueOnce(TERMS)
-    expect(await getListing('alice.simplex')).toBe(TERMS)
+    expect(await getListing('alice.testing')).toBe(TERMS)
     expect(mockReadContract).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ address: NAME_POLICY, functionName: 'bonaFideNames', args: [labelhash('alice')] }),
+      expect.objectContaining({
+        address: NAME_POLICY,
+        functionName: 'bonaFideNames',
+        args: [labelhash('alice')],
+      }),
     )
   })
 
   it('returns nothing for an unlisted name and reads nothing for a subname', async () => {
     mockReadContract.mockResolvedValueOnce(false).mockResolvedValueOnce(TERMS)
-    expect(await getListing('alice.simplex')).toBeNull()
+    expect(await getListing('alice.testing')).toBeNull()
     mockReadContract.mockClear()
-    expect(await getListing('mobile.alice.simplex')).toBeNull()
+    expect(await getListing('mobile.alice.testing')).toBeNull()
     expect(mockReadContract).not.toHaveBeenCalled()
   })
 })
@@ -118,7 +135,11 @@ describe('getCommittedTermsQueryFn', () => {
     expect(await getCommittedTerms(RECIPIENT)).toBe(TERMS)
     expect(mockReadContract).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ address: NAME_POLICY, functionName: 'acceptedTerms', args: [COMMITMENT, RECIPIENT] }),
+      expect.objectContaining({
+        address: NAME_POLICY,
+        functionName: 'acceptedTerms',
+        args: [COMMITMENT, RECIPIENT],
+      }),
     )
   })
 
@@ -131,7 +152,13 @@ describe('getCommittedTermsQueryFn', () => {
 describe('getAcceptedClaimTermsQueryFn', () => {
   const getAcceptedClaimTerms = (holder?: `0x${string}`, recipient?: `0x${string}`) =>
     getAcceptedClaimTermsQueryFn(config)({
-      queryKey: [{ name: 'alice.testing', holder }, 1337, recipient, undefined, 'getAcceptedClaimTerms'],
+      queryKey: [
+        { name: 'alice.testing', holder },
+        1337,
+        recipient,
+        undefined,
+        'getAcceptedClaimTerms',
+      ],
     } as never)
 
   it("reads the recipient's acceptance for the holder's current offer", async () => {
