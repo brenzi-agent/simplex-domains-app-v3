@@ -10,14 +10,15 @@ import { Button, CountdownCircle, Dialog, Heading, Spinner } from '@ensdomains/t
 import MobileFullWidth from '@app/components/@atoms/MobileFullWidth'
 import { StatusDots } from '@app/components/@atoms/StatusDots/StatusDots'
 import { TextWithTooltip } from '@app/components/@atoms/TextWithTooltip/TextWithTooltip'
-import { BonaFideTerms, useTermsAcceptance } from '@app/components/BonaFideTerms'
+import { BonaFideTerms } from '@app/components/BonaFideTerms'
 import { Card } from '@app/components/Card'
 import { useCheckRegistered } from '@app/hooks/registration/useCheckRegistered'
 import { useExistingCommitment } from '@app/hooks/registration/useExistingCommitment'
 import { useSimulateRegistration } from '@app/hooks/registration/useSimulateRegistration'
 import { useDurationCountdown } from '@app/hooks/time/useDurationCountdown'
-import { useAcceptedTerms, useBonaFideTerms } from '@app/hooks/useBonaFideTerms'
+import { useBonaFideTerms, useCommittedTerms } from '@app/hooks/useBonaFideTerms'
 import useRegistrationParams from '@app/hooks/useRegistrationParams'
+import { useTermsCheckbox } from '@app/hooks/useTermsCheckbox'
 import { CenteredTypography } from '@app/transaction-flow/input/ProfileEditor/components/CenteredTypography'
 import { createTransactionItem } from '@app/transaction-flow/transaction'
 import { useTransactionFlow } from '@app/transaction-flow/TransactionFlowProvider'
@@ -227,6 +228,7 @@ const Transactions = ({ registrationData, name, callback, onStart }: Props) => {
   const acceptTermsTx = getLatestTransaction(acceptTermsKey)
   const [resetOpen, setResetOpen] = useState(false)
 
+  const { bonaFideTermsHash } = registrationData
   const registrationParams = useRegistrationParams({
     name,
     owner: address!,
@@ -235,24 +237,16 @@ const Transactions = ({ registrationData, name, callback, onStart }: Props) => {
   const commitment = makeCommitment(registrationParams)
 
   const bonaFide = useBonaFideTerms({ name })
-  const { data: committedTermsHash, refetch: refetchCommittedTerms } = useAcceptedTerms({
+  const { data: committedTermsHash } = useCommittedTerms({
     commitment,
-    acceptor: address,
-    enabled: bonaFide.isListed && commitTx?.stage === 'complete',
+    enabled: bonaFide.isListed && commitTx?.stage === 'complete' && !registerTx,
   })
-  const refetchListing = bonaFide.refetch
-  useEffect(() => {
-    if (commitTx?.stage === 'complete') refetchListing?.()
-  }, [commitTx?.stage, refetchListing])
-  useEffect(() => {
-    if (acceptTermsTx?.stage === 'complete') refetchCommittedTerms()
-  }, [acceptTermsTx?.stage, refetchCommittedTerms])
   const needsTermsAcceptance =
     bonaFide.isListed &&
     commitTx?.stage === 'complete' &&
-    committedTermsHash !== undefined &&
+    !!committedTermsHash &&
     committedTermsHash !== bonaFide.termsHash
-  const { acceptedTermsHash, setAccepted } = useTermsAcceptance(bonaFide.termsHash)
+  const acceptance = useTermsCheckbox(bonaFide.termsHash)
 
   // E3 (clock-skew race): run the on-chain register simulation through the commit
   // `complete` stage too, not just `sent`. It simulates register() against real chain
@@ -380,23 +374,13 @@ const Transactions = ({ registrationData, name, callback, onStart }: Props) => {
     onStart()
     createTransactionFlow(commitKey, {
       transactions: [
-        createTransactionItem('commitName', {
-          ...registrationParams,
-          bonaFideTermsHash: registrationData.bonaFideTermsHash,
-        }),
+        createTransactionItem('commitName', { ...registrationParams, bonaFideTermsHash }),
       ],
       requiresManualCleanup: true,
       autoClose: true,
       resumeLink: `/register/${name}`,
     })
-  }, [
-    commitKey,
-    createTransactionFlow,
-    name,
-    onStart,
-    registrationParams,
-    registrationData.bonaFideTermsHash,
-  ])
+  }, [commitKey, createTransactionFlow, name, onStart, registrationParams, bonaFideTermsHash])
 
   const makeRegisterNameFlow = () => {
     createTransactionFlow(registerKey, {
@@ -408,15 +392,10 @@ const Transactions = ({ registrationData, name, callback, onStart }: Props) => {
   }
 
   const makeAcceptTermsFlow = () => {
-    if (!acceptedTermsHash) return
+    const termsHash = acceptance.acceptedTermsHash
+    if (!termsHash) return
     createTransactionFlow(acceptTermsKey, {
-      transactions: [
-        createTransactionItem('acceptBonaFideTerms', {
-          name,
-          commitment,
-          termsHash: acceptedTermsHash,
-        }),
-      ],
+      transactions: [createTransactionItem('acceptBonaFideTerms', { name, commitment, termsHash })],
       autoClose: true,
     })
   }
@@ -605,15 +584,11 @@ const Transactions = ({ registrationData, name, callback, onStart }: Props) => {
       </CenteredTypography>
       {needsTermsAcceptance && (
         <>
-          <BonaFideTerms
-            terms={bonaFide}
-            accepted={!!acceptedTermsHash}
-            onAcceptedChange={setAccepted}
-          />
+          <BonaFideTerms terms={bonaFide} acceptance={acceptance} />
           <MobileFullWidth>
             <Button
               data-testid="accept-terms-button"
-              disabled={!acceptedTermsHash || acceptTermsTx?.stage === 'sent'}
+              disabled={!acceptance.acceptedTermsHash || acceptTermsTx?.stage === 'sent'}
               onClick={makeAcceptTermsFlow}
             >
               {t('transaction.description.acceptBonaFideTerms', { ns: 'common' })}

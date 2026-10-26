@@ -1,55 +1,64 @@
-import {
-  QueryFunctionContext,
-  queryOptions,
-  useQuery as useTanstackQuery,
-} from '@tanstack/react-query'
+import { QueryFunctionContext, queryOptions } from '@tanstack/react-query'
 import { Address, Hex, labelhash, zeroAddress } from 'viem'
 import { readContract } from 'viem/actions'
-import { useChainId, useReadContract, useReadContracts } from 'wagmi'
 
 import { getSnrcAddresses } from '@app/constants/chains'
 import { ConfigWithEns, CreateQueryKey } from '@app/types'
 import { useQuery } from '@app/utils/query/useQuery'
-import {
-  fetchBonaFideTerms,
-  getBonaFideTermsPath,
-  namePolicyBonaFideAbi,
-} from '@app/utils/snrcBonaFide'
+import { bonaFideTermsQueryOptions, namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
 import { getSnrcTokenId, registrarOfferAbi } from '@app/utils/snrcOffers'
 
 import { useQueryOptions } from './useQueryOptions'
 
-export const useNamePolicyAddress = () => {
-  const namePolicy = getSnrcAddresses(useChainId()).SimplexNamePolicy as Address | undefined
+const getNamePolicy = (chainId: number) => {
+  const namePolicy = getSnrcAddresses(chainId).SimplexNamePolicy as Address | undefined
   return namePolicy && namePolicy !== zeroAddress ? namePolicy : undefined
 }
 
-export const useBonaFideTerms = ({ name }: { name?: string }) => {
-  const namePolicy = useNamePolicyAddress()
-  const labels = name?.split('.') ?? []
-  const enabled = !!namePolicy && labels.length === 2 && !!labels[0]
+type BonaFideListingQueryKey = CreateQueryKey<{ name: string }, 'getBonaFideListing', 'standard'>
 
-  const { data, isFetching, refetch } = useReadContracts({
-    contracts: [
-      {
+export const getBonaFideListingQueryFn =
+  (config: ConfigWithEns) =>
+  async ({ queryKey: [{ name }, chainId] }: QueryFunctionContext<BonaFideListingQueryKey>) => {
+    const namePolicy = getNamePolicy(chainId)
+    const labels = name.split('.')
+    if (!namePolicy || labels.length !== 2) return null
+    const client = config.getClient({ chainId })
+    const [isListed, termsHash] = await Promise.all([
+      readContract(client, {
         address: namePolicy,
         abi: namePolicyBonaFideAbi,
         functionName: 'bonaFideNames',
-        args: [labelhash(labels[0] ?? '')],
-      },
-      { address: namePolicy, abi: namePolicyBonaFideAbi, functionName: 'termsHash' },
-    ],
-    allowFailure: false,
-    query: { enabled, staleTime: 30_000 },
-  })
-  const [isListed = false, termsHash] = data ?? []
+        args: [labelhash(labels[0])],
+      }),
+      readContract(client, {
+        address: namePolicy,
+        abi: namePolicyBonaFideAbi,
+        functionName: 'termsHash',
+      }),
+    ])
+    return { isListed, termsHash }
+  }
 
-  const path = getBonaFideTermsPath(labels[1] ?? '')
-  const terms = useTanstackQuery({
-    queryKey: ['bonaFideTerms', path],
-    queryFn: () => fetchBonaFideTerms(path),
+export const useBonaFideTerms = ({ name }: { name?: string }) => {
+  const initialOptions = useQueryOptions({
+    params: { name: name ?? '' },
+    functionName: 'getBonaFideListing',
+    queryDependencyType: 'standard',
+    queryFn: getBonaFideListingQueryFn,
+  })
+  const listing = useQuery(
+    queryOptions({
+      queryKey: initialOptions.queryKey,
+      queryFn: initialOptions.queryFn,
+      enabled: !!name,
+    }),
+  )
+  const isListed = !!listing.data?.isListed
+  const termsHash = listing.data?.termsHash
+  const terms = useQuery({
+    ...bonaFideTermsQueryOptions(name?.split('.')[1] ?? ''),
     enabled: isListed,
-    staleTime: Infinity,
   })
 
   return {
@@ -57,34 +66,48 @@ export const useBonaFideTerms = ({ name }: { name?: string }) => {
     termsHash,
     text: terms.data?.text,
     matches: !!termsHash && terms.data?.hash === termsHash,
-    isLoading: enabled && (isFetching || (isListed && terms.isLoading)),
-    refetch: enabled ? refetch : undefined,
+    isLoading: listing.isLoading || (isListed && terms.isLoading),
+    isFetching: listing.isFetching,
   }
 }
 
-export const useAcceptedTerms = ({
+type CommittedTermsQueryKey = CreateQueryKey<{ commitment: Hex }, 'getCommittedTerms', 'standard'>
+
+export const getCommittedTermsQueryFn =
+  (config: ConfigWithEns) =>
+  async ({
+    queryKey: [{ commitment }, chainId, acceptor],
+  }: QueryFunctionContext<CommittedTermsQueryKey>) => {
+    const namePolicy = getNamePolicy(chainId)
+    if (!namePolicy || !acceptor) return null
+    return readContract(config.getClient({ chainId }), {
+      address: namePolicy,
+      abi: namePolicyBonaFideAbi,
+      functionName: 'acceptedTerms',
+      args: [commitment, acceptor],
+    })
+  }
+
+export const useCommittedTerms = ({
   commitment,
-  acceptor,
   enabled,
 }: {
   commitment: Hex
-  acceptor?: Address
   enabled: boolean
 }) => {
-  const namePolicy = useNamePolicyAddress()
-  return useReadContract({
-    address: namePolicy,
-    abi: namePolicyBonaFideAbi,
-    functionName: 'acceptedTerms',
-    args: [commitment, acceptor!],
-    query: { enabled: enabled && !!namePolicy && !!acceptor },
+  const initialOptions = useQueryOptions({
+    params: { commitment },
+    functionName: 'getCommittedTerms',
+    queryDependencyType: 'standard',
+    queryFn: getCommittedTermsQueryFn,
   })
+  return useQuery(
+    queryOptions({ queryKey: initialOptions.queryKey, queryFn: initialOptions.queryFn, enabled }),
+  )
 }
 
-type UseAcceptedClaimTermsParameters = { name: string; holder?: Address }
-
 type AcceptedClaimTermsQueryKey = CreateQueryKey<
-  UseAcceptedClaimTermsParameters,
+  { name: string; holder?: Address },
   'getAcceptedClaimTerms',
   'standard'
 >
@@ -95,8 +118,8 @@ export const getAcceptedClaimTermsQueryFn =
     queryKey: [{ name, holder }, chainId, recipient],
   }: QueryFunctionContext<AcceptedClaimTermsQueryKey>) => {
     const tokenId = getSnrcTokenId(name)
-    const addresses = getSnrcAddresses(chainId)
     if (tokenId === undefined || !holder || !recipient) return null
+    const addresses = getSnrcAddresses(chainId)
     const client = config.getClient({ chainId })
     const offer = await readContract(client, {
       address: addresses.BaseRegistrarImplementation as Address,
@@ -116,18 +139,18 @@ export const useAcceptedClaimTerms = ({
   name,
   holder,
   enabled,
-}: UseAcceptedClaimTermsParameters & { enabled: boolean }) => {
+}: {
+  name: string
+  holder?: Address
+  enabled: boolean
+}) => {
   const initialOptions = useQueryOptions({
     params: { name, holder },
     functionName: 'getAcceptedClaimTerms',
     queryDependencyType: 'standard',
     queryFn: getAcceptedClaimTermsQueryFn,
   })
-
-  const preparedOptions = queryOptions({
-    queryKey: initialOptions.queryKey,
-    queryFn: initialOptions.queryFn,
-  })
-
-  return useQuery({ ...preparedOptions, enabled: enabled && !!holder })
+  return useQuery(
+    queryOptions({ queryKey: initialOptions.queryKey, queryFn: initialOptions.queryFn, enabled }),
+  )
 }

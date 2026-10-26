@@ -13,7 +13,7 @@ import {
   MIN_REGISTRATION_DURATION,
 } from '@app/constants/simplex'
 import { Content } from '@app/layouts/Content'
-import { fetchBonaFideTerms, getBonaFideTermsPath } from '@app/utils/snrcBonaFide'
+import { bonaFideTermsQueryOptions, getBonaFideTermsPath } from '@app/utils/snrcBonaFide'
 import { getUnregistrableLabelsError, parseLabels } from '@app/utils/snrcLabels'
 import { ONE_DAY } from '@app/utils/time'
 
@@ -213,11 +213,9 @@ function AdminPanel() {
   const [unListName, setUnListName] = useState('')
   const [termsUri, setTermsUri] = useState('')
   const [termsHash, setTermsHash] = useState<string>('')
-  const termsPath = getBonaFideTermsPath(process.env.NEXT_PUBLIC_SIMPLEX_TLD || 'testing')
-  const { data: bundledTerms } = useQuery({
-    queryKey: ['bonaFideTerms', termsPath],
-    queryFn: () => fetchBonaFideTerms(termsPath),
-  })
+  const tld = process.env.NEXT_PUBLIC_SIMPLEX_TLD || 'testing'
+  const termsPath = getBonaFideTermsPath(tld)
+  const { data: bundledTerms } = useQuery(bonaFideTermsQueryOptions(tld))
   const regDays = Number(regDuration)
   const isRegDurationValid =
     Number.isInteger(regDays) && regDays >= MIN_RESERVED_DAYS && regDays <= MAX_RESERVED_DAYS
@@ -255,14 +253,6 @@ function AdminPanel() {
       setOwnerAddress(owner as string)
       setMinCharLen(Number(minLen))
       setNftGate(gate as boolean)
-      if (!isZeroish(namePolicyAddress))
-        setTermsHash(
-          await publicClient.readContract({
-            address: namePolicyAddress as `0x${string}`,
-            abi: namePolicyAbi,
-            functionName: 'termsHash',
-          }),
-        )
 
       // Live re-deployment check: confirm each non-zero address actually has a
       // contract on the connected chain (catches a stale env or wrong network).
@@ -277,6 +267,17 @@ function AdminPanel() {
         next[name] = !!codes[i] && codes[i] !== '0x'
       })
       setCodeStatus(next)
+      setTermsHash(
+        isZeroish(namePolicyAddress)
+          ? 'not deployed'
+          : await publicClient
+              .readContract({
+                address: namePolicyAddress as `0x${string}`,
+                abi: namePolicyAbi,
+                functionName: 'termsHash',
+              })
+              .catch(() => 'unreadable'),
+      )
 
       setLoaded(true)
       setStatus('')

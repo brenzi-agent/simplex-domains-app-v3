@@ -1,3 +1,4 @@
+import { queryOptions } from '@tanstack/react-query'
 import { keccak256, parseAbi } from 'viem'
 
 export const namePolicyBonaFideAbi = parseAbi([
@@ -18,4 +19,13 @@ export const fetchBonaFideTerms = async (path: string) => {
     throw new Error(`No bona fide terms at ${path}`)
   const bytes = new Uint8Array(await response.arrayBuffer())
   return { text: new TextDecoder('utf-8', { fatal: true }).decode(bytes), hash: keccak256(bytes) }
+}
+
+export const bonaFideTermsQueryOptions = (tld: string) => {
+  const path = getBonaFideTermsPath(tld)
+  return queryOptions({
+    queryKey: ['bonaFideTerms', path],
+    queryFn: () => fetchBonaFideTerms(path),
+    staleTime: Infinity,
+  })
 }

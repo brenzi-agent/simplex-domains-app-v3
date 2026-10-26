@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { usePreviousDistinct } from 'react-use'
 import styled, { css } from 'styled-components'
 import { match, P } from 'ts-pattern'
-import type { Address } from 'viem'
+import type { Address, Hex } from 'viem'
 import { useBalance } from 'wagmi'
 import { GetBalanceData } from 'wagmi/query'
 
@@ -25,10 +25,11 @@ import { RegistrationTimeComparisonBanner } from '@app/components/@atoms/Registr
 import { Spacer } from '@app/components/@atoms/Spacer'
 import { ConnectButton } from '@app/components/@molecules/ConnectButton/ConnectButton'
 import { DateSelection } from '@app/components/@molecules/DateSelection/DateSelection'
-import { BonaFideTerms, useTermsAcceptance } from '@app/components/BonaFideTerms'
+import { BonaFideTerms } from '@app/components/BonaFideTerms'
 import { Card } from '@app/components/Card'
 import { SimplexInfoPanel } from '@app/components/SimplexInfoPanel'
 import { MAX_REGISTRATION_DURATION, MIN_REGISTRATION_DURATION } from '@app/constants/simplex'
+import { useTermsCheckbox } from '@app/hooks/useTermsCheckbox'
 import { useControllerLimits } from '@app/hooks/useControllerLimits'
 import { useNftGateStatus } from '@app/hooks/useNftGateStatus'
 import { useReservedStatus } from '@app/hooks/useReservedStatus'
@@ -379,6 +380,7 @@ export type ActionButtonProps = {
   estimatedTotal?: bigint
   ethPrice?: bigint
   durationType: 'date' | 'years'
+  bonaFideTermsHash?: Hex
 }
 
 export const ActionButton = (props: ActionButtonProps) => {
@@ -462,6 +464,7 @@ export const ActionButton = (props: ActionButtonProps) => {
         estimatedTotal,
         ethPrice,
         durationType,
+        bonaFideTermsHash,
         callback,
       }) => (
         <Button
@@ -474,6 +477,7 @@ export const ActionButton = (props: ActionButtonProps) => {
               estimatedTotal,
               ethPrice,
               durationType,
+              bonaFideTermsHash,
             })
           }
           disabled={!paymentMethodChoice}
@@ -526,10 +530,7 @@ const Pricing = ({
   const blockedByNftGate = nftRequired && hasNft === false
   const { isReserved } = useReservedStatus({ name })
   const bonaFide = useBonaFideTerms({ name })
-  const { acceptedTermsHash, setAccepted } = useTermsAcceptance(
-    bonaFide.termsHash,
-    registrationData.bonaFideTermsHash,
-  )
+  const acceptance = useTermsCheckbox(bonaFide.termsHash, registrationData.bonaFideTermsHash)
   const { minCharLength } = useControllerLimits()
   const labelLen = name ? name.split('.')[0].length : 0
   // minCharLength is only enforced on top-level register(); subname creation
@@ -624,13 +625,7 @@ const Pricing = ({
     <StyledCard>
       <StyledHeading>{t('heading', { name: beautifiedName })}</StyledHeading>
       <SimplexInfoPanel name={name} address={address} />
-      {bonaFide.isListed && (
-        <BonaFideTerms
-          terms={bonaFide}
-          accepted={!!acceptedTermsHash}
-          onAcceptedChange={setAccepted}
-        />
-      )}
+      {bonaFide.isListed && <BonaFideTerms terms={bonaFide} acceptance={acceptance} />}
       <DateSelection
         {...{ seconds, setSeconds, minSeconds, maxSeconds, durationType }}
         onChangeDurationType={setDurationType}
@@ -679,11 +674,11 @@ const Pricing = ({
           <Button data-testid="next-button" disabled>
             SimpleX NFT required
           </Button>
-        ) : bonaFide.isLoading ? (
+        ) : bonaFide.isLoading || bonaFide.isFetching ? (
           <Button data-testid="next-button" disabled loading>
             {t('action.next', { ns: 'common' })}
           </Button>
-        ) : bonaFide.isListed && !acceptedTermsHash ? (
+        ) : bonaFide.isListed && !acceptance.acceptedTermsHash ? (
           <Button data-testid="next-button" disabled>
             Accept the terms to continue
           </Button>
@@ -695,11 +690,8 @@ const Pricing = ({
               hasFailedMoonpayTransaction,
               paymentMethodChoice,
               reverseRecord,
-              callback: (data: RegistrationStepData['pricing']) =>
-                callback({
-                  ...data,
-                  bonaFideTermsHash: bonaFide.isListed ? acceptedTermsHash : undefined,
-                }),
+              callback,
+              bonaFideTermsHash: bonaFide.isListed ? acceptance.acceptedTermsHash : undefined,
               initiateMoonpayRegistrationMutation,
               seconds,
               balance,

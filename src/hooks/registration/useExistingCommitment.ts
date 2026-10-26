@@ -27,7 +27,7 @@ import { useAddRecentTransaction } from '../transactions/useAddRecentTransaction
 import { useIsSafeApp } from '../useIsSafeApp'
 import { useQueryOptions } from '../useQueryOptions'
 import { getBlockMetadataByTimestamp } from './utils/getBlockMetadataByTimestamp'
-import { isCommitCallFor } from './utils/isCommitCallFor'
+import { isPolicyCommitFor } from './utils/isPolicyCommitFor'
 
 type UseExistingCommitmentParameters = {
   commitment?: Hex
@@ -192,9 +192,8 @@ const getExistingWrappedCommitmentQueryFn =
       args: [commitment],
       functionName: 'commit',
     })
-    const isCommitCall = isCommitCallFor({
+    const isPolicyCommit = isPolicyCommitFor({
       commitment,
-      controller: ethRegistrarControllerAddress,
       namePolicy: getSnrcAddresses(chainId).SimplexNamePolicy as Address | undefined,
     })
 
@@ -219,7 +218,10 @@ const getExistingWrappedCommitmentQueryFn =
       }
       const foundTransaction = blockData.transactions.find((t) => {
         if (getAddress(t.from) !== checksummedAddress) return false
-        return !!t.to && isCommitCall(t.to, t.input)
+        if (t.to && isPolicyCommit(t.to, t.input)) return true
+        if (!t.to || getAddress(t.to) !== checksummedEthRegistrarControllerAddress) return false
+        if (t.input !== inputData) return false
+        return true
       })
       return foundTransaction
     })()

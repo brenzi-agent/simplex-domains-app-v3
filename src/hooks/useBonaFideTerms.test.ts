@@ -1,21 +1,23 @@
-import { mockFunction, renderHook, waitFor } from '@app/test-utils'
+import { mockFunction, renderHook } from '@app/test-utils'
 
-import { useQuery } from '@tanstack/react-query'
 import { labelhash } from 'viem'
 import { readContract } from 'viem/actions'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useChainId, useReadContracts } from 'wagmi'
 
 import { ConfigWithEns } from '@app/types'
-import { fetchBonaFideTerms } from '@app/utils/snrcBonaFide'
+import { useQuery } from '@app/utils/query/useQuery'
 
-import { getAcceptedClaimTermsQueryFn, useBonaFideTerms } from './useBonaFideTerms'
+import {
+  getAcceptedClaimTermsQueryFn,
+  getBonaFideListingQueryFn,
+  getCommittedTermsQueryFn,
+  useBonaFideTerms,
+} from './useBonaFideTerms'
 
-vi.mock('wagmi')
 vi.mock('viem/actions')
-vi.mock('@app/utils/snrcBonaFide', async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  fetchBonaFideTerms: vi.fn(),
+vi.mock('@app/utils/query/useQuery')
+vi.mock('./useQueryOptions', () => ({
+  useQueryOptions: () => ({ queryKey: ['getBonaFideListing'], queryFn: vi.fn() }),
 }))
 vi.mock('@app/constants/chains', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -30,111 +32,107 @@ const REGISTRAR = '0x1111111111111111111111111111111111111111'
 const HOLDER = '0x2222222222222222222222222222222222222222'
 const RECIPIENT = '0x3333333333333333333333333333333333333333'
 const TERMS = `0x${'77'.repeat(32)}` as const
+const COMMITMENT = `0x${'cc'.repeat(32)}` as const
 
-const mockUseChainId = mockFunction(useChainId)
-const mockUseReadContracts = mockFunction(useReadContracts)
-const mockFetchBonaFideTerms = vi.mocked(fetchBonaFideTerms)
+const mockReadContract = vi.mocked(readContract)
+const mockUseQuery = mockFunction(useQuery)
+const config = { getClient: () => ({}) } as unknown as ConfigWithEns
 
-const chain = (data?: readonly [boolean, `0x${string}`]) =>
-  mockUseReadContracts.mockReturnValue({ data, isFetching: !data } as never)
+type QueryResult = { data?: unknown; isLoading?: boolean; isFetching?: boolean }
+const queries = (listing: QueryResult, terms: QueryResult = {}) =>
+  mockUseQuery.mockImplementation(((options: { queryKey: unknown[] }) =>
+    options.queryKey[0] === 'bonaFideTerms' ? terms : listing) as never)
 
 describe('useBonaFideTerms', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockUseChainId.mockReturnValue(1337)
   })
 
-  it('reads the listing and the current terms of a 2LD from the name policy', () => {
-    chain([false, TERMS])
+  it('shows the bundled terms of a listed name only when they hash to the terms on chain', () => {
+    queries({ data: { isListed: true, termsHash: TERMS } }, { data: { text: 'the terms', hash: TERMS } })
     const { result } = renderHook(() => useBonaFideTerms({ name: 'alice.simplex' }))
-    expect(mockUseReadContracts).toHaveBeenCalledWith(
-      expect.objectContaining({
-        contracts: [
-          expect.objectContaining({
-            address: NAME_POLICY,
-            functionName: 'bonaFideNames',
-            args: [labelhash('alice')],
-          }),
-          expect.objectContaining({ address: NAME_POLICY, functionName: 'termsHash' }),
-        ],
-        query: expect.objectContaining({ enabled: true }),
-      }),
+    expect(mockUseQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: ['bonaFideTerms', '/bona-fide-terms.simplex.md'], enabled: true }),
     )
-    expect(result.current).toMatchObject({ isListed: false, isLoading: false })
-    expect(mockFetchBonaFideTerms).not.toHaveBeenCalled()
-  })
-
-  it('does not read for a subname', () => {
-    chain()
-    const { result } = renderHook(() => useBonaFideTerms({ name: 'mobile.alice.simplex' }))
-    expect(mockUseReadContracts).toHaveBeenCalledWith(
-      expect.objectContaining({ query: expect.objectContaining({ enabled: false }) }),
-    )
-    expect(result.current.refetch).toBeUndefined()
-  })
-
-  it('shows the bundled terms of a listed name only when they hash to the terms on chain', async () => {
-    chain([true, TERMS])
-    mockFetchBonaFideTerms.mockResolvedValue({ text: 'the terms', hash: TERMS })
-    const { result } = renderHook(() => useBonaFideTerms({ name: 'alice.simplex' }))
-    await waitFor(() => expect(result.current.isLoading).toBe(false))
-    expect(mockFetchBonaFideTerms).toHaveBeenCalledWith('/bona-fide-terms.simplex.md')
     expect(result.current).toMatchObject({ isListed: true, text: 'the terms', matches: true })
+
+    queries({ data: { isListed: true, termsHash: TERMS } }, { data: { text: 'old', hash: `0x${'88'.repeat(32)}` } })
+    expect(renderHook(() => useBonaFideTerms({ name: 'alice.simplex' })).result.current.matches).toBe(false)
   })
 
-  it('waits for a fresh listing read and for the terms text', async () => {
-    chain(undefined)
-    const { result, rerender } = renderHook(() => useBonaFideTerms({ name: 'carol.simplex' }))
-    expect(result.current.isLoading).toBe(true)
-    let serve: (terms: { text: string; hash: `0x${string}` }) => void = () => {}
-    mockFetchBonaFideTerms.mockReturnValue(new Promise((resolve) => (serve = resolve)))
-    chain([true, TERMS])
-    rerender()
-    expect(result.current.isLoading).toBe(true)
-    serve({ text: 'the terms', hash: TERMS })
-    await waitFor(() => expect(result.current.isLoading).toBe(false))
+  it('fetches no terms for an unlisted name and reads nothing without a name', () => {
+    queries({ data: { isListed: false, termsHash: TERMS } })
+    renderHook(() => useBonaFideTerms({ name: 'alice.simplex' }))
+    expect(mockUseQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: ['bonaFideTerms', '/bona-fide-terms.simplex.md'], enabled: false }),
+    )
+    renderHook(() => useBonaFideTerms({}))
+    expect(mockUseQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: ['getBonaFideListing'], enabled: false }),
+    )
   })
 
-  it('reports a mismatch when the bundled terms differ from the terms on chain', async () => {
-    chain([true, TERMS])
-    mockFetchBonaFideTerms.mockResolvedValue({ text: 'old terms', hash: `0x${'88'.repeat(32)}` })
-    const { result } = renderHook(() => useBonaFideTerms({ name: 'bob.simplex' }))
-    await waitFor(() => expect(result.current.isLoading).toBe(false))
-    expect(result.current.matches).toBe(false)
+  it('waits for the listing and for the terms text, and reports a listing refetch', () => {
+    queries({ isLoading: true })
+    expect(renderHook(() => useBonaFideTerms({ name: 'alice.simplex' })).result.current.isLoading).toBe(true)
+    queries({ data: { isListed: true, termsHash: TERMS } }, { isLoading: true })
+    expect(renderHook(() => useBonaFideTerms({ name: 'alice.simplex' })).result.current.isLoading).toBe(true)
+    queries({ data: { isListed: false, termsHash: TERMS }, isFetching: true })
+    expect(renderHook(() => useBonaFideTerms({ name: 'alice.simplex' })).result.current).toMatchObject({
+      isLoading: false,
+      isFetching: true,
+    })
   })
 })
 
-describe('useBonaFideTerms on a second mount', () => {
-  it('finishes loading when the listing is still fresh in the cache', async () => {
-    mockUseChainId.mockReturnValue(1337)
-    mockUseReadContracts.mockImplementation(((params: { query: object }) =>
-      useQuery({
-        queryKey: ['readContracts', 'freshness'],
-        queryFn: async () => [true, TERMS],
-        ...params.query,
-      })) as never)
-    mockFetchBonaFideTerms.mockResolvedValue({ text: 'the terms', hash: TERMS })
-    const first = renderHook(() => useBonaFideTerms({ name: 'alice.simplex' }))
-    await waitFor(() => expect(first.result.current.isLoading).toBe(false))
-    first.unmount()
+describe('getBonaFideListingQueryFn', () => {
+  const getListing = (name: string) =>
+    getBonaFideListingQueryFn(config)({
+      queryKey: [{ name }, 1337, undefined, undefined, 'getBonaFideListing'],
+    } as never)
 
-    const second = renderHook(() => useBonaFideTerms({ name: 'alice.simplex' }))
-    await waitFor(() => expect(second.result.current.isLoading).toBe(false))
+  it("reads a 2LD's listing and the current terms from the name policy", async () => {
+    mockReadContract.mockResolvedValueOnce(true).mockResolvedValueOnce(TERMS)
+    expect(await getListing('alice.simplex')).toEqual({ isListed: true, termsHash: TERMS })
+    expect(mockReadContract).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ address: NAME_POLICY, functionName: 'bonaFideNames', args: [labelhash('alice')] }),
+    )
+  })
+
+  it('reads nothing for a subname', async () => {
+    mockReadContract.mockClear()
+    expect(await getListing('mobile.alice.simplex')).toBeNull()
+    expect(mockReadContract).not.toHaveBeenCalled()
+  })
+})
+
+describe('getCommittedTermsQueryFn', () => {
+  const getCommittedTerms = (acceptor?: `0x${string}`) =>
+    getCommittedTermsQueryFn(config)({
+      queryKey: [{ commitment: COMMITMENT }, 1337, acceptor, undefined, 'getCommittedTerms'],
+    } as never)
+
+  it("reads the connected account's acceptance for the commitment", async () => {
+    mockReadContract.mockResolvedValueOnce(TERMS)
+    expect(await getCommittedTerms(RECIPIENT)).toBe(TERMS)
+    expect(mockReadContract).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ address: NAME_POLICY, functionName: 'acceptedTerms', args: [COMMITMENT, RECIPIENT] }),
+    )
+  })
+
+  it('reads nothing without a connected account', async () => {
+    mockReadContract.mockClear()
+    expect(await getCommittedTerms()).toBeNull()
+    expect(mockReadContract).not.toHaveBeenCalled()
   })
 })
 
 describe('getAcceptedClaimTermsQueryFn', () => {
-  const mockReadContract = vi.mocked(readContract)
-  const config = { getClient: () => ({}) } as unknown as ConfigWithEns
   const getAcceptedClaimTerms = (holder?: `0x${string}`, recipient?: `0x${string}`) =>
     getAcceptedClaimTermsQueryFn(config)({
-      queryKey: [
-        { name: 'alice.testing', holder },
-        1337,
-        recipient,
-        undefined,
-        'getAcceptedClaimTerms',
-      ],
+      queryKey: [{ name: 'alice.testing', holder }, 1337, recipient, undefined, 'getAcceptedClaimTerms'],
     } as never)
 
   it("reads the recipient's acceptance for the holder's current offer", async () => {

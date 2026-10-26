@@ -5,10 +5,11 @@ import styled, { css } from 'styled-components'
 import { Button, CheckboxRow, Dialog, Helper, Typography } from '@ensdomains/thorin'
 
 import { AvatarWithIdentifier } from '@app/components/@molecules/AvatarWithIdentifier/AvatarWithIdentifier'
-import { BonaFideTerms, useTermsAcceptance } from '@app/components/BonaFideTerms'
+import { BonaFideTerms } from '@app/components/BonaFideTerms'
 import { useAcceptedClaimTerms, useBonaFideTerms } from '@app/hooks/useBonaFideTerms'
 import { useClaimChecks } from '@app/hooks/useClaimChecks'
 import { useNameOffer } from '@app/hooks/useNameOffer'
+import { useTermsCheckbox } from '@app/hooks/useTermsCheckbox'
 import { DetailedSwitch } from '@app/transaction-flow/input/ProfileEditor/components/DetailedSwitch'
 import { createTransactionItem } from '@app/transaction-flow/transaction'
 import TransactionLoader from '@app/transaction-flow/TransactionLoader'
@@ -80,8 +81,8 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
     holder: offer.data?.holder,
     enabled: bonaFide.isListed,
   })
-  const needsTerms = bonaFide.isListed && claimTerms.data !== bonaFide.termsHash
-  const { acceptedTermsHash, setAccepted } = useTermsAcceptance(bonaFide.termsHash)
+  const needsTermsAcceptance = bonaFide.isListed && claimTerms.data !== bonaFide.termsHash
+  const acceptance = useTermsCheckbox(bonaFide.termsHash)
   // The review stays as first read: a later change fails claimName's re-check instead of
   // replacing what the recipient is reading.
   const firstChecks = useRef(checks.data)
@@ -112,12 +113,12 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
     dispatch({
       name: 'setTransactions',
       payload: [
-        ...(needsTerms && acceptedTermsHash
+        ...(needsTermsAcceptance && acceptance.acceptedTermsHash
           ? [
               createTransactionItem('acceptBonaFideTerms', {
                 name,
                 holder,
-                termsHash: acceptedTermsHash,
+                termsHash: acceptance.acceptedTermsHash,
               }),
             ]
           : []),
@@ -146,13 +147,7 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
           </Helper>
         )}
         <Typography>{t('input.claimName.description', { name })}</Typography>
-        {needsTerms && (
-          <BonaFideTerms
-            terms={bonaFide}
-            accepted={!!acceptedTermsHash}
-            onAcceptedChange={setAccepted}
-          />
-        )}
+        {needsTermsAcceptance && <BonaFideTerms terms={bonaFide} acceptance={acceptance} />}
 
         {review ? (
           <>
@@ -237,10 +232,11 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
             disabled={
               !acknowledged ||
               (!review?.complete && !acceptedIncomplete) ||
-              (needsTerms && !acceptedTermsHash) ||
+              (needsTermsAcceptance && !acceptance.acceptedTermsHash) ||
               checks.isFetching ||
               offer.isFetching ||
-              claimTerms.isFetching
+              claimTerms.isFetching ||
+              bonaFide.isFetching
             }
             onClick={onConfirm}
           >

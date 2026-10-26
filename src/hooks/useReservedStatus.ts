@@ -3,8 +3,6 @@ import { useChainId, useReadContract, useReadContracts } from 'wagmi'
 
 import { getSnrcAddresses } from '@app/constants/chains'
 
-import { useNamePolicyAddress } from './useBonaFideTerms'
-
 const reservedAbi = parseAbi([
   'function reservedNames(bytes32) view returns (uint8)',
 ])
@@ -37,8 +35,10 @@ export const useReservedStatus = ({ name }: { name?: string }) => {
 }
 
 export const useReservedNames = ({ names }: { names: string[] }) => {
-  const namePolicyAddress = useNamePolicyAddress()
-  const enabled = !!namePolicyAddress
+  const chainId = useChainId()
+  const namePolicyAddress = getSnrcAddresses(chainId).SimplexNamePolicy as Address | undefined
+  const enabled =
+    !!namePolicyAddress && namePolicyAddress !== '0x0000000000000000000000000000000000000000'
 
   const { data, isLoading } = useReadContracts({
     contracts: names.map((name) => ({
