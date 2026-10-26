@@ -30,7 +30,7 @@ describe('isPolicyCommit', () => {
     )
   })
 
-  it('refuses another commitment, contract or call, a contract creation and no name policy', () => {
+  it('returns false for another commitment, contract or call, a contract creation and no name policy', () => {
     const other = `0x${'dd'.repeat(32)}` as const
     expect(isPolicyCommit({ to: NAME_POLICY, input: policyCommit(other) }, expected)).toBe(false)
     expect(isPolicyCommit({ to: OTHER, input: policyCommit(COMMITMENT) }, expected)).toBe(false)

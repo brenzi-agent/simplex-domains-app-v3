@@ -225,6 +225,7 @@
       "startTimer": "Start timer",
       "wait": "Wait",
       "completeRegistration": "Complete registration",
+      "acceptTerms": "Accept terms",
       "transactionFailed": "Transaction Failed",
       "transactionProgress": "View transaction in progress"
     },

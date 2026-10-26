@@ -10,11 +10,11 @@ import { getSnrcTokenId, registrarOfferAbi } from '@app/utils/snrcOffers'
 
 import { useQueryOptions } from './useQueryOptions'
 
-type BonaFideListingQueryKey = CreateQueryKey<{ name: string }, 'getBonaFideListing', 'standard'>
+type ListedTermsHashQueryKey = CreateQueryKey<{ name: string }, 'getListedTermsHash', 'standard'>
 
-export const getBonaFideListingQueryFn =
+export const getListedTermsHashQueryFn =
   (config: ConfigWithEns) =>
-  async ({ queryKey: [{ name }, chainId] }: QueryFunctionContext<BonaFideListingQueryKey>) => {
+  async ({ queryKey: [{ name }, chainId] }: QueryFunctionContext<ListedTermsHashQueryKey>) => {
     const namePolicy = getNamePolicy(chainId)
     const labels = name.split('.')
     if (!namePolicy || labels.length !== 2) return null
@@ -38,9 +38,9 @@ export const getBonaFideListingQueryFn =
 export const useBonaFideTerms = ({ name }: { name: string }) => {
   const initialOptions = useQueryOptions({
     params: { name },
-    functionName: 'getBonaFideListing',
+    functionName: 'getListedTermsHash',
     queryDependencyType: 'standard',
-    queryFn: getBonaFideListingQueryFn,
+    queryFn: getListedTermsHashQueryFn,
   })
   const listing = useQuery(
     queryOptions({ queryKey: initialOptions.queryKey, queryFn: initialOptions.queryFn }),

@@ -29,8 +29,6 @@ vi.mock('@app/constants/chains', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   getNamePolicy: () => NAME_POLICY,
 }))
-
-const NAME_POLICY = '0x4444444444444444444444444444444444444444'
 vi.mock('@ensdomains/ensjs/contracts', () => ({
   ethRegistrarControllerCommitSnippet: [
     {
@@ -94,6 +92,8 @@ vi.mock('@ensdomains/ensjs/contracts', () => ({
   __esModule: true,
   default: {},
 }))
+
+const NAME_POLICY = '0x4444444444444444444444444444444444444444'
 
 const mockUseChainName = mockFunction(useChainName)
 const mockUseAddRecentTransaction = mockFunction(useAddRecentTransaction)

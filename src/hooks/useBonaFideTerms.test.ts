@@ -9,7 +9,7 @@ import { useQuery } from '@app/utils/query/useQuery'
 
 import {
   getAcceptedClaimTermsQueryFn,
-  getBonaFideListingQueryFn,
+  getListedTermsHashQueryFn,
   getCommittedTermsQueryFn,
   useBonaFideTerms,
 } from './useBonaFideTerms'
@@ -17,7 +17,7 @@ import {
 vi.mock('viem/actions')
 vi.mock('@app/utils/query/useQuery')
 vi.mock('./useQueryOptions', () => ({
-  useQueryOptions: () => ({ queryKey: ['getBonaFideListing'], queryFn: vi.fn() }),
+  useQueryOptions: () => ({ queryKey: ['getListedTermsHash'], queryFn: vi.fn() }),
 }))
 vi.mock('@app/constants/chains', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -82,10 +82,10 @@ describe('useBonaFideTerms', () => {
   })
 })
 
-describe('getBonaFideListingQueryFn', () => {
+describe('getListedTermsHashQueryFn', () => {
   const getListing = (name: string) =>
-    getBonaFideListingQueryFn(config)({
-      queryKey: [{ name }, 1337, undefined, undefined, 'getBonaFideListing'],
+    getListedTermsHashQueryFn(config)({
+      queryKey: [{ name }, 1337, undefined, undefined, 'getListedTermsHash'],
     } as never)
 
   it("reads a 2LD's listing and the current terms from the name policy", async () => {

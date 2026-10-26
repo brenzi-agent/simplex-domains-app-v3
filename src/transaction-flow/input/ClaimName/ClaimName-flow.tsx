@@ -147,7 +147,9 @@ const ClaimName = ({ data: { name }, dispatch, onDismiss }: Props) => {
           </Helper>
         )}
         <Typography>{t('input.claimName.description', { name })}</Typography>
-        {needsTermsAcceptance && <BonaFideTerms terms={bonaFide} acceptance={acceptance} />}
+        {needsTermsAcceptance && holder && (
+          <BonaFideTerms terms={bonaFide} acceptance={acceptance} />
+        )}
 
         {review ? (
           <>

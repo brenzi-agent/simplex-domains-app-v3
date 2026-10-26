@@ -160,7 +160,7 @@ describe('Extendnames', () => {
     )
     expect(screen.getByTestId('plus-minus-control-plus')).toBeDisabled()
   })
-  it('should refuse to extend a reserved name', () => {
+  it('should disable extending a reserved name', () => {
     mockUseReservedNames.mockReturnValueOnce({ reservedNames: ['nick.simplex'], isLoading: false })
     render(
       <ExtendNames
