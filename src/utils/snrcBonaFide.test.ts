@@ -16,7 +16,7 @@ describe('snrcBonaFide', () => {
     vi.unstubAllGlobals()
   })
 
-  it('hashes the exact bytes it serves', async () => {
+  it('hashes the exact bytes it fetches', async () => {
     const text = '# Terms\n\nÜnicode stays byte-exact.\n'
     const bytes = new Uint8Array(Buffer.from(text, 'utf8'))
     serve(bytes)

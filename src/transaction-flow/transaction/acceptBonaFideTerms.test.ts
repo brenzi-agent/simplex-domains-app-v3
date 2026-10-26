@@ -13,9 +13,6 @@ const COMMITMENT = `0x${'cc'.repeat(32)}` as const
 vi.mock('@app/constants/chains', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   getNamePolicyAddress: () => NAME_POLICY,
-  getSnrcAddresses: () => ({
-    SimplexNamePolicy: NAME_POLICY,
-  }),
 }))
 
 const client = { chain: { id: 1337 } } as unknown as ClientWithEns

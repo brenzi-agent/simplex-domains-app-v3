@@ -292,7 +292,7 @@ describe('ClaimName', () => {
     expect(screen.getByTestId('claim-name-acknowledge')).toBeVisible()
   })
 
-  it('has a listed name accepted under the terms it shows before the claim', async () => {
+  it('queues the acceptance of the shown terms before the claim of a listed name', async () => {
     mockUseClaimChecks.mockReturnValue(checks({ nodes: [{ ...root, records: [] }] }))
     mockUseBonaFideTerms.mockReturnValue(
       bonaFide({ isListed: true, termsHash: TERMS, text: 'the terms', matches: true }),
@@ -355,7 +355,7 @@ describe('ClaimName', () => {
     }
   })
 
-  it('reads the acceptance of the holder and waits while it refreshes', () => {
+  it("reads the recipient's acceptance for the holder's offer and disables Claim while it refreshes", () => {
     mockUseClaimChecks.mockReturnValue(checks({ nodes: [{ ...root, records: [] }] }))
     mockUseBonaFideTerms.mockReturnValue(
       bonaFide({ isListed: true, termsHash: TERMS, text: 'the terms', matches: true }),

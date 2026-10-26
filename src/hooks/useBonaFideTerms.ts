@@ -67,9 +67,10 @@ export const getCommittedTermsQueryFn =
   async ({
     queryKey: [{ commitment }, chainId, acceptor],
   }: QueryFunctionContext<CommittedTermsQueryKey>) => {
-    if (!acceptor) return null
+    const namePolicyAddress = getNamePolicyAddress(chainId)
+    if (!namePolicyAddress || !acceptor) return null
     return readContract(config.getClient({ chainId }), {
-      address: getNamePolicyAddress(chainId)!,
+      address: namePolicyAddress,
       abi: namePolicyBonaFideAbi,
       functionName: 'acceptedTerms',
       args: [commitment, acceptor],
@@ -105,10 +106,18 @@ export const getAcceptedClaimTermsQueryFn =
   async ({
     queryKey: [{ name, holder, offerNumber }, chainId, recipient],
   }: QueryFunctionContext<AcceptedClaimTermsQueryKey>) => {
+    const namePolicyAddress = getNamePolicyAddress(chainId)
     const tokenId = getSnrcTokenId(name)
-    if (tokenId === undefined || !holder || offerNumber === undefined || !recipient) return null
+    if (
+      !namePolicyAddress ||
+      tokenId === undefined ||
+      !holder ||
+      offerNumber === undefined ||
+      !recipient
+    )
+      return null
     return readContract(config.getClient({ chainId }), {
-      address: getNamePolicyAddress(chainId)!,
+      address: namePolicyAddress,
       abi: namePolicyBonaFideAbi,
       functionName: 'acceptedClaimTerms',
       args: [tokenId, holder, recipient, offerNumber],

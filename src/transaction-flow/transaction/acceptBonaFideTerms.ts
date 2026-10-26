@@ -22,7 +22,7 @@ const displayItems = (
   },
 ]
 
-const transaction = async ({ client, data }: TransactionFunctionParameters<Data>) => ({
+const transaction = ({ client, data }: TransactionFunctionParameters<Data>) => ({
   to: getNamePolicyAddress(client.chain.id)!,
   data: encodeFunctionData({
     abi: namePolicyBonaFideAbi,

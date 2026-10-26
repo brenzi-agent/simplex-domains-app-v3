@@ -265,15 +265,15 @@ function AdminPanel() {
       })
       setCodeStatus(next)
       setTermsHash(
-        !namePolicyAddress
-          ? 'not deployed'
-          : await publicClient
+        namePolicyAddress
+          ? await publicClient
               .readContract({
                 address: namePolicyAddress,
                 abi: namePolicyBonaFideAbi,
                 functionName: 'termsHash',
               })
-              .catch(() => 'unreadable'),
+              .catch(() => 'unreadable')
+          : 'not deployed',
       )
 
       setLoaded(true)
