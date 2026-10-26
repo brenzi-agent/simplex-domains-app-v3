@@ -264,17 +264,16 @@ function AdminPanel() {
         next[name] = !!codes[i] && codes[i] !== '0x'
       })
       setCodeStatus(next)
-      setTermsHash(
-        namePolicyAddress
-          ? await publicClient
-              .readContract({
-                address: namePolicyAddress,
-                abi: namePolicyBonaFideAbi,
-                functionName: 'termsHash',
-              })
-              .catch(() => 'unreadable')
-          : 'not deployed',
-      )
+      const onChainTermsHash = namePolicyAddress
+        ? await publicClient
+            .readContract({
+              address: namePolicyAddress,
+              abi: namePolicyBonaFideAbi,
+              functionName: 'termsHash',
+            })
+            .catch(() => 'unreadable')
+        : 'not deployed'
+      setTermsHash(onChainTermsHash)
 
       setLoaded(true)
       setStatus('')

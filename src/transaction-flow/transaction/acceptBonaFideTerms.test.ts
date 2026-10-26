@@ -19,8 +19,8 @@ const client = { chain: { id: 1337 } } as unknown as ClientWithEns
 const connectorClient = {} as unknown as ConnectorClientWithEns
 
 describe('acceptBonaFideTerms', () => {
-  it('accepts for a commitment through the name policy', async () => {
-    const tx = await acceptBonaFideTerms.transaction({
+  it('accepts for a commitment through the name policy', () => {
+    const tx = acceptBonaFideTerms.transaction({
       client,
       connectorClient,
       data: { name: 'alice.testing', commitment: COMMITMENT, termsHash: TERMS },
