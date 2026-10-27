@@ -1,3 +1,5 @@
+import Markdown from 'markdown-to-jsx'
+import type { ComponentPropsWithoutRef } from 'react'
 import styled, { css } from 'styled-components'
 import { match } from 'ts-pattern'
 
@@ -6,13 +8,40 @@ import { CheckboxRow, Helper, Typography } from '@ensdomains/thorin'
 import { useBonaFideTerms } from '@app/hooks/useBonaFideTerms'
 import { useTermsAcceptance } from '@app/hooks/useTermsAcceptance'
 
-export const TermsText = styled.pre(
+const TermsBox = styled.div(
   ({ theme }) => css`
     max-height: ${theme.space['48']};
     overflow-y: auto;
-    white-space: pre-wrap;
-    font-family: inherit;
+    h1,
+    h2 {
+      font-weight: ${theme.fontWeights.bold};
+      margin: ${theme.space['2']} 0 ${theme.space['1']};
+    }
+    h1 {
+      font-size: ${theme.fontSizes.large};
+    }
+    h2 {
+      font-size: ${theme.fontSizes.body};
+    }
+    p,
+    ul {
+      margin-bottom: ${theme.space['2']};
+    }
+    ul {
+      list-style: disc;
+      padding-left: ${theme.space['5']};
+    }
   `,
+)
+
+// The terms as kept on chain, rendered from their markdown; HTML in them shows as text.
+export const TermsText = ({
+  text,
+  ...props
+}: { text: string } & ComponentPropsWithoutRef<'div'>) => (
+  <TermsBox {...props}>
+    <Markdown options={{ disableParsingRawHTML: true }}>{text}</Markdown>
+  </TermsBox>
 )
 
 type Props = {
@@ -31,7 +60,7 @@ export const BonaFideTerms = ({ terms, acceptance }: Props) => (
         .with({ isLoading: true }, () => <Typography>Loading the terms…</Typography>)
         .with({ hasTerms: true }, () => (
           <>
-            <TermsText data-testid="bona-fide-terms-text">{terms.text}</TermsText>
+            <TermsText data-testid="bona-fide-terms-text" text={terms.text ?? ''} />
             <CheckboxRow
               data-testid="bona-fide-terms-accept"
               label="I accept the bona fide community terms"

@@ -548,7 +548,7 @@ function AdminPanel() {
               <Mono fontVariant="small" data-testid="admin-terms-hash">
                 Terms on chain: {termsHash || 'loading...'}
               </Mono>
-              {termsText && <TermsText data-testid="admin-terms-text">{termsText}</TermsText>}
+              {termsText && <TermsText data-testid="admin-terms-text" text={termsText} />}
               <Typography fontVariant="small">
                 The terms are set from the namespace repository&apos;s bona-fide-terms file by its
                 deploy scripts.
