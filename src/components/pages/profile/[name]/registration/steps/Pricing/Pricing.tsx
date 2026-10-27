@@ -680,7 +680,7 @@ const Pricing = ({
           </Button>
         ) : bonaFide.isListed && !acceptance.acceptedTermsHash ? (
           <Button data-testid="next-button" disabled>
-            {bonaFide.matches ? 'Accept the terms to continue' : 'Terms unavailable'}
+            {bonaFide.hasTerms ? 'Accept the terms to continue' : 'Terms unavailable'}
           </Button>
         ) : (
           <ActionButton

@@ -80,7 +80,7 @@ const bonaFide = (state: Partial<ReturnType<typeof useBonaFideTerms>> = {}) =>
     isListed: false,
     termsHash: undefined,
     text: undefined,
-    matches: false,
+    hasTerms: false,
     isLoading: false,
     isFetching: false,
     ...state,
@@ -295,7 +295,7 @@ describe('ClaimName', () => {
   it('queues the acceptance of the shown terms before the claim of a listed name', async () => {
     mockUseClaimChecks.mockReturnValue(checks({ nodes: [{ ...root, records: [] }] }))
     mockUseBonaFideTerms.mockReturnValue(
-      bonaFide({ isListed: true, termsHash: TERMS, text: 'the terms', matches: true }),
+      bonaFide({ isListed: true, termsHash: TERMS, text: 'the terms', hasTerms: true }),
     )
     render(claimName())
     expect(screen.getByTestId('bona-fide-terms-text')).toHaveTextContent('the terms')
@@ -316,11 +316,11 @@ describe('ClaimName', () => {
     })
   })
 
-  it('offers no acceptance for a listed name whose terms it cannot show', () => {
+  it('offers no acceptance for a listed name before its terms are set', () => {
     mockUseClaimChecks.mockReturnValue(checks({ nodes: [{ ...root, records: [] }] }))
     mockUseBonaFideTerms.mockReturnValue(bonaFide({ isListed: true, termsHash: TERMS }))
     render(claimName())
-    expect(screen.getByTestId('bona-fide-terms-mismatch')).toBeVisible()
+    expect(screen.getByTestId('bona-fide-terms-unset')).toBeVisible()
     expect(screen.queryByTestId('bona-fide-terms-accept')).not.toBeInTheDocument()
     expect(screen.getByTestId('claim-name-confirm')).toBeDisabled()
   })
@@ -328,7 +328,7 @@ describe('ClaimName', () => {
   it('claims a listed name without a second acceptance when this offer already has one', async () => {
     mockUseClaimChecks.mockReturnValue(checks({ nodes: [{ ...root, records: [] }] }))
     mockUseBonaFideTerms.mockReturnValue(
-      bonaFide({ isListed: true, termsHash: TERMS, text: 'the terms', matches: true }),
+      bonaFide({ isListed: true, termsHash: TERMS, text: 'the terms', hasTerms: true }),
     )
     mockUseAcceptedClaimTerms.mockReturnValue(claimTerms(TERMS))
     render(claimName())
@@ -358,7 +358,7 @@ describe('ClaimName', () => {
   it("reads the recipient's acceptance for the holder's offer and disables Claim while it refreshes", () => {
     mockUseClaimChecks.mockReturnValue(checks({ nodes: [{ ...root, records: [] }] }))
     mockUseBonaFideTerms.mockReturnValue(
-      bonaFide({ isListed: true, termsHash: TERMS, text: 'the terms', matches: true }),
+      bonaFide({ isListed: true, termsHash: TERMS, text: 'the terms', hasTerms: true }),
     )
     mockUseAcceptedClaimTerms.mockReturnValue({
       data: TERMS,

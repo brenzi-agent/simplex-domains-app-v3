@@ -5,22 +5,21 @@ import { readContract } from 'viem/actions'
 import { getNamePolicyAddress } from '@app/constants/chains'
 import { ConfigWithEns, CreateQueryKey } from '@app/types'
 import { useQuery } from '@app/utils/query/useQuery'
-import { bonaFideTermsQueryOptions, namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
+import { namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
 import { getSnrcTokenId } from '@app/utils/snrcOffers'
-import { getTldFromName } from '@app/utils/utils'
 
 import { useQueryOptions } from './useQueryOptions'
 
-type ListedTermsHashQueryKey = CreateQueryKey<{ name: string }, 'getListedTermsHash', 'standard'>
+type ListedTermsQueryKey = CreateQueryKey<{ name: string }, 'getListedTerms', 'standard'>
 
-export const getListedTermsHashQueryFn =
+export const getListedTermsQueryFn =
   (config: ConfigWithEns) =>
-  async ({ queryKey: [{ name }, chainId] }: QueryFunctionContext<ListedTermsHashQueryKey>) => {
+  async ({ queryKey: [{ name }, chainId] }: QueryFunctionContext<ListedTermsQueryKey>) => {
     const namePolicyAddress = getNamePolicyAddress(chainId)
     const tokenId = getSnrcTokenId(name)
     if (!namePolicyAddress || tokenId === undefined) return null
     const client = config.getClient({ chainId })
-    const [isListed, termsHash] = await Promise.all([
+    const [isListed, termsHash, text] = await Promise.all([
       readContract(client, {
         address: namePolicyAddress,
         abi: namePolicyBonaFideAbi,
@@ -32,30 +31,33 @@ export const getListedTermsHashQueryFn =
         abi: namePolicyBonaFideAbi,
         functionName: 'termsHash',
       }),
+      readContract(client, {
+        address: namePolicyAddress,
+        abi: namePolicyBonaFideAbi,
+        functionName: 'termsText',
+      }),
     ])
-    return isListed ? termsHash : null
+    return isListed ? { termsHash, text } : null
   }
 
 export const useBonaFideTerms = ({ name }: { name: string }) => {
   const initialOptions = useQueryOptions({
     params: { name },
-    functionName: 'getListedTermsHash',
+    functionName: 'getListedTerms',
     queryDependencyType: 'standard',
-    queryFn: getListedTermsHashQueryFn,
+    queryFn: getListedTermsQueryFn,
   })
   const listing = useQuery(
     queryOptions({ queryKey: initialOptions.queryKey, queryFn: initialOptions.queryFn }),
   )
-  const termsHash = listing.data ?? undefined
-  const isListed = !!termsHash
-  const terms = useQuery({ ...bonaFideTermsQueryOptions(getTldFromName(name)!), enabled: isListed })
 
   return {
-    isListed,
-    termsHash,
-    text: terms.data?.text,
-    matches: isListed && terms.data?.hash === termsHash,
-    isLoading: listing.isLoading || terms.isLoading,
+    isListed: !!listing.data,
+    termsHash: listing.data?.termsHash,
+    text: listing.data?.text,
+    // the name policy keeps the text whose keccak256 is termsHash; it is empty until the first setTerms
+    hasTerms: !!listing.data?.text,
+    isLoading: listing.isLoading,
     isFetching: listing.isFetching,
   }
 }

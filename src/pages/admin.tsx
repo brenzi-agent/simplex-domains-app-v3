@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { ReactElement, useState } from 'react'
 import styled, { css } from 'styled-components'
 import { Abi, getAddress, keccak256, parseEventLogs, toBytes } from 'viem'
@@ -13,11 +13,7 @@ import {
   MIN_REGISTRATION_DURATION,
 } from '@app/constants/simplex'
 import { Content } from '@app/layouts/Content'
-import {
-  bonaFideTermsQueryOptions,
-  getBonaFideTermsPath,
-  namePolicyBonaFideAbi,
-} from '@app/utils/snrcBonaFide'
+import { namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
 import { getUnregistrableLabelsError, parseLabels } from '@app/utils/snrcLabels'
 import { ONE_DAY } from '@app/utils/time'
 
@@ -105,16 +101,6 @@ const namePolicyAbi = [
   {
     inputs: [{ name: 'names', type: 'string[]' }],
     name: 'removeBonaFideNames',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      { name: 'newTermsHash', type: 'bytes32' },
-      { name: 'termsURI', type: 'string' },
-    ],
-    name: 'setTerms',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',
@@ -208,11 +194,8 @@ function AdminPanel() {
   const [regDuration, setRegDuration] = useState(String(MIN_RESERVED_DAYS))
   const [listName, setListName] = useState('')
   const [unListName, setUnListName] = useState('')
-  const [termsUri, setTermsUri] = useState('')
   const [termsHash, setTermsHash] = useState<string>('')
-  const tld = process.env.NEXT_PUBLIC_SIMPLEX_TLD || 'testing'
-  const termsPath = getBonaFideTermsPath(tld)
-  const { data: bundledTerms } = useQuery(bonaFideTermsQueryOptions(tld))
+  const [termsText, setTermsText] = useState('')
   const regDays = Number(regDuration)
   const isRegDurationValid =
     Number.isInteger(regDays) && regDays >= MIN_RESERVED_DAYS && regDays <= MAX_RESERVED_DAYS
@@ -264,16 +247,26 @@ function AdminPanel() {
         next[name] = !!codes[i] && codes[i] !== '0x'
       })
       setCodeStatus(next)
-      const onChainTermsHash = namePolicyAddress
-        ? await publicClient
-            .readContract({
-              address: namePolicyAddress,
-              abi: namePolicyBonaFideAbi,
-              functionName: 'termsHash',
-            })
-            .catch(() => 'unreadable')
-        : 'not deployed'
+      const [onChainTermsHash, onChainTermsText] = namePolicyAddress
+        ? await Promise.all([
+            publicClient
+              .readContract({
+                address: namePolicyAddress,
+                abi: namePolicyBonaFideAbi,
+                functionName: 'termsHash',
+              })
+              .catch(() => 'unreadable'),
+            publicClient
+              .readContract({
+                address: namePolicyAddress,
+                abi: namePolicyBonaFideAbi,
+                functionName: 'termsText',
+              })
+              .catch(() => ''),
+          ])
+        : ['not deployed', '']
       setTermsHash(onChainTermsHash)
+      setTermsText(onChainTermsText)
 
       setLoaded(true)
       setStatus('')
@@ -552,29 +545,14 @@ function AdminPanel() {
                   Unlist
                 </Button>
               </Row>
-              <Mono fontVariant="small">Terms on chain: {termsHash || 'loading...'}</Mono>
-              <Mono fontVariant="small" data-testid="admin-bundled-terms-hash">
-                Terms in this app ({termsPath}): {bundledTerms?.hash ?? 'not found'}
+              <Mono fontVariant="small" data-testid="admin-terms-hash">
+                Terms on chain: {termsHash || 'loading...'}
               </Mono>
-              {bundledTerms && (
-                <TermsText data-testid="admin-bundled-terms-text">{bundledTerms.text}</TermsText>
-              )}
-              <Row>
-                <Input
-                  label="Terms URI"
-                  value={termsUri}
-                  onChange={(e) => setTermsUri(e.target.value)}
-                  placeholder="https://… or ipfs://…"
-                  description="Where the same text is published."
-                />
-                <Button
-                  size="small"
-                  onClick={() => execTx(namePolicy, 'setTerms', [bundledTerms!.hash, termsUri])}
-                  disabled={!bundledTerms || !termsUri || bundledTerms.hash === termsHash}
-                >
-                  Set terms to the bundled text
-                </Button>
-              </Row>
+              {termsText && <TermsText data-testid="admin-terms-text">{termsText}</TermsText>}
+              <Typography fontVariant="small">
+                The terms are set from the namespace repository&apos;s bona-fide-terms file by its
+                deploy scripts.
+              </Typography>
             </Section>
           </Card>
 

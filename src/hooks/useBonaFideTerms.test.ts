@@ -10,14 +10,14 @@ import { useQuery } from '@app/utils/query/useQuery'
 import {
   getAcceptedClaimTermsQueryFn,
   getCommittedTermsQueryFn,
-  getListedTermsHashQueryFn,
+  getListedTermsQueryFn,
   useBonaFideTerms,
 } from './useBonaFideTerms'
 
 vi.mock('viem/actions')
 vi.mock('@app/utils/query/useQuery')
 vi.mock('./useQueryOptions', () => ({
-  useQueryOptions: () => ({ queryKey: ['getListedTermsHash'], queryFn: vi.fn() }),
+  useQueryOptions: () => ({ queryKey: ['getListedTerms'], queryFn: vi.fn() }),
 }))
 vi.mock('@app/constants/chains', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -35,53 +35,44 @@ const mockUseQuery = mockFunction(useQuery)
 const config = { getClient: () => ({}) } as unknown as ConfigWithEns
 
 type QueryResult = { data?: unknown; isLoading?: boolean; isFetching?: boolean }
-const queries = (listing: QueryResult, terms: QueryResult = { isLoading: false }) =>
-  mockUseQuery.mockImplementation(((options: { queryKey: unknown[] }) =>
-    options.queryKey[0] === 'bonaFideTerms' ? terms : listing) as never)
+const listing = (result: QueryResult) => mockUseQuery.mockReturnValue(result as never)
 
 beforeEach(() => {
   vi.clearAllMocks()
 })
 
 describe('useBonaFideTerms', () => {
-  it('shows the bundled terms of a listed name only when they hash to the terms on chain', () => {
-    queries({ data: TERMS }, { data: { text: 'the terms', hash: TERMS } })
+  it('shows the terms of a listed name as the name policy keeps them', () => {
+    listing({ data: { termsHash: TERMS, text: 'the terms' } })
     const { result } = renderHook(() => useBonaFideTerms({ name: 'alice.testing' }))
-    expect(mockUseQuery).toHaveBeenCalledWith(
-      expect.objectContaining({
-        queryKey: ['bonaFideTerms', '/bona-fide-terms.testing.md'],
-        enabled: true,
-      }),
-    )
-    expect(result.current).toMatchObject({ isListed: true, text: 'the terms', matches: true })
+    expect(result.current).toMatchObject({
+      isListed: true,
+      termsHash: TERMS,
+      text: 'the terms',
+      hasTerms: true,
+    })
+  })
 
-    queries({ data: TERMS }, { data: { text: 'old', hash: `0x${'88'.repeat(32)}` } })
+  it('has no terms to accept for a listed name before the first setTerms', () => {
+    listing({ data: { termsHash: `0x${'00'.repeat(32)}`, text: '' } })
     expect(
-      renderHook(() => useBonaFideTerms({ name: 'alice.testing' })).result.current.matches,
-    ).toBe(false)
+      renderHook(() => useBonaFideTerms({ name: 'alice.testing' })).result.current,
+    ).toMatchObject({ isListed: true, hasTerms: false })
   })
 
-  it('fetches no terms for an unlisted name', () => {
-    queries({ data: null })
-    renderHook(() => useBonaFideTerms({ name: 'alice.testing' }))
-    expect(mockUseQuery).toHaveBeenCalledWith(
-      expect.objectContaining({
-        queryKey: ['bonaFideTerms', '/bona-fide-terms.testing.md'],
-        enabled: false,
-      }),
-    )
+  it('is not listed without a listing', () => {
+    listing({ data: null })
+    expect(
+      renderHook(() => useBonaFideTerms({ name: 'alice.testing' })).result.current,
+    ).toMatchObject({ isListed: false, hasTerms: false })
   })
 
-  it('waits for the listing and for the terms text, and reports a listing refetch', () => {
-    queries({ isLoading: true })
+  it('waits for the listing, and reports a listing refetch', () => {
+    listing({ isLoading: true })
     expect(
       renderHook(() => useBonaFideTerms({ name: 'alice.testing' })).result.current.isLoading,
     ).toBe(true)
-    queries({ data: TERMS }, { isLoading: true })
-    expect(
-      renderHook(() => useBonaFideTerms({ name: 'alice.testing' })).result.current.isLoading,
-    ).toBe(true)
-    queries({ data: null, isFetching: true })
+    listing({ data: null, isLoading: false, isFetching: true })
     expect(
       renderHook(() => useBonaFideTerms({ name: 'alice.testing' })).result.current,
     ).toMatchObject({
@@ -91,15 +82,18 @@ describe('useBonaFideTerms', () => {
   })
 })
 
-describe('getListedTermsHashQueryFn', () => {
+describe('getListedTermsQueryFn', () => {
   const getListing = (name: string) =>
-    getListedTermsHashQueryFn(config)({
-      queryKey: [{ name }, 1337, undefined, undefined, 'getListedTermsHash'],
+    getListedTermsQueryFn(config)({
+      queryKey: [{ name }, 1337, undefined, undefined, 'getListedTerms'],
     } as never)
 
-  it("reads a 2LD's listing and the current terms from the name policy", async () => {
-    mockReadContract.mockResolvedValueOnce(true).mockResolvedValueOnce(TERMS)
-    expect(await getListing('alice.testing')).toBe(TERMS)
+  it("reads a 2LD's listing and the current terms, hash and text, from the name policy", async () => {
+    mockReadContract
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(TERMS)
+      .mockResolvedValueOnce('the terms')
+    expect(await getListing('alice.testing')).toEqual({ termsHash: TERMS, text: 'the terms' })
     expect(mockReadContract).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
@@ -108,10 +102,17 @@ describe('getListedTermsHashQueryFn', () => {
         args: [labelhash('alice')],
       }),
     )
+    expect(mockReadContract).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ address: NAME_POLICY, functionName: 'termsText' }),
+    )
   })
 
   it('returns nothing for an unlisted name and reads nothing for a subname', async () => {
-    mockReadContract.mockResolvedValueOnce(false).mockResolvedValueOnce(TERMS)
+    mockReadContract
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(TERMS)
+      .mockResolvedValueOnce('the terms')
     expect(await getListing('alice.testing')).toBeNull()
     mockReadContract.mockClear()
     expect(await getListing('mobile.alice.testing')).toBeNull()

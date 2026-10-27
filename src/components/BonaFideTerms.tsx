@@ -29,7 +29,7 @@ export const BonaFideTerms = ({ terms, acceptance }: Props) => (
       </Typography>
       {match(terms)
         .with({ isLoading: true }, () => <Typography>Loading the terms…</Typography>)
-        .with({ matches: true }, () => (
+        .with({ hasTerms: true }, () => (
           <>
             <TermsText data-testid="bona-fide-terms-text">{terms.text}</TermsText>
             <CheckboxRow
@@ -41,8 +41,8 @@ export const BonaFideTerms = ({ terms, acceptance }: Props) => (
           </>
         ))
         .otherwise(() => (
-          <Typography color="red" data-testid="bona-fide-terms-mismatch">
-            This app cannot show the current terms, so they cannot be accepted here.
+          <Typography color="red" data-testid="bona-fide-terms-unset">
+            The community terms are not set yet, so they cannot be accepted.
           </Typography>
         ))}
     </div>
