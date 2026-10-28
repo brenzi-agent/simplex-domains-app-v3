@@ -1,10 +1,10 @@
-import { Dispatch, SetStateAction, useEffect, useState } from 'react'
+import { Dispatch, SetStateAction, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { usePreviousDistinct } from 'react-use'
 import styled, { css } from 'styled-components'
 import { match, P } from 'ts-pattern'
 import type { Address, Hex } from 'viem'
-import { useBalance } from 'wagmi'
+import { useAccountEffect, useBalance } from 'wagmi'
 import { GetBalanceData } from 'wagmi/query'
 
 import {
@@ -27,7 +27,9 @@ import { ConnectButton } from '@app/components/@molecules/ConnectButton/ConnectB
 import { DateSelection } from '@app/components/@molecules/DateSelection/DateSelection'
 import { BonaFideTerms } from '@app/components/BonaFideTerms'
 import { Card } from '@app/components/Card'
+import { SocialProfileButton } from '@app/components/pages/profile/ProfileButton'
 import { SimplexInfoPanel } from '@app/components/SimplexInfoPanel'
+import { ProfileRecord } from '@app/constants/profileRecordOptions'
 import { MAX_REGISTRATION_DURATION, MIN_REGISTRATION_DURATION } from '@app/constants/simplex'
 import { useControllerLimits } from '@app/hooks/useControllerLimits'
 import { useNftGateStatus } from '@app/hooks/useNftGateStatus'
@@ -381,6 +383,25 @@ export type ActionButtonProps = {
   ethPrice?: bigint
   durationType: 'date' | 'years'
   bonaFideTermsHash?: Hex
+  autoNext?: boolean
+}
+
+const AutoNextButton = ({ onNext }: { onNext: () => void }) => {
+  const { t } = useTranslation('register')
+  const called = useRef(false)
+
+  useEffect(() => {
+    if (called.current) return
+    called.current = true
+    onNext()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return (
+    <Button data-testid="next-button" disabled loading>
+      {t('action.next', { ns: 'common' })}
+    </Button>
+  )
 }
 
 export const ActionButton = (props: ActionButtonProps) => {
@@ -466,25 +487,26 @@ export const ActionButton = (props: ActionButtonProps) => {
         durationType,
         bonaFideTermsHash,
         callback,
-      }) => (
-        <Button
-          data-testid="next-button"
-          onClick={() =>
-            callback({
-              reverseRecord,
-              seconds,
-              paymentMethodChoice,
-              estimatedTotal,
-              ethPrice,
-              durationType,
-              bonaFideTermsHash,
-            })
-          }
-          disabled={!paymentMethodChoice}
-        >
-          {t('action.next', { ns: 'common' })}
-        </Button>
-      ),
+        autoNext,
+      }) => {
+        const onNext = () =>
+          callback({
+            reverseRecord,
+            seconds,
+            paymentMethodChoice,
+            estimatedTotal,
+            ethPrice,
+            durationType,
+            bonaFideTermsHash,
+          })
+        return autoNext && paymentMethodChoice ? (
+          <AutoNextButton onNext={onNext} />
+        ) : (
+          <Button data-testid="next-button" onClick={onNext} disabled={!paymentMethodChoice}>
+            {t('action.next', { ns: 'common' })}
+          </Button>
+        )
+      },
     )
 }
 
@@ -502,6 +524,7 @@ export type PricingProps = {
   initiateMoonpayRegistrationMutation: ReturnType<
     typeof useMoonpayRegistration
   >['initiateMoonpayRegistrationMutation']
+  linkRecords?: ProfileRecord[]
 }
 
 const minSeconds = MIN_REGISTRATION_DURATION
@@ -519,16 +542,19 @@ const Pricing = ({
   resolverExists,
   moonpayTransactionStatus,
   initiateMoonpayRegistrationMutation,
+  linkRecords,
 }: PricingProps) => {
   const { t } = useTranslation('register')
 
   const { address } = useAccountSafely()
+  const [hasConnected, setHasConnected] = useState(false)
+  useAccountEffect({ onConnect: ({ isReconnected }) => setHasConnected(!isReconnected) })
   const { data: balance } = useBalance({ address })
   const resolverAddress = useContractAddress({ contract: 'ensPublicResolver' })
   const { data: ethPrice } = useEthPrice()
-  const { required: nftRequired, hasNft } = useNftGateStatus({ address })
+  const { required: nftRequired, hasNft, loaded: nftLoaded } = useNftGateStatus({ address })
   const blockedByNftGate = nftRequired && hasNft === false
-  const { isReserved } = useReservedStatus({ name })
+  const { isReserved, loaded: reservedLoaded } = useReservedStatus({ name })
   const bonaFide = useBonaFideTerms({ name })
   const acceptance = useTermsAcceptance(bonaFide.termsHash, registrationData.bonaFideTermsHash)
   const { minCharLength } = useControllerLimits()
@@ -625,6 +651,9 @@ const Pricing = ({
     <StyledCard>
       <StyledHeading>{t('heading', { name: beautifiedName })}</StyledHeading>
       <SimplexInfoPanel name={name} address={address} />
+      {linkRecords?.map(({ key, value }) => (
+        <SocialProfileButton key={key} iconKey={key} normalisedKey={key} value={value!} />
+      ))}
       {bonaFide.isListed && <BonaFideTerms terms={bonaFide} acceptance={acceptance} />}
       <DateSelection
         {...{ seconds, setSeconds, minSeconds, maxSeconds, durationType }}
@@ -699,6 +728,14 @@ const Pricing = ({
               ethPrice,
               durationType,
               bonaFideTermsHash: acceptance.acceptedTermsHash,
+              autoNext:
+                !!linkRecords &&
+                !bonaFide.isListed &&
+                hasConnected &&
+                reservedLoaded &&
+                nftLoaded &&
+                minCharLength !== undefined &&
+                !fullEstimate.priceLoading,
             }}
           />
         )}
