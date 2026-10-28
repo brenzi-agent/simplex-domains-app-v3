@@ -157,6 +157,7 @@ const Registration = ({ nameDetails, isLoading, linkRecords }: Props) => {
     estimatedTotal,
     ethPrice,
     durationType,
+    bonaFideTermsHash,
   }: RegistrationStepData['pricing']) => {
     // SNRC: reverse resolution is removed from the deployment, so registrations
     // never set a primary name — the controller reverts on a non-zero reverse
@@ -182,7 +183,7 @@ const Registration = ({ nameDetails, isLoading, linkRecords }: Props) => {
     }
     dispatch({
       name: 'setPricingData',
-      payload: { seconds, reverseRecord, durationType },
+      payload: { seconds, reverseRecord, durationType, bonaFideTermsHash },
       selected,
     })
     dispatch({

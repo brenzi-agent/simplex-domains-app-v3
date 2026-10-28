@@ -3,6 +3,7 @@ import { mockFunction, render, screen, userEvent } from '@app/test-utils'
 import { Hex, zeroAddress } from 'viem'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { useAcceptedClaimTerms, useBonaFideTerms } from '@app/hooks/useBonaFideTerms'
 import { useClaimChecks } from '@app/hooks/useClaimChecks'
 import { useNameOffer } from '@app/hooks/useNameOffer'
 import { ClaimNode, ClaimRecord } from '@app/utils/snrcClaimChecks'
@@ -10,12 +11,15 @@ import { ClaimNode, ClaimRecord } from '@app/utils/snrcClaimChecks'
 import { makeMockIntersectionObserver } from '../../../../test/mock/makeMockIntersectionObserver'
 import ClaimName from './ClaimName-flow'
 
+vi.mock('@app/hooks/useBonaFideTerms')
 vi.mock('@app/hooks/useClaimChecks')
 vi.mock('@app/hooks/useNameOffer')
 vi.mock('@app/components/@molecules/AvatarWithIdentifier/AvatarWithIdentifier', () => ({
   AvatarWithIdentifier: ({ address }: { address: string }) => <span>{address}</span>,
 }))
 
+const mockUseBonaFideTerms = mockFunction(useBonaFideTerms)
+const mockUseAcceptedClaimTerms = mockFunction(useAcceptedClaimTerms)
 const mockUseClaimChecks = mockFunction(useClaimChecks)
 const mockUseNameOffer = mockFunction(useNameOffer)
 const mockDispatch = vi.fn()
@@ -25,6 +29,7 @@ const OTHER_HOLDER = '0x4444444444444444444444444444444444444444'
 const RECIPIENT = '0x3333333333333333333333333333333333333333'
 const RESOLVER = '0x5555555555555555555555555555555555555555'
 const CUSTOM_RESOLVER = '0x6666666666666666666666666666666666666666'
+const TERMS = '0x7777777777777777777777777777777777777777777777777777777777777777'
 
 const record = (key: string, value: string, extra: Partial<ClaimRecord> = {}): ClaimRecord => ({
   id: key,
@@ -62,13 +67,27 @@ const checks = (
 const offer = (state: QueryState & { holder?: string; isRecipient?: boolean } = {}) => {
   const { holder = HOLDER, isRecipient = true, ...query } = state
   return {
-    data: { holder, recipient: RECIPIENT, isHolder: false, isRecipient },
+    data: { holder, recipient: RECIPIENT, offerNumber: 3n, isHolder: false, isRecipient },
     isLoading: false,
     isError: false,
     isFetching: false,
     ...query,
   } as unknown as ReturnType<typeof useNameOffer>
 }
+
+const bonaFide = (state: Partial<ReturnType<typeof useBonaFideTerms>> = {}) =>
+  ({
+    isListed: false,
+    termsHash: undefined,
+    text: undefined,
+    hasTerms: false,
+    isLoading: false,
+    isFetching: false,
+    ...state,
+  }) as ReturnType<typeof useBonaFideTerms>
+
+const claimTerms = (data?: string, isLoading = false) =>
+  ({ data, isLoading }) as unknown as ReturnType<typeof useAcceptedClaimTerms>
 
 makeMockIntersectionObserver()
 
@@ -81,6 +100,8 @@ describe('ClaimName', () => {
     vi.clearAllMocks()
     mockUseNameOffer.mockReturnValue(offer())
     mockUseClaimChecks.mockReturnValue(checks())
+    mockUseBonaFideTerms.mockReturnValue(bonaFide())
+    mockUseAcceptedClaimTerms.mockReturnValue(claimTerms())
   })
 
   it('shows None and asks for no acknowledgement for a name without records or subnames', () => {
@@ -269,5 +290,95 @@ describe('ClaimName', () => {
     expect(screen.getByText('input.claimName.untrackedWarning')).toBeVisible()
     expect(screen.getByText('input.claimName.afterwards')).toBeVisible()
     expect(screen.getByTestId('claim-name-acknowledge')).toBeVisible()
+  })
+
+  it('queues the acceptance of the shown terms before the claim of a listed name', async () => {
+    mockUseClaimChecks.mockReturnValue(checks({ nodes: [{ ...root, records: [] }] }))
+    mockUseBonaFideTerms.mockReturnValue(
+      bonaFide({ isListed: true, termsHash: TERMS, text: 'the terms', hasTerms: true }),
+    )
+    render(claimName())
+    expect(screen.getByTestId('bona-fide-terms-text')).toHaveTextContent('the terms')
+    expect(screen.getByTestId('claim-name-confirm')).toBeDisabled()
+
+    await userEvent.click(screen.getByTestId('bona-fide-terms-accept'))
+    await userEvent.click(screen.getByTestId('claim-name-confirm'))
+
+    expect(mockDispatch).toHaveBeenCalledWith({
+      name: 'setTransactions',
+      payload: [
+        {
+          name: 'acceptBonaFideClaimTerms',
+          data: { name: 'alice.testing', holder: HOLDER, offerNumber: 3n, termsHash: TERMS },
+        },
+        { name: 'claimName', data: { name: 'alice.testing', holder: HOLDER, digest: '0xaa' } },
+      ],
+    })
+  })
+
+  it('offers no acceptance for a listed name before its terms are set', () => {
+    mockUseClaimChecks.mockReturnValue(checks({ nodes: [{ ...root, records: [] }] }))
+    mockUseBonaFideTerms.mockReturnValue(bonaFide({ isListed: true, termsHash: TERMS }))
+    render(claimName())
+    expect(screen.getByTestId('bona-fide-terms-unset')).toBeVisible()
+    expect(screen.queryByTestId('bona-fide-terms-accept')).not.toBeInTheDocument()
+    expect(screen.getByTestId('claim-name-confirm')).toBeDisabled()
+  })
+
+  it('claims a listed name without a second acceptance when this offer already has one', async () => {
+    mockUseClaimChecks.mockReturnValue(checks({ nodes: [{ ...root, records: [] }] }))
+    mockUseBonaFideTerms.mockReturnValue(
+      bonaFide({ isListed: true, termsHash: TERMS, text: 'the terms', hasTerms: true }),
+    )
+    mockUseAcceptedClaimTerms.mockReturnValue(claimTerms(TERMS))
+    render(claimName())
+    expect(screen.queryByTestId('bona-fide-terms')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByTestId('claim-name-confirm'))
+    expect(mockDispatch).toHaveBeenCalledWith({
+      name: 'setTransactions',
+      payload: [
+        { name: 'claimName', data: { name: 'alice.testing', holder: HOLDER, digest: '0xaa' } },
+      ],
+    })
+  })
+
+  it('waits for the listing, the terms and an earlier acceptance', () => {
+    for (const [terms, accepted] of [
+      [bonaFide({ isLoading: true }), claimTerms()],
+      [bonaFide({ isListed: true, termsHash: TERMS }), claimTerms(undefined, true)],
+    ] as const) {
+      mockUseBonaFideTerms.mockReturnValue(terms)
+      mockUseAcceptedClaimTerms.mockReturnValue(accepted)
+      const { unmount } = render(claimName())
+      expect(screen.queryByTestId('claim-name-view')).not.toBeInTheDocument()
+      unmount()
+    }
+  })
+
+  it("reads the recipient's acceptance for the holder's offer and disables Claim while it refreshes", () => {
+    mockUseClaimChecks.mockReturnValue(checks({ nodes: [{ ...root, records: [] }] }))
+    mockUseBonaFideTerms.mockReturnValue(
+      bonaFide({ isListed: true, termsHash: TERMS, text: 'the terms', hasTerms: true }),
+    )
+    mockUseAcceptedClaimTerms.mockReturnValue({
+      data: TERMS,
+      isLoading: false,
+      isFetching: true,
+    } as never)
+    render(claimName())
+    expect(mockUseAcceptedClaimTerms).toHaveBeenCalledWith({
+      name: 'alice.testing',
+      holder: HOLDER,
+      offerNumber: 3n,
+      enabled: true,
+    })
+    expect(screen.getByTestId('claim-name-confirm')).toBeDisabled()
+  })
+
+  it('reads no earlier acceptance for an unlisted name', () => {
+    render(claimName())
+    expect(mockUseAcceptedClaimTerms).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: false }),
+    )
   })
 })

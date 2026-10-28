@@ -1,17 +1,19 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { ReactElement, useState } from 'react'
 import styled, { css } from 'styled-components'
-import { getAddress, keccak256, toBytes } from 'viem'
+import { Abi, getAddress, keccak256, parseEventLogs, toBytes } from 'viem'
 import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi'
 
 import { Button, Card, Heading, Input, Select, Typography } from '@ensdomains/thorin'
 
-import { getSnrcAddresses } from '@app/constants/chains'
+import { TermsText } from '@app/components/BonaFideTerms'
+import { getNamePolicyAddress, getSnrcAddresses } from '@app/constants/chains'
 import {
   MAX_SPONSORED_REGISTRATION_DURATION,
   MIN_REGISTRATION_DURATION,
 } from '@app/constants/simplex'
 import { Content } from '@app/layouts/Content'
+import { namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
 import { getUnregistrableLabelsError, parseLabels } from '@app/utils/snrcLabels'
 import { ONE_DAY } from '@app/utils/time'
 
@@ -38,13 +40,6 @@ const controllerAbi = [
     type: 'function',
   },
   {
-    inputs: [{ name: 'hash', type: 'bytes32' }],
-    name: 'reservedNames',
-    outputs: [{ type: 'uint8' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
     inputs: [{ name: 'newMinCharLength', type: 'uint8' }],
     name: 'setMinCharLength',
     outputs: [],
@@ -56,6 +51,16 @@ const controllerAbi = [
     name: 'disableNftGate',
     outputs: [],
     stateMutability: 'nonpayable',
+    type: 'function',
+  },
+] as const
+
+const namePolicyAbi = [
+  {
+    inputs: [{ name: 'hash', type: 'bytes32' }],
+    name: 'reservedNames',
+    outputs: [{ type: 'uint8' }],
+    stateMutability: 'view',
     type: 'function',
   },
   {
@@ -86,9 +91,29 @@ const controllerAbi = [
     stateMutability: 'nonpayable',
     type: 'function',
   },
+  {
+    inputs: [{ name: 'names', type: 'string[]' }],
+    name: 'addBonaFideNames',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: 'names', type: 'string[]' }],
+    name: 'removeBonaFideNames',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    anonymous: false,
+    inputs: [{ indexed: false, name: 'name', type: 'string' }],
+    name: 'BonaFideNameSkipped',
+    type: 'event',
+  },
 ] as const
 
-// SimplexController.Reason; each index is the value stored on chain, so entries are only appended.
+// SimplexNamePolicy.Reason; each index is the value stored on chain, so entries are only appended.
 const REASONS = ['None', 'Internal', 'Trademark', 'Community'] as const
 const REASON_OPTIONS = REASONS.map((label, value) => ({ value: String(value), label })).slice(1)
 const MIN_RESERVED_DAYS = MIN_REGISTRATION_DURATION / ONE_DAY
@@ -143,6 +168,9 @@ function AdminPanel() {
   // deployed at each address on the connected chain? — answered by the code check below.
   const deploymentAddresses = getSnrcAddresses(chainId)
   const controllerAddress = deploymentAddresses.ETHRegistrarController
+  const namePolicyAddress = getNamePolicyAddress(chainId)
+  const controller = { address: controllerAddress, abi: controllerAbi }
+  const namePolicy = { address: namePolicyAddress, abi: namePolicyAbi }
   const publicClient = usePublicClient()
   const { data: walletClient } = useWalletClient()
   const queryClient = useQueryClient()
@@ -164,6 +192,10 @@ function AdminPanel() {
   const [regLabel, setRegLabel] = useState('')
   const [regOwner, setRegOwner] = useState('')
   const [regDuration, setRegDuration] = useState(String(MIN_RESERVED_DAYS))
+  const [listName, setListName] = useState('')
+  const [unListName, setUnListName] = useState('')
+  const [termsHash, setTermsHash] = useState<string>('')
+  const [termsText, setTermsText] = useState('')
   const regDays = Number(regDuration)
   const isRegDurationValid =
     Number.isInteger(regDays) && regDays >= MIN_RESERVED_DAYS && regDays <= MAX_RESERVED_DAYS
@@ -173,6 +205,10 @@ function AdminPanel() {
   const reserveNameError = getUnregistrableLabelsError(reserveLabels)
   const unReserveNameError = getUnregistrableLabelsError(unReserveLabels)
   const regLabelError = getUnregistrableLabelsError(regLabel ? [regLabel] : [])
+  const listLabels = parseLabels(listName)
+  const unListLabels = parseLabels(unListName)
+  const listNameError = getUnregistrableLabelsError(listLabels)
+  const unListNameError = getUnregistrableLabelsError(unListLabels)
 
   const loadState = async () => {
     if (!publicClient || !controllerAddress) return
@@ -211,6 +247,26 @@ function AdminPanel() {
         next[name] = !!codes[i] && codes[i] !== '0x'
       })
       setCodeStatus(next)
+      const [onChainTermsHash, onChainTermsText] = namePolicyAddress
+        ? await Promise.all([
+            publicClient
+              .readContract({
+                address: namePolicyAddress,
+                abi: namePolicyBonaFideAbi,
+                functionName: 'termsHash',
+              })
+              .catch(() => 'unreadable'),
+            publicClient
+              .readContract({
+                address: namePolicyAddress,
+                abi: namePolicyBonaFideAbi,
+                functionName: 'termsText',
+              })
+              .catch(() => ''),
+          ])
+        : ['not deployed', '']
+      setTermsHash(onChainTermsHash)
+      setTermsText(onChainTermsText)
 
       setLoaded(true)
       setStatus('')
@@ -225,32 +281,51 @@ function AdminPanel() {
 
   const isOwner = address && ownerAddress && getAddress(address) === getAddress(ownerAddress)
 
-  const execTx = async (functionName: string, args: any[]) => {
-    if (!walletClient || !controllerAddress) return
+  const execTx = async (
+    contract: { address?: string; abi: Abi },
+    functionName: string,
+    args: any[],
+  ) => {
+    if (!walletClient || !contract.address) return
     try {
       setStatus(`Sending ${functionName}...`)
       const hash = await walletClient.writeContract({
-        address: controllerAddress as `0x${string}`,
-        abi: controllerAbi,
+        address: contract.address as `0x${string}`,
+        abi: contract.abi,
         functionName: functionName as any,
         args: args as any,
       })
       setStatus(`Tx sent: ${hash.slice(0, 10)}... waiting...`)
-      await publicClient!.waitForTransactionReceipt({ hash })
+      const receipt = await publicClient!.waitForTransactionReceipt({ hash })
       setStatus(`${functionName} confirmed`)
       await queryClient.invalidateQueries()
       await loadState()
+      return receipt
     } catch (e: any) {
       setStatus(`Error: ${e.shortMessage || e.message}`)
     }
   }
 
+  const listBonaFideNames = async () => {
+    const receipt = await execTx(namePolicy, 'addBonaFideNames', [listLabels])
+    if (!receipt) return
+    const skipped = parseEventLogs({
+      abi: namePolicyAbi,
+      logs: receipt.logs,
+      eventName: 'BonaFideNameSkipped',
+    }).map(({ args }) => args.name)
+    if (skipped.length)
+      setStatus(
+        `addBonaFideNames confirmed; skipped (registered or in grace): ${skipped.join(', ')}`,
+      )
+  }
+
   const checkReserved = async () => {
-    if (!publicClient || !controllerAddress || !checkName) return
+    if (!publicClient || !namePolicyAddress || !checkName) return
     try {
       const result = await publicClient.readContract({
-        address: controllerAddress as `0x${string}`,
-        abi: controllerAbi,
+        address: namePolicyAddress,
+        abi: namePolicyAbi,
         functionName: 'reservedNames',
         args: [keccak256(toBytes(checkName))],
       })
@@ -351,7 +426,7 @@ function AdminPanel() {
                 <Button
                   size="small"
                   data-testid="admin-set-min-char-button"
-                  onClick={() => execTx('setMinCharLength', [Number(newMinChar)])}
+                  onClick={() => execTx(controller, 'setMinCharLength', [Number(newMinChar)])}
                   disabled={!newMinChar}
                 >
                   Set
@@ -370,7 +445,7 @@ function AdminPanel() {
                 <Button
                   size="small"
                   colorStyle="redSecondary"
-                  onClick={() => execTx('disableNftGate', [])}
+                  onClick={() => execTx(controller, 'disableNftGate', [])}
                 >
                   Disable NFT Gate
                 </Button>
@@ -400,7 +475,9 @@ function AdminPanel() {
                 />
                 <Button
                   size="small"
-                  onClick={() => execTx('addReservedNames', [reserveLabels, Number(reserveReason)])}
+                  onClick={() =>
+                    execTx(namePolicy, 'addReservedNames', [reserveLabels, Number(reserveReason)])
+                  }
                   disabled={!reserveLabels.length || !!reserveNameError}
                 >
                   Reserve
@@ -417,12 +494,65 @@ function AdminPanel() {
                 />
                 <Button
                   size="small"
-                  onClick={() => execTx('removeReservedNames', [unReserveLabels])}
+                  onClick={() => execTx(namePolicy, 'removeReservedNames', [unReserveLabels])}
                   disabled={!unReserveLabels.length || !!unReserveNameError}
                 >
                   Unreserve
                 </Button>
               </Row>
+            </Section>
+          </Card>
+
+          <Card>
+            <Section>
+              <Typography fontVariant="largeBold">Bona Fide Names</Typography>
+              <Typography fontVariant="small">
+                A listed name can be registered or received only by someone who accepts the current
+                terms. Names that are registered or in grace are skipped.
+              </Typography>
+              <Row>
+                <Input
+                  label="List name(s)"
+                  value={listName}
+                  onChange={(e) => setListName(e.target.value)}
+                  placeholder="one name per line — submitted in a single tx"
+                  description="Newline or comma separated."
+                  error={listNameError}
+                />
+                <Button
+                  size="small"
+                  data-testid="admin-list-bona-fide"
+                  onClick={listBonaFideNames}
+                  disabled={!listLabels.length || !!listNameError}
+                >
+                  List
+                </Button>
+              </Row>
+              <Row>
+                <Input
+                  label="Unlist name(s)"
+                  value={unListName}
+                  onChange={(e) => setUnListName(e.target.value)}
+                  placeholder="one name per line — submitted in a single tx"
+                  description="Newline or comma separated."
+                  error={unListNameError}
+                />
+                <Button
+                  size="small"
+                  onClick={() => execTx(namePolicy, 'removeBonaFideNames', [unListLabels])}
+                  disabled={!unListLabels.length || !!unListNameError}
+                >
+                  Unlist
+                </Button>
+              </Row>
+              <Mono fontVariant="small" data-testid="admin-terms-hash">
+                Terms on chain: {termsHash || 'loading...'}
+              </Mono>
+              {termsText && <TermsText data-testid="admin-terms-text" text={termsText} />}
+              <Typography fontVariant="small">
+                The terms are set from the namespace repository&apos;s bona-fide-terms file by its
+                deploy scripts.
+              </Typography>
             </Section>
           </Card>
 
@@ -456,7 +586,7 @@ function AdminPanel() {
               <Button
                 size="small"
                 onClick={() =>
-                  execTx('registerReserved', [
+                  execTx(namePolicy, 'registerReserved', [
                     regLabel,
                     regOwner,
                     BigInt(Number(regDuration) * 86400),

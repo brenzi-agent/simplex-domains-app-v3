@@ -1,3 +1,5 @@
+import acceptBonaFideClaimTerms from './acceptBonaFideClaimTerms'
+import acceptBonaFideTerms from './acceptBonaFideTerms'
 import approveDnsRegistrar from './approveDnsRegistrar'
 import approveNameWrapper from './approveNameWrapper'
 import approveSubnameRegistrar from './approveSubnameRegistrar'
@@ -35,6 +37,8 @@ import withdrawOffer from './withdrawOffer'
 import wrapName from './wrapName'
 
 export const transactions = {
+  acceptBonaFideClaimTerms,
+  acceptBonaFideTerms,
   approveDnsRegistrar,
   approveNameWrapper,
   approveSubnameRegistrar,

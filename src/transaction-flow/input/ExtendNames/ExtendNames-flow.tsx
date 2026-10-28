@@ -22,6 +22,7 @@ import { usePrice } from '@app/hooks/ensjs/public/usePrice'
 import { useEnsAvatar } from '@app/hooks/useEnsAvatar'
 import { useEthPrice } from '@app/hooks/useEthPrice'
 import { useReferrer } from '@app/hooks/useReferrer'
+import { useReservedNames } from '@app/hooks/useReservedStatus'
 import { useZorb } from '@app/hooks/useZorb'
 import { createTransactionItem } from '@app/transaction-flow/transaction'
 import { TransactionDialogPassthrough } from '@app/transaction-flow/types'
@@ -231,6 +232,8 @@ const ExtendNames = ({
       ? Number(blockTimestamp / 1000n) + MAX_REGISTRATION_DURATION - Number(expiryData.expiry.value)
       : undefined
   const isTooEarly = maxSeconds !== undefined && maxSeconds < minSeconds
+  const { reservedNames, isLoading: isReservedLoading } = useReservedNames({ names })
+  const isReserved = reservedNames.length > 0
 
   const {
     data: { gasEstimate: estimatedGasLimit, gasCost: transactionFee },
@@ -257,7 +260,8 @@ const ExtendNames = ({
         ],
       },
     ],
-    enabled: !!totalRentFee && !!address && seconds > 0 && totalRentFee > 0n && !isTooEarly,
+    enabled:
+      !!totalRentFee && !!address && seconds > 0 && totalRentFee > 0n && !isTooEarly && !isReserved,
   })
 
   const previousTransactionFee = usePreviousDistinct(transactionFee) || 0n
@@ -297,7 +301,11 @@ const ExtendNames = ({
   const view = flow[viewIdx]
 
   const isBaseDataLoading =
-    !isAccountConnected || isBalanceLoading || isExpiryEnabledAndLoading || isEthPriceLoading
+    !isAccountConnected ||
+    isBalanceLoading ||
+    isExpiryEnabledAndLoading ||
+    isEthPriceLoading ||
+    isReservedLoading
   const isRegisterLoading = isPriceLoading || (isEstimateGasLoading && !estimateGasLimitError)
 
   const { title, alert, buttonProps } = match(view)
@@ -324,7 +332,7 @@ const ExtendNames = ({
       title: t('input.extendNames.title', { name: names.at(0), count: names.length }),
       alert: undefined,
       buttonProps: {
-        disabled: isRegisterLoading || isTooEarly,
+        disabled: isRegisterLoading || isTooEarly || isReserved || isReservedLoading,
         onClick: () => {
           if (!priceData) return
           const transactions = createTransactionItem('extendNames', {
@@ -362,6 +370,18 @@ const ExtendNames = ({
           .with(['name-list', false], () => {
             return <NamesList names={names} />
           })
+          .with(
+            ['registration', false],
+            () => isReserved,
+            () => (
+              <Helper alert="warning" data-testid="extend-names-reserved">
+                {t('input.extendNames.reserved', {
+                  names: reservedNames.join(', '),
+                  count: reservedNames.length,
+                })}
+              </Helper>
+            ),
+          )
           .with(
             ['registration', false],
             () => isTooEarly,

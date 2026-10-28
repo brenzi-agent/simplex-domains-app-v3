@@ -1,4 +1,4 @@
-import { act, mockFunction, render, screen } from '@app/test-utils'
+import { act, mockFunction, render, screen, userEvent } from '@app/test-utils'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAccountEffect, UseAccountEffectParameters, useBalance } from 'wagmi'
@@ -8,6 +8,7 @@ import { ProfileRecord } from '@app/constants/profileRecordOptions'
 import { useAccountSafely } from '@app/hooks/account/useAccountSafely'
 import { useContractAddress } from '@app/hooks/chain/useContractAddress'
 import { useEstimateFullRegistration } from '@app/hooks/gasEstimation/useEstimateRegistration'
+import { useBonaFideTerms } from '@app/hooks/useBonaFideTerms'
 import { useControllerLimits } from '@app/hooks/useControllerLimits'
 import { useEthPrice } from '@app/hooks/useEthPrice'
 import { useNftGateStatus } from '@app/hooks/useNftGateStatus'
@@ -21,6 +22,7 @@ vi.mock('wagmi')
 vi.mock('@app/hooks/account/useAccountSafely')
 vi.mock('@app/hooks/chain/useContractAddress')
 vi.mock('@app/hooks/gasEstimation/useEstimateRegistration')
+vi.mock('@app/hooks/useBonaFideTerms')
 vi.mock('@app/hooks/useControllerLimits')
 vi.mock('@app/hooks/useEthPrice')
 vi.mock('@app/hooks/useNftGateStatus')
@@ -39,6 +41,7 @@ const mockUseAccountEffect = mockFunction(useAccountEffect)
 const mockUseBalance = mockFunction(useBalance)
 const mockUseContractAddress = mockFunction(useContractAddress)
 const mockUseEstimateFullRegistration = mockFunction(useEstimateFullRegistration)
+const mockUseBonaFideTerms = mockFunction(useBonaFideTerms)
 const mockUseControllerLimits = mockFunction(useControllerLimits)
 const mockUseEthPrice = mockFunction(useEthPrice)
 const mockUseNftGateStatus = mockFunction(useNftGateStatus)
@@ -149,6 +152,14 @@ describe('Pricing', () => {
     mockUseEthPrice.mockReturnValue({ data: 1n })
     mockUseNftGateStatus.mockReturnValue({ required: false, hasNft: undefined, loaded: true })
     mockUseReservedStatus.mockReturnValue({ isReserved: false, loaded: true })
+    mockUseBonaFideTerms.mockReturnValue({
+      isListed: false,
+      termsHash: undefined,
+      text: undefined,
+      hasTerms: false,
+      isLoading: false,
+      isFetching: false,
+    })
   }
 
   const makeProps = (overrides: Partial<PricingProps> = {}): PricingProps => ({
@@ -202,6 +213,23 @@ describe('Pricing', () => {
     render(<Pricing {...props} />)
     connect(false)
     expect(props.callback).not.toHaveBeenCalled()
+  })
+
+  it('should wait for Next on a community name once its terms are accepted', async () => {
+    mockUseBonaFideTerms.mockReturnValue({
+      isListed: true,
+      termsHash: `0x${'11'.repeat(32)}`,
+      text: '# Terms',
+      hasTerms: true,
+      isLoading: false,
+      isFetching: false,
+    })
+    const props = makeProps()
+    render(<Pricing {...props} />)
+    connect(false)
+    await userEvent.click(screen.getByTestId('bona-fide-terms-accept'))
+    expect(props.callback).not.toHaveBeenCalled()
+    expect(screen.getByTestId('next-button')).toBeEnabled()
   })
 
   it.each([

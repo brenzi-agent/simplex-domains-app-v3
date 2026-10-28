@@ -83,6 +83,8 @@ const snrcErrors = parseAbi([
   'error NodeNotOwnedByRegistrar()',
   'error InvalidEVMAddress(bytes addressBytes)',
   'error InvalidPriceFeed(int256 answer)',
+  'error TermsMismatch(bytes32 accepted, bytes32 current)',
+  'error TermsNotAccepted(string name)',
 ])
 
 export const allContractErrors = [

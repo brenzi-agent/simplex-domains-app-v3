@@ -47,19 +47,21 @@ export const getNameOfferQueryFn =
       },
     )
     if (!holder) return null
-    const [baseNode, approved] = await Promise.all([
+    const [baseNode, approved, offerNumber] = await Promise.all([
       readContract(client, {
         address: registrar,
         abi: registrarOfferAbi,
         functionName: 'baseNode',
       }),
       readContract(client, { ...target, functionName: 'getApproved' }),
+      readContract(client, { ...target, functionName: 'offers' }),
     ])
     if (baseNode !== namehash(name.split('.')[1])) return null
     const recipient = approved === zeroAddress ? undefined : approved
     return {
       holder,
       recipient,
+      offerNumber,
       isHolder: !!address && holder.toLowerCase() === address.toLowerCase(),
       isRecipient: !!address && recipient?.toLowerCase() === address.toLowerCase(),
     }
