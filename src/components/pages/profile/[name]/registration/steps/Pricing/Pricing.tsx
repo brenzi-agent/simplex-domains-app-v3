@@ -656,7 +656,8 @@ const Pricing = ({
       ))}
       {bonaFide.isListed && <BonaFideTerms terms={bonaFide} acceptance={acceptance} />}
       <DateSelection
-        {...{ seconds, setSeconds, minSeconds, maxSeconds, durationType }}
+        {...{ seconds, setSeconds, minSeconds, durationType }}
+        maxSeconds={bonaFide.isListed ? minSeconds : maxSeconds}
         onChangeDurationType={setDurationType}
       />
       <FullInvoice {...fullEstimate} />

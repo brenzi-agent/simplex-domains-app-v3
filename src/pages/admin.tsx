@@ -9,9 +9,11 @@ import { Button, Card, Heading, Input, Select, Typography } from '@ensdomains/th
 import { TermsText } from '@app/components/BonaFideTerms'
 import { getNamePolicyAddress, getSnrcAddresses } from '@app/constants/chains'
 import {
+  MAX_REGISTRATION_DURATION,
   MAX_SPONSORED_REGISTRATION_DURATION,
   MIN_REGISTRATION_DURATION,
 } from '@app/constants/simplex'
+import { useBonaFideTerms } from '@app/hooks/useBonaFideTerms'
 import { Content } from '@app/layouts/Content'
 import { namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
 import { getUnregistrableLabelsError, parseLabels } from '@app/utils/snrcLabels'
@@ -118,6 +120,7 @@ const REASONS = ['None', 'Internal', 'Trademark', 'Community'] as const
 const REASON_OPTIONS = REASONS.map((label, value) => ({ value: String(value), label })).slice(1)
 const MIN_RESERVED_DAYS = MIN_REGISTRATION_DURATION / ONE_DAY
 const MAX_RESERVED_DAYS = MAX_SPONSORED_REGISTRATION_DURATION / ONE_DAY
+const MAX_BONA_FIDE_DAYS = MAX_REGISTRATION_DURATION / ONE_DAY
 
 const Section = styled.div(
   ({ theme }) => css`
@@ -197,8 +200,12 @@ function AdminPanel() {
   const [termsHash, setTermsHash] = useState<string>('')
   const [termsText, setTermsText] = useState('')
   const regDays = Number(regDuration)
+  const regBonaFide = useBonaFideTerms({
+    name: `${regLabel}.${process.env.NEXT_PUBLIC_SIMPLEX_TLD || 'testing'}`,
+  })
+  const maxRegDays = regBonaFide.isListed ? MAX_BONA_FIDE_DAYS : MAX_RESERVED_DAYS
   const isRegDurationValid =
-    Number.isInteger(regDays) && regDays >= MIN_RESERVED_DAYS && regDays <= MAX_RESERVED_DAYS
+    Number.isInteger(regDays) && regDays >= MIN_RESERVED_DAYS && regDays <= maxRegDays
   const reserveLabels = parseLabels(reserveName)
   const unReserveLabels = parseLabels(unReserveName)
   const checkNameError = getUnregistrableLabelsError(checkName ? [checkName] : [])
@@ -580,7 +587,7 @@ function AdminPanel() {
                 value={regDuration}
                 onChange={(e) => setRegDuration(e.target.value)}
                 placeholder={String(MIN_RESERVED_DAYS)}
-                description={`${MIN_RESERVED_DAYS}–${MAX_RESERVED_DAYS} days`}
+                description={`${MIN_RESERVED_DAYS}–${maxRegDays} days`}
                 error={regDuration && !isRegDurationValid ? 'Out of range' : undefined}
               />
               <Button
