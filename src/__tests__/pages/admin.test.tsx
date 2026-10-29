@@ -44,7 +44,7 @@ const reads: Record<string, unknown> = {
 }
 const writeContract = vi.fn(async () => '0xabcdef0123')
 
-const connect = (address: string) => mockFunction(useAccount).mockReturnValue({ address })
+const connect = (address: `0x${string}`) => mockFunction(useAccount).mockReturnValue({ address })
 
 describe('admin page', () => {
   beforeEach(() => {
