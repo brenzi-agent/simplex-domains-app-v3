@@ -613,6 +613,7 @@ const Pricing = ({
       records: [{ key: 'ETH', value: resolverAddress, type: 'addr', group: 'address' }],
       clearRecords: resolverExists,
       resolverAddress,
+      terms: terms.kind && terms.hash && { kind: terms.kind, hash: terms.hash },
     },
   })
 
