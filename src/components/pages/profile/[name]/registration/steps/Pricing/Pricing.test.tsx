@@ -5,7 +5,6 @@ import { useAccountEffect, UseAccountEffectParameters, useBalance } from 'wagmi'
 import type { GetBalanceData } from 'wagmi/query'
 
 import { ProfileRecord } from '@app/constants/profileRecordOptions'
-import { MAX_REGISTRATION_DURATION, MIN_REGISTRATION_DURATION } from '@app/constants/simplex'
 import { useAccountSafely } from '@app/hooks/account/useAccountSafely'
 import { useContractAddress } from '@app/hooks/chain/useContractAddress'
 import { useEstimateFullRegistration } from '@app/hooks/gasEstimation/useEstimateRegistration'
@@ -30,9 +29,7 @@ vi.mock('@app/hooks/useNftGateStatus')
 vi.mock('@app/hooks/useReservedStatus')
 vi.mock('@app/components/SimplexInfoPanel', () => ({ SimplexInfoPanel: () => null }))
 vi.mock('@app/components/@molecules/DateSelection/DateSelection', () => ({
-  DateSelection: ({ maxSeconds }: { maxSeconds: number }) => (
-    <div data-testid="max-seconds">{maxSeconds}</div>
-  ),
+  DateSelection: ({ maxSeconds }: { maxSeconds: number }) => <div>{maxSeconds}</div>,
 }))
 vi.mock('@app/components/pages/profile/ProfileButton', () => ({
   SocialProfileButton: ({ value }: { value: string }) => <div>{value}</div>,
@@ -220,7 +217,7 @@ describe('Pricing', () => {
 
   it('should offer a community name for two years only', () => {
     const { rerender } = render(<Pricing {...makeProps()} />)
-    expect(screen.getByTestId('max-seconds')).toHaveTextContent(String(MAX_REGISTRATION_DURATION))
+    expect(screen.getByText(yearsToSeconds(3))).toBeInTheDocument()
     mockUseBonaFideTerms.mockReturnValue({
       isListed: true,
       termsHash: `0x${'11'.repeat(32)}`,
@@ -230,7 +227,7 @@ describe('Pricing', () => {
       isFetching: false,
     })
     rerender(<Pricing {...makeProps()} />)
-    expect(screen.getByTestId('max-seconds')).toHaveTextContent(String(MIN_REGISTRATION_DURATION))
+    expect(screen.getByText(yearsToSeconds(2))).toBeInTheDocument()
   })
 
   it('should wait for Next on a community name once its terms are accepted', async () => {
