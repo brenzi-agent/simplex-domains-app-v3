@@ -13,7 +13,7 @@ import {
   MAX_SPONSORED_REGISTRATION_DURATION,
   MIN_REGISTRATION_DURATION,
 } from '@app/constants/simplex'
-import { useNameTerms, useTermsText } from '@app/hooks/useNameTerms'
+import { parseTermsLink, useNameTerms, useTermsText } from '@app/hooks/useNameTerms'
 import { Content } from '@app/layouts/Content'
 import { getUnregistrableLabelsError, parseLabels } from '@app/utils/snrcLabels'
 import { namePolicyTermsAbi, TermsKind } from '@app/utils/snrcNameTerms'
@@ -108,6 +108,20 @@ const namePolicyAbi = [
     type: 'function',
   },
   {
+    inputs: [{ name: 'link', type: 'string' }],
+    name: 'setNameTerms',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: 'link', type: 'string' }],
+    name: 'setCommunityNameTerms',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
     anonymous: false,
     inputs: [{ indexed: false, name: 'name', type: 'string' }],
     name: 'BonaFideNameSkipped',
@@ -164,8 +178,22 @@ const codeBadge = (zero: boolean, has?: boolean) => {
 
 type OnChainTerms = { link: string; hash: string }
 
-const TermsSettings = ({ terms, testId }: { terms?: OnChainTerms; testId: string }) => {
+const TermsSettings = ({
+  terms,
+  testId,
+  setLabel,
+  onSet,
+}: {
+  terms?: OnChainTerms
+  testId: string
+  setLabel: string
+  onSet: (link: string) => void
+}) => {
+  const chainId = useChainId()
   const { text } = useTermsText(terms?.link)
+  const [newLink, setNewLink] = useState('')
+  const newLinkError =
+    newLink && !parseTermsLink(newLink, chainId) ? 'Not a terms link for this chain' : undefined
   return (
     <>
       <Mono fontVariant="small" data-testid={`${testId}-link`}>
@@ -175,6 +203,25 @@ const TermsSettings = ({ terms, testId }: { terms?: OnChainTerms; testId: string
         Terms on chain: {terms?.hash || 'loading...'}
       </Mono>
       {text.data !== undefined && <TermsText data-testid={`${testId}-text`} text={text.data} />}
+      <Row>
+        <Input
+          label="New link"
+          data-testid={`${testId}-input`}
+          value={newLink}
+          onChange={(e) => setNewLink(e.target.value)}
+          placeholder="https://git.simplex.chat/simplex-chat/simplex-chat/raw/commit/…"
+          description="One file at one commit, ending #sha256= and the sha256 of the file."
+          error={newLinkError}
+        />
+        <Button
+          size="small"
+          data-testid={`${testId}-set`}
+          onClick={() => onSet(newLink)}
+          disabled={!newLink || !!newLinkError}
+        >
+          {setLabel}
+        </Button>
+      </Row>
     </>
   )
 }
@@ -532,7 +579,12 @@ function AdminPanel() {
                 A name that is not listed can be registered or received only by someone who accepts
                 the current name terms.
               </Typography>
-              <TermsSettings terms={terms?.name} testId="admin-name-terms" />
+              <TermsSettings
+                terms={terms?.name}
+                testId="admin-name-terms"
+                setLabel="Set name terms"
+                onSet={(link) => execTx(namePolicy, 'setNameTerms', [link])}
+              />
             </Section>
           </Card>
 
@@ -578,7 +630,12 @@ function AdminPanel() {
                   Unlist
                 </Button>
               </Row>
-              <TermsSettings terms={terms?.community} testId="admin-terms" />
+              <TermsSettings
+                terms={terms?.community}
+                testId="admin-terms"
+                setLabel="Set community name terms"
+                onSet={(link) => execTx(namePolicy, 'setCommunityNameTerms', [link])}
+              />
             </Section>
           </Card>
 
