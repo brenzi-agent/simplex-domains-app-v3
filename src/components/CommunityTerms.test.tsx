@@ -2,7 +2,7 @@ import { render, screen } from '@app/test-utils'
 
 import { describe, expect, it } from 'vitest'
 
-import { TermsText } from './BonaFideTerms'
+import { TermsText } from './CommunityTerms'
 
 describe('TermsText', () => {
   it('renders the markdown of the terms, and HTML in them as text', () => {

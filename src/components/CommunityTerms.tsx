@@ -5,7 +5,7 @@ import { match } from 'ts-pattern'
 
 import { CheckboxRow, Helper, Typography } from '@ensdomains/thorin'
 
-import { useBonaFideTerms } from '@app/hooks/useBonaFideTerms'
+import { useCommunityTerms } from '@app/hooks/useCommunityTerms'
 import { useTermsAcceptance } from '@app/hooks/useTermsAcceptance'
 
 const TermsBox = styled.div(
@@ -85,40 +85,40 @@ export const TermsText = ({
   ...props
 }: { text: string } & ComponentPropsWithoutRef<'div'>) => (
   // focusable, so the terms scroll from the keyboard too
-  <TermsBox tabIndex={0} aria-label="Bona fide community terms" {...props}>
+  <TermsBox tabIndex={0} aria-label="Community terms" {...props}>
     <Markdown options={{ disableParsingRawHTML: true }}>{text}</Markdown>
   </TermsBox>
 )
 
 type Props = {
-  terms: ReturnType<typeof useBonaFideTerms>
+  terms: ReturnType<typeof useCommunityTerms>
   acceptance: ReturnType<typeof useTermsAcceptance>
 }
 
-export const BonaFideTerms = ({ terms, acceptance }: Props) => (
-  <Helper alert="info" alignment="horizontal" data-testid="bona-fide-terms">
+export const CommunityTerms = ({ terms, acceptance }: Props) => (
+  <Helper alert="info" alignment="horizontal" data-testid="community-terms">
     <Content>
       <div>
-        <Typography weight="bold">Bona fide community name</Typography>
+        <Typography weight="bold">Community name</Typography>
         <Typography>
-          Registering or receiving this name requires accepting the bona fide community terms.
+          Registering or receiving this name requires accepting the community terms.
         </Typography>
       </div>
       {match(terms)
         .with({ isLoading: true }, () => <Typography>Loading the terms…</Typography>)
         .with({ hasTerms: true }, () => (
           <>
-            <TermsText data-testid="bona-fide-terms-text" text={terms.text ?? ''} />
+            <TermsText data-testid="community-terms-text" text={terms.text ?? ''} />
             <CheckboxRow
-              data-testid="bona-fide-terms-accept"
-              label="I accept the bona fide community terms"
+              data-testid="community-terms-accept"
+              label="I accept the community terms"
               checked={!!acceptance.acceptedTermsHash}
               onChange={(e) => acceptance.setAccepted(e.target.checked)}
             />
           </>
         ))
         .otherwise(() => (
-          <Typography color="red" data-testid="bona-fide-terms-unset">
+          <Typography color="red" data-testid="community-terms-unset">
             The community terms are not set yet, so they cannot be accepted.
           </Typography>
         ))}

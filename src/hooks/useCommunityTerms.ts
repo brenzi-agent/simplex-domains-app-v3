@@ -5,7 +5,7 @@ import { readContract } from 'viem/actions'
 import { getNamePolicyAddress } from '@app/constants/chains'
 import { ConfigWithEns, CreateQueryKey } from '@app/types'
 import { useQuery } from '@app/utils/query/useQuery'
-import { namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
+import { namePolicyCommunityAbi } from '@app/utils/snrcCommunity'
 import { getSnrcTokenId } from '@app/utils/snrcOffers'
 
 import { useQueryOptions } from './useQueryOptions'
@@ -22,25 +22,25 @@ export const getListedTermsQueryFn =
     const [isListed, termsHash, text] = await Promise.all([
       readContract(client, {
         address: namePolicyAddress,
-        abi: namePolicyBonaFideAbi,
-        functionName: 'bonaFideNames',
+        abi: namePolicyCommunityAbi,
+        functionName: 'communityNames',
         args: [toHex(tokenId, { size: 32 })],
       }),
       readContract(client, {
         address: namePolicyAddress,
-        abi: namePolicyBonaFideAbi,
+        abi: namePolicyCommunityAbi,
         functionName: 'termsHash',
       }),
       readContract(client, {
         address: namePolicyAddress,
-        abi: namePolicyBonaFideAbi,
+        abi: namePolicyCommunityAbi,
         functionName: 'termsText',
       }),
     ])
     return isListed ? { termsHash, text } : null
   }
 
-export const useBonaFideTerms = ({ name }: { name: string }) => {
+export const useCommunityTerms = ({ name }: { name: string }) => {
   const initialOptions = useQueryOptions({
     params: { name },
     functionName: 'getListedTerms',
@@ -73,7 +73,7 @@ export const getCommittedTermsQueryFn =
     if (!namePolicyAddress || !acceptor) return null
     return readContract(config.getClient({ chainId }), {
       address: namePolicyAddress,
-      abi: namePolicyBonaFideAbi,
+      abi: namePolicyCommunityAbi,
       functionName: 'acceptedTerms',
       args: [commitment, acceptor],
     })
@@ -120,7 +120,7 @@ export const getAcceptedClaimTermsQueryFn =
       return null
     return readContract(config.getClient({ chainId }), {
       address: namePolicyAddress,
-      abi: namePolicyBonaFideAbi,
+      abi: namePolicyCommunityAbi,
       functionName: 'acceptedClaimTerms',
       args: [tokenId, holder, recipient, offerNumber],
     })

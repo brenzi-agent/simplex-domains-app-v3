@@ -3,7 +3,7 @@ import { encodeFunctionData, Hex } from 'viem'
 
 import { getNamePolicyAddress } from '@app/constants/chains'
 import { Transaction, TransactionDisplayItem, TransactionFunctionParameters } from '@app/types'
-import { namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
+import { namePolicyCommunityAbi } from '@app/utils/snrcCommunity'
 
 type Data = { name: string; commitment: Hex; termsHash: Hex }
 
@@ -18,15 +18,15 @@ const displayItems = (
   },
   {
     label: 'action',
-    value: t('transaction.description.acceptBonaFideTerms'),
+    value: t('transaction.description.acceptCommunityTerms'),
   },
 ]
 
 const transaction = ({ client, data }: TransactionFunctionParameters<Data>) => ({
   to: getNamePolicyAddress(client.chain.id)!,
   data: encodeFunctionData({
-    abi: namePolicyBonaFideAbi,
-    functionName: 'commitUnderBonaFideCommunityTerms',
+    abi: namePolicyCommunityAbi,
+    functionName: 'commitUnderCommunityTerms',
     args: [data.commitment, data.termsHash],
   }),
 })

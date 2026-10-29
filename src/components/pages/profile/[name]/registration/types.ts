@@ -25,7 +25,7 @@ export type RegistrationStepData = {
     estimatedTotal?: bigint
     ethPrice?: bigint
     durationType: 'date' | 'years'
-    bonaFideTermsHash?: Hex
+    communityTermsHash?: Hex
   }
   profile: {
     records: ProfileRecord[]

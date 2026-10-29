@@ -1,7 +1,7 @@
 import { encodeFunctionData } from 'viem'
 import { describe, expect, it } from 'vitest'
 
-import { namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
+import { namePolicyCommunityAbi } from '@app/utils/snrcCommunity'
 
 import { isPolicyCommit } from './isPolicyCommit'
 
@@ -12,13 +12,13 @@ const TERMS = `0x${'77'.repeat(32)}` as const
 
 const policyCommit = (commitment: `0x${string}`) =>
   encodeFunctionData({
-    abi: namePolicyBonaFideAbi,
-    functionName: 'commitUnderBonaFideCommunityTerms',
+    abi: namePolicyCommunityAbi,
+    functionName: 'commitUnderCommunityTerms',
     args: [commitment, TERMS],
   })
 const acceptForClaim = encodeFunctionData({
-  abi: namePolicyBonaFideAbi,
-  functionName: 'acceptBonaFideCommunityTermsForClaim',
+  abi: namePolicyCommunityAbi,
+  functionName: 'acceptCommunityTermsForClaim',
   args: [1n, OTHER, 0n, TERMS],
 })
 const expected = { commitment: COMMITMENT, namePolicyAddress: NAME_POLICY } as const

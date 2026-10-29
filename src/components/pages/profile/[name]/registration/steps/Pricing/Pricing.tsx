@@ -25,8 +25,8 @@ import { RegistrationTimeComparisonBanner } from '@app/components/@atoms/Registr
 import { Spacer } from '@app/components/@atoms/Spacer'
 import { ConnectButton } from '@app/components/@molecules/ConnectButton/ConnectButton'
 import { DateSelection } from '@app/components/@molecules/DateSelection/DateSelection'
-import { BonaFideTerms } from '@app/components/BonaFideTerms'
 import { Card } from '@app/components/Card'
+import { CommunityTerms } from '@app/components/CommunityTerms'
 import { SocialProfileButton } from '@app/components/pages/profile/ProfileButton'
 import { SimplexInfoPanel } from '@app/components/SimplexInfoPanel'
 import { ProfileRecord } from '@app/constants/profileRecordOptions'
@@ -37,7 +37,7 @@ import { useReservedStatus } from '@app/hooks/useReservedStatus'
 import { useAccountSafely } from '@app/hooks/account/useAccountSafely'
 import { useContractAddress } from '@app/hooks/chain/useContractAddress'
 import { useEstimateFullRegistration } from '@app/hooks/gasEstimation/useEstimateRegistration'
-import { useBonaFideTerms } from '@app/hooks/useBonaFideTerms'
+import { useCommunityTerms } from '@app/hooks/useCommunityTerms'
 import { useEthPrice } from '@app/hooks/useEthPrice'
 import { useTermsAcceptance } from '@app/hooks/useTermsAcceptance'
 import { useBreakpoint } from '@app/utils/BreakpointProvider'
@@ -382,7 +382,7 @@ export type ActionButtonProps = {
   estimatedTotal?: bigint
   ethPrice?: bigint
   durationType: 'date' | 'years'
-  bonaFideTermsHash?: Hex
+  communityTermsHash?: Hex
   autoNext?: boolean
 }
 
@@ -485,7 +485,7 @@ export const ActionButton = (props: ActionButtonProps) => {
         estimatedTotal,
         ethPrice,
         durationType,
-        bonaFideTermsHash,
+        communityTermsHash,
         callback,
         autoNext,
       }) => {
@@ -497,7 +497,7 @@ export const ActionButton = (props: ActionButtonProps) => {
             estimatedTotal,
             ethPrice,
             durationType,
-            bonaFideTermsHash,
+            communityTermsHash,
           })
         return autoNext && paymentMethodChoice ? (
           <AutoNextButton onNext={onNext} />
@@ -555,8 +555,8 @@ const Pricing = ({
   const { required: nftRequired, hasNft, loaded: nftLoaded } = useNftGateStatus({ address })
   const blockedByNftGate = nftRequired && hasNft === false
   const { isReserved, loaded: reservedLoaded } = useReservedStatus({ name })
-  const bonaFide = useBonaFideTerms({ name })
-  const acceptance = useTermsAcceptance(bonaFide.termsHash, registrationData.bonaFideTermsHash)
+  const community = useCommunityTerms({ name })
+  const acceptance = useTermsAcceptance(community.termsHash, registrationData.communityTermsHash)
   const { minCharLength } = useControllerLimits()
   const labelLen = name ? name.split('.')[0].length : 0
   // minCharLength is only enforced on top-level register(); subname creation
@@ -654,10 +654,10 @@ const Pricing = ({
       {linkRecords?.map(({ key, value }) => (
         <SocialProfileButton key={key} iconKey={key} normalisedKey={key} value={value!} />
       ))}
-      {bonaFide.isListed && <BonaFideTerms terms={bonaFide} acceptance={acceptance} />}
+      {community.isListed && <CommunityTerms terms={community} acceptance={acceptance} />}
       <DateSelection
         {...{ seconds, setSeconds, minSeconds, durationType }}
-        maxSeconds={bonaFide.isListed ? minSeconds : maxSeconds}
+        maxSeconds={community.isListed ? minSeconds : maxSeconds}
         onChangeDurationType={setDurationType}
       />
       <FullInvoice {...fullEstimate} />
@@ -704,13 +704,13 @@ const Pricing = ({
           <Button data-testid="next-button" disabled>
             SimpleX NFT required
           </Button>
-        ) : bonaFide.isLoading || bonaFide.isFetching ? (
+        ) : community.isLoading || community.isFetching ? (
           <Button data-testid="next-button" disabled loading>
             {t('action.next', { ns: 'common' })}
           </Button>
-        ) : bonaFide.isListed && !acceptance.acceptedTermsHash ? (
+        ) : community.isListed && !acceptance.acceptedTermsHash ? (
           <Button data-testid="next-button" disabled>
-            {bonaFide.hasTerms ? 'Accept the terms to continue' : 'Terms unavailable'}
+            {community.hasTerms ? 'Accept the terms to continue' : 'Terms unavailable'}
           </Button>
         ) : (
           <ActionButton
@@ -728,10 +728,10 @@ const Pricing = ({
               estimatedTotal,
               ethPrice,
               durationType,
-              bonaFideTermsHash: acceptance.acceptedTermsHash,
+              communityTermsHash: acceptance.acceptedTermsHash,
               autoNext:
                 !!linkRecords &&
-                !bonaFide.isListed &&
+                !community.isListed &&
                 hasConnected &&
                 reservedLoaded &&
                 nftLoaded &&

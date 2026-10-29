@@ -5,7 +5,7 @@ import { makeCommitment } from '@ensdomains/ensjs/utils'
 import { commitName as ensCommitName } from '@ensdomains/ensjs/wallet'
 
 import { ClientWithEns, ConnectorClientWithEns } from '@app/types'
-import { namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
+import { namePolicyCommunityAbi } from '@app/utils/snrcCommunity'
 
 import commitName from './commitName'
 
@@ -41,11 +41,11 @@ describe('commitName', () => {
     const tx = await commitName.transaction({
       client,
       connectorClient,
-      data: { ...registration, bonaFideTermsHash: TERMS },
+      data: { ...registration, communityTermsHash: TERMS },
     })
     expect(tx.to).toBe(NAME_POLICY)
-    expect(decodeFunctionData({ abi: namePolicyBonaFideAbi, data: tx.data })).toEqual({
-      functionName: 'commitUnderBonaFideCommunityTerms',
+    expect(decodeFunctionData({ abi: namePolicyCommunityAbi, data: tx.data })).toEqual({
+      functionName: 'commitUnderCommunityTerms',
       args: [makeCommitment(registration), TERMS],
     })
   })
@@ -53,10 +53,10 @@ describe('commitName', () => {
   it('shows the terms acceptance in the confirmation of a commit through the name policy', () => {
     const t = ((key: string) => key) as never
     expect(commitName.displayItems(registration, t)).not.toContainEqual(
-      expect.objectContaining({ value: 'transaction.description.acceptBonaFideTerms' }),
+      expect.objectContaining({ value: 'transaction.description.acceptCommunityTerms' }),
     )
     expect(
-      commitName.displayItems({ ...registration, bonaFideTermsHash: TERMS }, t),
-    ).toContainEqual({ label: 'action', value: 'transaction.description.acceptBonaFideTerms' })
+      commitName.displayItems({ ...registration, communityTermsHash: TERMS }, t),
+    ).toContainEqual({ label: 'action', value: 'transaction.description.acceptCommunityTerms' })
   })
 })

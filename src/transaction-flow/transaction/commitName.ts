@@ -6,12 +6,12 @@ import { commitName } from '@ensdomains/ensjs/wallet'
 
 import { Transaction, TransactionDisplayItem, TransactionFunctionParameters } from '@app/types'
 
-import acceptBonaFideTerms from './acceptBonaFideTerms'
+import acceptCommunityTerms from './acceptCommunityTerms'
 
-type Data = RegistrationParameters & { name: string; bonaFideTermsHash?: Hex }
+type Data = RegistrationParameters & { name: string; communityTermsHash?: Hex }
 
 const displayItems = (
-  { name, bonaFideTermsHash }: Data,
+  { name, communityTermsHash }: Data,
   t: TFunction<'translation', undefined>,
 ): TransactionDisplayItem[] => [
   {
@@ -23,8 +23,8 @@ const displayItems = (
     label: 'action',
     value: t('transaction.description.commitName'),
   },
-  ...(bonaFideTermsHash
-    ? [{ label: 'action', value: t('transaction.description.acceptBonaFideTerms') }]
+  ...(communityTermsHash
+    ? [{ label: 'action', value: t('transaction.description.acceptCommunityTerms') }]
     : []),
   {
     label: 'info',
@@ -35,13 +35,13 @@ const displayItems = (
 const transaction = async ({
   client,
   connectorClient,
-  data: { bonaFideTermsHash, ...data },
+  data: { communityTermsHash, ...data },
 }: TransactionFunctionParameters<Data>) => {
-  if (!bonaFideTermsHash) return commitName.makeFunctionData(connectorClient, data)
-  return acceptBonaFideTerms.transaction({
+  if (!communityTermsHash) return commitName.makeFunctionData(connectorClient, data)
+  return acceptCommunityTerms.transaction({
     client,
     connectorClient,
-    data: { name: data.name, commitment: makeCommitment(data), termsHash: bonaFideTermsHash },
+    data: { name: data.name, commitment: makeCommitment(data), termsHash: communityTermsHash },
   })
 }
 

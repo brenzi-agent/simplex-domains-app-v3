@@ -3,7 +3,7 @@ import { Address, encodeFunctionData, Hex } from 'viem'
 
 import { getNamePolicyAddress } from '@app/constants/chains'
 import { Transaction, TransactionDisplayItem, TransactionFunctionParameters } from '@app/types'
-import { namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
+import { namePolicyCommunityAbi } from '@app/utils/snrcCommunity'
 import { getSnrcTokenId } from '@app/utils/snrcOffers'
 
 type Data = { name: string; holder: Address; offerNumber: bigint; termsHash: Hex }
@@ -19,15 +19,15 @@ const displayItems = (
   },
   {
     label: 'action',
-    value: t('transaction.description.acceptBonaFideClaimTerms'),
+    value: t('transaction.description.acceptCommunityClaimTerms'),
   },
 ]
 
 const transaction = ({ client, data }: TransactionFunctionParameters<Data>) => ({
   to: getNamePolicyAddress(client.chain.id)!,
   data: encodeFunctionData({
-    abi: namePolicyBonaFideAbi,
-    functionName: 'acceptBonaFideCommunityTermsForClaim',
+    abi: namePolicyCommunityAbi,
+    functionName: 'acceptCommunityTermsForClaim',
     args: [getSnrcTokenId(data.name)!, data.holder, data.offerNumber, data.termsHash],
   }),
 })

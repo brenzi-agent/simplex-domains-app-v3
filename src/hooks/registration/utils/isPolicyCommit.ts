@@ -1,9 +1,9 @@
 import { Address, decodeFunctionData, getAbiItem, getAddress, Hex, toFunctionSelector } from 'viem'
 
-import { namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
+import { namePolicyCommunityAbi } from '@app/utils/snrcCommunity'
 
 const policyCommitSelector = toFunctionSelector(
-  getAbiItem({ abi: namePolicyBonaFideAbi, name: 'commitUnderBonaFideCommunityTerms' }),
+  getAbiItem({ abi: namePolicyCommunityAbi, name: 'commitUnderCommunityTerms' }),
 )
 
 export const isPolicyCommit = (
@@ -12,6 +12,6 @@ export const isPolicyCommit = (
 ) => {
   if (!to || !namePolicyAddress || getAddress(to) !== getAddress(namePolicyAddress)) return false
   if (!input.startsWith(policyCommitSelector)) return false
-  const { args } = decodeFunctionData({ abi: namePolicyBonaFideAbi, data: input })
+  const { args } = decodeFunctionData({ abi: namePolicyCommunityAbi, data: input })
   return args[0] === commitment
 }

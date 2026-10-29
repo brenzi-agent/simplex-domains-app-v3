@@ -11,7 +11,7 @@ import { useInvalidateOnBlock } from '@app/hooks/chain/useInvalidateOnBlock'
 import { useAddRecentTransaction } from '@app/hooks/transactions/useAddRecentTransaction'
 import { useIsSafeApp } from '@app/hooks/useIsSafeApp'
 import { useTransactionFlow } from '@app/transaction-flow/TransactionFlowProvider'
-import { namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
+import { namePolicyCommunityAbi } from '@app/utils/snrcCommunity'
 
 import { useExistingCommitment } from '../useExistingCommitment'
 import { getBlockMetadataByTimestamp } from './getBlockMetadataByTimestamp'
@@ -364,8 +364,8 @@ describe('useExistingCommitment', () => {
         data: { hash: '0xblock' },
       } as any)
       const input = encodeFunctionData({
-        abi: namePolicyBonaFideAbi,
-        functionName: 'commitUnderBonaFideCommunityTerms',
+        abi: namePolicyCommunityAbi,
+        functionName: 'commitUnderCommunityTerms',
         args: [mockCommitment, `0x${'77'.repeat(32)}`],
       })
       mockGetBlock.mockResolvedValueOnce({

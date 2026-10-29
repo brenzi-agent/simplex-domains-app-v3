@@ -11,8 +11,8 @@ import {
   getAcceptedClaimTermsQueryFn,
   getCommittedTermsQueryFn,
   getListedTermsQueryFn,
-  useBonaFideTerms,
-} from './useBonaFideTerms'
+  useCommunityTerms,
+} from './useCommunityTerms'
 
 vi.mock('viem/actions')
 vi.mock('@app/utils/query/useQuery')
@@ -41,10 +41,10 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
-describe('useBonaFideTerms', () => {
+describe('useCommunityTerms', () => {
   it('shows the terms of a listed name as the name policy keeps them', () => {
     listing({ data: { termsHash: TERMS, text: 'the terms' } })
-    const { result } = renderHook(() => useBonaFideTerms({ name: 'alice.testing' }))
+    const { result } = renderHook(() => useCommunityTerms({ name: 'alice.testing' }))
     expect(result.current).toMatchObject({
       isListed: true,
       termsHash: TERMS,
@@ -56,25 +56,25 @@ describe('useBonaFideTerms', () => {
   it('has no terms to accept for a listed name before the first setTerms', () => {
     listing({ data: { termsHash: `0x${'00'.repeat(32)}`, text: '' } })
     expect(
-      renderHook(() => useBonaFideTerms({ name: 'alice.testing' })).result.current,
+      renderHook(() => useCommunityTerms({ name: 'alice.testing' })).result.current,
     ).toMatchObject({ isListed: true, hasTerms: false })
   })
 
   it('is not listed without a listing', () => {
     listing({ data: null })
     expect(
-      renderHook(() => useBonaFideTerms({ name: 'alice.testing' })).result.current,
+      renderHook(() => useCommunityTerms({ name: 'alice.testing' })).result.current,
     ).toMatchObject({ isListed: false, hasTerms: false })
   })
 
   it('waits for the listing, and reports a listing refetch', () => {
     listing({ isLoading: true })
     expect(
-      renderHook(() => useBonaFideTerms({ name: 'alice.testing' })).result.current.isLoading,
+      renderHook(() => useCommunityTerms({ name: 'alice.testing' })).result.current.isLoading,
     ).toBe(true)
     listing({ data: null, isLoading: false, isFetching: true })
     expect(
-      renderHook(() => useBonaFideTerms({ name: 'alice.testing' })).result.current,
+      renderHook(() => useCommunityTerms({ name: 'alice.testing' })).result.current,
     ).toMatchObject({
       isLoading: false,
       isFetching: true,
@@ -98,7 +98,7 @@ describe('getListedTermsQueryFn', () => {
       expect.anything(),
       expect.objectContaining({
         address: NAME_POLICY,
-        functionName: 'bonaFideNames',
+        functionName: 'communityNames',
         args: [labelhash('alice')],
       }),
     )

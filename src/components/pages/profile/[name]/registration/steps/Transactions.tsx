@@ -10,13 +10,13 @@ import { Button, CountdownCircle, Dialog, Heading, Spinner } from '@ensdomains/t
 import MobileFullWidth from '@app/components/@atoms/MobileFullWidth'
 import { StatusDots } from '@app/components/@atoms/StatusDots/StatusDots'
 import { TextWithTooltip } from '@app/components/@atoms/TextWithTooltip/TextWithTooltip'
-import { BonaFideTerms } from '@app/components/BonaFideTerms'
 import { Card } from '@app/components/Card'
+import { CommunityTerms } from '@app/components/CommunityTerms'
 import { useCheckRegistered } from '@app/hooks/registration/useCheckRegistered'
 import { useExistingCommitment } from '@app/hooks/registration/useExistingCommitment'
 import { useSimulateRegistration } from '@app/hooks/registration/useSimulateRegistration'
 import { useDurationCountdown } from '@app/hooks/time/useDurationCountdown'
-import { useBonaFideTerms, useCommittedTerms } from '@app/hooks/useBonaFideTerms'
+import { useCommittedTerms, useCommunityTerms } from '@app/hooks/useCommunityTerms'
 import useRegistrationParams from '@app/hooks/useRegistrationParams'
 import { useTermsAcceptance } from '@app/hooks/useTermsAcceptance'
 import { CenteredTypography } from '@app/transaction-flow/input/ProfileEditor/components/CenteredTypography'
@@ -215,7 +215,7 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
   const keySuffix = `${name}-${address}`
   const commitKey = `commit-${keySuffix}`
   const registerKey = `register-${keySuffix}`
-  const acceptTermsKey = `acceptBonaFideTerms-${keySuffix}`
+  const acceptTermsKey = `acceptCommunityTerms-${keySuffix}`
   const {
     getSelectedKey,
     getLatestTransaction,
@@ -229,7 +229,7 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
   const acceptTermsTx = getLatestTransaction(acceptTermsKey)
   const [resetOpen, setResetOpen] = useState(false)
 
-  const { bonaFideTermsHash } = registrationData
+  const { communityTermsHash } = registrationData
   const registrationParams = useRegistrationParams({
     name,
     owner: address!,
@@ -237,15 +237,15 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
   })
   const commitment = makeCommitment(registrationParams)
 
-  const bonaFide = useBonaFideTerms({ name })
+  const community = useCommunityTerms({ name })
   const awaitsListedRegister =
-    bonaFide.isListed && commitTx?.stage === 'complete' && !registerTx?.stage
+    community.isListed && commitTx?.stage === 'complete' && !registerTx?.stage
   const committedTerms = useCommittedTerms({ commitment, enabled: awaitsListedRegister })
   const needsTermsAcceptance =
     awaitsListedRegister &&
     committedTerms.data != null &&
-    committedTerms.data !== bonaFide.termsHash
-  const acceptance = useTermsAcceptance(bonaFide.termsHash)
+    committedTerms.data !== community.termsHash
+  const acceptance = useTermsAcceptance(community.termsHash)
 
   // E3 (clock-skew race): run the on-chain register simulation through the commit
   // `complete` stage too, not just `sent`. It simulates register() against real chain
@@ -373,7 +373,7 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
     onStart()
     createTransactionFlow(commitKey, {
       transactions: [
-        createTransactionItem('commitName', { ...registrationParams, bonaFideTermsHash }),
+        createTransactionItem('commitName', { ...registrationParams, communityTermsHash }),
       ],
       requiresManualCleanup: true,
       autoClose: true,
@@ -386,7 +386,7 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
     name,
     onStart,
     registrationParams,
-    bonaFideTermsHash,
+    communityTermsHash,
   ])
 
   const makeRegisterNameFlow = () => {
@@ -402,7 +402,9 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
     const termsHash = acceptance.acceptedTermsHash
     if (!termsHash) return
     createTransactionFlow(acceptTermsKey, {
-      transactions: [createTransactionItem('acceptBonaFideTerms', { name, commitment, termsHash })],
+      transactions: [
+        createTransactionItem('acceptCommunityTerms', { name, commitment, termsHash }),
+      ],
       autoClose: true,
     })
   }
@@ -591,7 +593,7 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
       </CenteredTypography>
       {needsTermsAcceptance && (
         <>
-          <BonaFideTerms terms={bonaFide} acceptance={acceptance} />
+          <CommunityTerms terms={community} acceptance={acceptance} />
           <MobileFullWidth>
             <Button
               data-testid="accept-terms-button"
@@ -653,7 +655,7 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
               <MobileFullWidth>
                 <Button
                   data-testid="finish-button"
-                  disabled={needsTermsAcceptance || bonaFide.isLoading || committedTerms.isLoading}
+                  disabled={needsTermsAcceptance || community.isLoading || committedTerms.isLoading}
                   onClick={!registerTx ? makeRegisterNameFlow : showRegisterTransaction}
                 >
                   {t('steps.transactions.completeRegistration')}

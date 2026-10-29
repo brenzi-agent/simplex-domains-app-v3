@@ -2,9 +2,9 @@ import { decodeFunctionData } from 'viem'
 import { describe, expect, it, vi } from 'vitest'
 
 import { ClientWithEns, ConnectorClientWithEns } from '@app/types'
-import { namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
+import { namePolicyCommunityAbi } from '@app/utils/snrcCommunity'
 
-import acceptBonaFideTerms from './acceptBonaFideTerms'
+import acceptCommunityTerms from './acceptCommunityTerms'
 
 const NAME_POLICY = '0x4444444444444444444444444444444444444444'
 const TERMS = `0x${'77'.repeat(32)}` as const
@@ -18,16 +18,16 @@ vi.mock('@app/constants/chains', async (importOriginal) => ({
 const client = { chain: { id: 1337 } } as unknown as ClientWithEns
 const connectorClient = {} as unknown as ConnectorClientWithEns
 
-describe('acceptBonaFideTerms', () => {
+describe('acceptCommunityTerms', () => {
   it('accepts for a commitment through the name policy', () => {
-    const tx = acceptBonaFideTerms.transaction({
+    const tx = acceptCommunityTerms.transaction({
       client,
       connectorClient,
       data: { name: 'alice.testing', commitment: COMMITMENT, termsHash: TERMS },
     })
     expect(tx.to).toBe(NAME_POLICY)
-    expect(decodeFunctionData({ abi: namePolicyBonaFideAbi, data: tx.data })).toEqual({
-      functionName: 'commitUnderBonaFideCommunityTerms',
+    expect(decodeFunctionData({ abi: namePolicyCommunityAbi, data: tx.data })).toEqual({
+      functionName: 'commitUnderCommunityTerms',
       args: [COMMITMENT, TERMS],
     })
   })

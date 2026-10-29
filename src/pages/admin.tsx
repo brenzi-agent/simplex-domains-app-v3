@@ -6,16 +6,16 @@ import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi'
 
 import { Button, Card, Heading, Input, Select, Typography } from '@ensdomains/thorin'
 
-import { TermsText } from '@app/components/BonaFideTerms'
+import { TermsText } from '@app/components/CommunityTerms'
 import { getNamePolicyAddress, getSnrcAddresses } from '@app/constants/chains'
 import {
   MAX_REGISTRATION_DURATION,
   MAX_SPONSORED_REGISTRATION_DURATION,
   MIN_REGISTRATION_DURATION,
 } from '@app/constants/simplex'
-import { useBonaFideTerms } from '@app/hooks/useBonaFideTerms'
+import { useCommunityTerms } from '@app/hooks/useCommunityTerms'
 import { Content } from '@app/layouts/Content'
-import { namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
+import { namePolicyCommunityAbi } from '@app/utils/snrcCommunity'
 import { getUnregistrableLabelsError, parseLabels } from '@app/utils/snrcLabels'
 import { ONE_DAY } from '@app/utils/time'
 
@@ -95,14 +95,14 @@ const namePolicyAbi = [
   },
   {
     inputs: [{ name: 'names', type: 'string[]' }],
-    name: 'addBonaFideNames',
+    name: 'addCommunityNames',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',
   },
   {
     inputs: [{ name: 'names', type: 'string[]' }],
-    name: 'removeBonaFideNames',
+    name: 'removeCommunityNames',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',
@@ -110,7 +110,7 @@ const namePolicyAbi = [
   {
     anonymous: false,
     inputs: [{ indexed: false, name: 'name', type: 'string' }],
-    name: 'BonaFideNameSkipped',
+    name: 'CommunityNameSkipped',
     type: 'event',
   },
 ] as const
@@ -120,7 +120,7 @@ const REASONS = ['None', 'Internal', 'Trademark', 'Community'] as const
 const REASON_OPTIONS = REASONS.map((label, value) => ({ value: String(value), label })).slice(1)
 const MIN_RESERVED_DAYS = MIN_REGISTRATION_DURATION / ONE_DAY
 const MAX_RESERVED_DAYS = MAX_SPONSORED_REGISTRATION_DURATION / ONE_DAY
-const MAX_BONA_FIDE_DAYS = MAX_REGISTRATION_DURATION / ONE_DAY
+const MAX_COMMUNITY_DAYS = MAX_REGISTRATION_DURATION / ONE_DAY
 
 const Section = styled.div(
   ({ theme }) => css`
@@ -200,10 +200,10 @@ function AdminPanel() {
   const [termsHash, setTermsHash] = useState<string>('')
   const [termsText, setTermsText] = useState('')
   const regDays = Number(regDuration)
-  const regBonaFide = useBonaFideTerms({
+  const regCommunity = useCommunityTerms({
     name: `${regLabel}.${process.env.NEXT_PUBLIC_SIMPLEX_TLD || 'testing'}`,
   })
-  const maxRegDays = regBonaFide.isListed ? MAX_BONA_FIDE_DAYS : MAX_RESERVED_DAYS
+  const maxRegDays = regCommunity.isListed ? MAX_COMMUNITY_DAYS : MAX_RESERVED_DAYS
   const isRegDurationValid =
     Number.isInteger(regDays) && regDays >= MIN_RESERVED_DAYS && regDays <= maxRegDays
   const reserveLabels = parseLabels(reserveName)
@@ -259,14 +259,14 @@ function AdminPanel() {
             publicClient
               .readContract({
                 address: namePolicyAddress,
-                abi: namePolicyBonaFideAbi,
+                abi: namePolicyCommunityAbi,
                 functionName: 'termsHash',
               })
               .catch(() => 'unreadable'),
             publicClient
               .readContract({
                 address: namePolicyAddress,
-                abi: namePolicyBonaFideAbi,
+                abi: namePolicyCommunityAbi,
                 functionName: 'termsText',
               })
               .catch(() => ''),
@@ -313,17 +313,17 @@ function AdminPanel() {
     }
   }
 
-  const listBonaFideNames = async () => {
-    const receipt = await execTx(namePolicy, 'addBonaFideNames', [listLabels])
+  const listCommunityNames = async () => {
+    const receipt = await execTx(namePolicy, 'addCommunityNames', [listLabels])
     if (!receipt) return
     const skipped = parseEventLogs({
       abi: namePolicyAbi,
       logs: receipt.logs,
-      eventName: 'BonaFideNameSkipped',
+      eventName: 'CommunityNameSkipped',
     }).map(({ args }) => args.name)
     if (skipped.length)
       setStatus(
-        `addBonaFideNames confirmed; skipped (registered or in grace): ${skipped.join(', ')}`,
+        `addCommunityNames confirmed; skipped (registered or in grace): ${skipped.join(', ')}`,
       )
   }
 
@@ -512,7 +512,7 @@ function AdminPanel() {
 
           <Card>
             <Section>
-              <Typography fontVariant="largeBold">Bona Fide Names</Typography>
+              <Typography fontVariant="largeBold">Community Names</Typography>
               <Typography fontVariant="small">
                 A listed name can be registered or received only by someone who accepts the current
                 terms. Names that are registered or in grace are skipped.
@@ -528,8 +528,8 @@ function AdminPanel() {
                 />
                 <Button
                   size="small"
-                  data-testid="admin-list-bona-fide"
-                  onClick={listBonaFideNames}
+                  data-testid="admin-list-community"
+                  onClick={listCommunityNames}
                   disabled={!listLabels.length || !!listNameError}
                 >
                   List
@@ -546,7 +546,7 @@ function AdminPanel() {
                 />
                 <Button
                   size="small"
-                  onClick={() => execTx(namePolicy, 'removeBonaFideNames', [unListLabels])}
+                  onClick={() => execTx(namePolicy, 'removeCommunityNames', [unListLabels])}
                   disabled={!unListLabels.length || !!unListNameError}
                 >
                   Unlist
@@ -557,7 +557,7 @@ function AdminPanel() {
               </Mono>
               {termsText && <TermsText data-testid="admin-terms-text" text={termsText} />}
               <Typography fontVariant="small">
-                The terms are set from the namespace repository&apos;s bona-fide-terms file by its
+                The terms are set from the namespace repository&apos;s community-terms file by its
                 deploy scripts.
               </Typography>
             </Section>
