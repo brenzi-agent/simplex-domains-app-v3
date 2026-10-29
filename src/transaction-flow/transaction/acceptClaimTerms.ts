@@ -29,8 +29,8 @@ const transaction = ({ client, data }: TransactionFunctionParameters<Data>) => (
     abi: namePolicyTermsAbi,
     functionName:
       data.terms.kind === 'community'
-        ? 'acceptCommunityNameTermsForClaim'
-        : 'acceptNameTermsForClaim',
+        ? 'acceptCommunityTermsForClaim'
+        : 'acceptGeneralTermsForClaim',
     args: [getSnrcTokenId(data.name)!, data.holder, data.offerNumber, data.terms.hash],
   }),
 })

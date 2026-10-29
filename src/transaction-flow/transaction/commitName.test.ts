@@ -38,8 +38,8 @@ describe('commitName', () => {
   })
 
   it.each([
-    ['name', 'commitUnderNameTerms'],
-    ['community', 'commitUnderCommunityNameTerms'],
+    ['general', 'commitUnderGeneralTerms'],
+    ['community', 'commitUnderCommunityTerms'],
   ] as const)('commits through the name policy with the accepted %s terms', async (kind, call) => {
     const tx = await commitName.transaction({
       client,
@@ -59,7 +59,7 @@ describe('commitName', () => {
       expect.objectContaining({ value: 'transaction.description.acceptTerms' }),
     )
     expect(
-      commitName.displayItems({ ...registration, terms: { kind: 'name', hash: TERMS } }, t),
+      commitName.displayItems({ ...registration, terms: { kind: 'general', hash: TERMS } }, t),
     ).toContainEqual({ label: 'action', value: 'transaction.description.acceptTerms' })
   })
 })

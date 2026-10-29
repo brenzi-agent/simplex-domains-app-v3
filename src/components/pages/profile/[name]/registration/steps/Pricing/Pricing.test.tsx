@@ -165,7 +165,7 @@ describe('Pricing', () => {
 
   const TERMS = `0x${'11'.repeat(32)}` as const
   const nameTerms = (
-    kind: 'name' | 'community',
+    kind: 'general' | 'community',
     state: Partial<ReturnType<typeof useNameTerms>> = {},
   ) =>
     mockUseNameTerms.mockReturnValue({
@@ -233,7 +233,7 @@ describe('Pricing', () => {
   })
 
   it('should offer a community name for two years only', () => {
-    nameTerms('name')
+    nameTerms('general')
     const { rerender } = render(<Pricing {...makeProps()} />)
     expect(screen.getByText(yearsToSeconds(3))).toBeInTheDocument()
     nameTerms('community')
@@ -241,15 +241,15 @@ describe('Pricing', () => {
     expect(screen.getByText(yearsToSeconds(2))).toBeInTheDocument()
   })
 
-  it.each(['name', 'community'] as const)(
-    'should wait for Next on a %s name once its terms are accepted, and pass them on',
+  it.each(['general', 'community'] as const)(
+    'should wait for Next once the %s terms are accepted, and pass them on',
     async (kind) => {
       nameTerms(kind)
       const props = makeProps()
       render(<Pricing {...props} />)
       connect(false)
       expect(screen.getByTestId('next-button')).toBeDisabled()
-      await userEvent.click(screen.getByTestId('bona-fide-terms-accept'))
+      await userEvent.click(screen.getByTestId('terms-accept'))
       expect(props.callback).not.toHaveBeenCalled()
       await userEvent.click(screen.getByTestId('next-button'))
       expect(props.callback).toHaveBeenCalledWith(
@@ -259,20 +259,20 @@ describe('Pricing', () => {
   )
 
   it('should not go on while the listing or the terms cannot be read', () => {
-    nameTerms('name', { kind: undefined, hash: undefined, text: undefined, isError: true })
+    nameTerms('general', { kind: undefined, hash: undefined, text: undefined, isError: true })
     const props = makeProps()
     render(<Pricing {...props} />)
     connect(false)
-    expect(screen.getByTestId('bona-fide-terms-load-failed')).toBeVisible()
+    expect(screen.getByTestId('terms-load-failed')).toBeVisible()
     expect(screen.getByTestId('next-button')).toBeDisabled()
     expect(screen.getByTestId('next-button')).toHaveTextContent('Terms unavailable')
     expect(props.callback).not.toHaveBeenCalled()
   })
 
-  it("should say names can't be registered now while the name terms are not set", () => {
-    nameTerms('name', { hash: undefined, text: undefined })
+  it("should say names can't be registered now while the general terms are not set", () => {
+    nameTerms('general', { hash: undefined, text: undefined })
     render(<Pricing {...makeProps()} />)
-    expect(screen.getByTestId('bona-fide-terms-unset')).toHaveTextContent(
+    expect(screen.getByTestId('terms-unset')).toHaveTextContent(
       "names can't be registered or received now",
     )
     expect(screen.getByTestId('next-button')).toBeDisabled()

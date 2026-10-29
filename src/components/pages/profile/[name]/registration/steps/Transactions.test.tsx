@@ -27,8 +27,8 @@ vi.mock('@app/transaction-flow/TransactionFlowProvider')
 
 const OWNER = '0x2222222222222222222222222222222222222222'
 const NAME = 'alicebob.simplex'
-const NAME_TERMS = `0x${'11'.repeat(32)}` as const
-const NEW_NAME_TERMS = `0x${'22'.repeat(32)}` as const
+const GENERAL_TERMS = `0x${'11'.repeat(32)}` as const
+const NEW_GENERAL_TERMS = `0x${'22'.repeat(32)}` as const
 const COMMUNITY_TERMS = `0x${'33'.repeat(32)}` as const
 
 const mockUseTransactionFlow = mockFunction(useTransactionFlow)
@@ -45,7 +45,7 @@ const registrationData = {
   clearRecords: false,
   reverseRecord: false,
   referrer: zeroHash,
-  terms: { kind: 'name', hash: NAME_TERMS },
+  terms: { kind: 'general', hash: GENERAL_TERMS },
 } as unknown as RegistrationReducerDataItem
 
 const flow = (commitStage?: 'complete') =>
@@ -89,20 +89,20 @@ describe('Transactions', () => {
   })
 
   it.each([
-    ['its terms changed', 'name', NEW_NAME_TERMS],
+    ['its terms changed', 'general', NEW_GENERAL_TERMS],
     ['it was listed', 'community', COMMUNITY_TERMS],
   ] as const)(
     'asks again after the commit when %s, and accepts the current kind',
     async (_, kind, hash) => {
       flow('complete')
       nameTerms(kind, hash)
-      committed(NAME_TERMS)
+      committed(GENERAL_TERMS)
       render(transactions())
       expect(mockUseCommittedTerms).toHaveBeenCalledWith(expect.objectContaining({ enabled: true }))
       expect(screen.getByTestId('finish-button')).toBeDisabled()
       expect(screen.getByTestId('accept-terms-button')).toBeDisabled()
 
-      await userEvent.click(screen.getByTestId('bona-fide-terms-accept'))
+      await userEvent.click(screen.getByTestId('terms-accept'))
       await userEvent.click(screen.getByTestId('accept-terms-button'))
 
       expect(createTransactionFlow).toHaveBeenCalledWith(`acceptTerms-${NAME}-${OWNER}`, {
@@ -119,8 +119,8 @@ describe('Transactions', () => {
 
   it('lets the register go on when the commit accepted the current terms', () => {
     flow('complete')
-    nameTerms('name', NAME_TERMS)
-    committed(NAME_TERMS)
+    nameTerms('general', GENERAL_TERMS)
+    committed(GENERAL_TERMS)
     render(transactions())
     expect(screen.queryByTestId('accept-terms-button')).not.toBeInTheDocument()
     expect(screen.getByTestId('finish-button')).toBeEnabled()
@@ -128,7 +128,7 @@ describe('Transactions', () => {
 
   it('commits with the terms accepted on the pricing step, and resumes an earlier commit', () => {
     flow()
-    nameTerms('name', NAME_TERMS)
+    nameTerms('general', GENERAL_TERMS)
     committed()
     render(transactions())
     expect(createTransactionFlow).toHaveBeenCalledWith(
@@ -137,7 +137,7 @@ describe('Transactions', () => {
         transactions: [
           {
             name: 'commitName',
-            data: expect.objectContaining({ terms: { kind: 'name', hash: NAME_TERMS } }),
+            data: expect.objectContaining({ terms: { kind: 'general', hash: GENERAL_TERMS } }),
           },
         ],
       }),

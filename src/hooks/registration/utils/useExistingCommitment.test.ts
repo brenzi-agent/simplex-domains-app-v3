@@ -342,7 +342,7 @@ describe('useExistingCommitment', () => {
   })
 
   describe('Commit through the name policy', () => {
-    const policyCommits = ['commitUnderNameTerms', 'commitUnderCommunityNameTerms'] as const
+    const policyCommits = ['commitUnderGeneralTerms', 'commitUnderCommunityTerms'] as const
 
     it.each(policyCommits)('finds the commitment sent through %s', async (functionName) => {
       const setTransactionHashFromUpdate = vi.fn()

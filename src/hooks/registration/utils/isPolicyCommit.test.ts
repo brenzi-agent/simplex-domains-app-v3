@@ -12,7 +12,7 @@ const TERMS = `0x${'77'.repeat(32)}` as const
 
 const policyCommit = (
   commitment: `0x${string}`,
-  functionName: 'commitUnderNameTerms' | 'commitUnderCommunityNameTerms' = 'commitUnderNameTerms',
+  functionName: 'commitUnderGeneralTerms' | 'commitUnderCommunityTerms' = 'commitUnderGeneralTerms',
 ) =>
   encodeFunctionData({
     abi: namePolicyTermsAbi,
@@ -21,13 +21,13 @@ const policyCommit = (
   })
 const acceptForClaim = encodeFunctionData({
   abi: namePolicyTermsAbi,
-  functionName: 'acceptNameTermsForClaim',
+  functionName: 'acceptGeneralTermsForClaim',
   args: [1n, OTHER, 0n, TERMS],
 })
 const expected = { commitment: COMMITMENT, namePolicyAddress: NAME_POLICY } as const
 
 describe('isPolicyCommit', () => {
-  it.each(['commitUnderNameTerms', 'commitUnderCommunityNameTerms'] as const)(
+  it.each(['commitUnderGeneralTerms', 'commitUnderCommunityTerms'] as const)(
     'matches the commitment sent through the name policy by %s',
     (functionName) => {
       expect(

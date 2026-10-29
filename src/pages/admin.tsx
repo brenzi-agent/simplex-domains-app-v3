@@ -95,28 +95,28 @@ const namePolicyAbi = [
   },
   {
     inputs: [{ name: 'names', type: 'string[]' }],
-    name: 'addBonaFideNames',
+    name: 'addCommunityNames',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',
   },
   {
     inputs: [{ name: 'names', type: 'string[]' }],
-    name: 'removeBonaFideNames',
+    name: 'removeCommunityNames',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',
   },
   {
     inputs: [{ name: 'link', type: 'string' }],
-    name: 'setNameTerms',
+    name: 'setGeneralTerms',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',
   },
   {
     inputs: [{ name: 'link', type: 'string' }],
-    name: 'setCommunityNameTerms',
+    name: 'setCommunityTerms',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',
@@ -124,7 +124,7 @@ const namePolicyAbi = [
   {
     anonymous: false,
     inputs: [{ indexed: false, name: 'name', type: 'string' }],
-    name: 'BonaFideNameSkipped',
+    name: 'CommunityNameSkipped',
     type: 'event',
   },
 ] as const
@@ -134,7 +134,7 @@ const REASONS = ['None', 'Internal', 'Trademark', 'Community'] as const
 const REASON_OPTIONS = REASONS.map((label, value) => ({ value: String(value), label })).slice(1)
 const MIN_RESERVED_DAYS = MIN_REGISTRATION_DURATION / ONE_DAY
 const MAX_RESERVED_DAYS = MAX_SPONSORED_REGISTRATION_DURATION / ONE_DAY
-const MAX_BONA_FIDE_DAYS = MAX_REGISTRATION_DURATION / ONE_DAY
+const MAX_COMMUNITY_DAYS = MAX_REGISTRATION_DURATION / ONE_DAY
 
 const Section = styled.div(
   ({ theme }) => css`
@@ -266,7 +266,7 @@ function AdminPanel() {
   const regTerms = useNameTerms({
     name: `${regLabel}.${process.env.NEXT_PUBLIC_SIMPLEX_TLD || 'testing'}`,
   })
-  const maxRegDays = regTerms.kind === 'community' ? MAX_BONA_FIDE_DAYS : MAX_RESERVED_DAYS
+  const maxRegDays = regTerms.kind === 'community' ? MAX_COMMUNITY_DAYS : MAX_RESERVED_DAYS
   const isRegDurationValid =
     Number.isInteger(regDays) && regDays >= MIN_RESERVED_DAYS && regDays <= maxRegDays
   const reserveLabels = parseLabels(reserveName)
@@ -318,12 +318,12 @@ function AdminPanel() {
       })
       setCodeStatus(next)
       const termsReads = [
-        'nameTermsLink',
-        'nameTermsHash',
-        'communityNameTermsLink',
-        'communityNameTermsHash',
+        'generalTermsLink',
+        'generalTermsHash',
+        'communityTermsLink',
+        'communityTermsHash',
       ] as const
-      const [nameLink, nameHash, communityLink, communityHash] = await Promise.all(
+      const [generalLink, generalHash, communityLink, communityHash] = await Promise.all(
         termsReads.map((functionName) =>
           namePolicyAddress
             ? publicClient
@@ -333,7 +333,7 @@ function AdminPanel() {
         ),
       )
       setOnChainTerms({
-        name: { link: nameLink, hash: nameHash },
+        general: { link: generalLink, hash: generalHash },
         community: { link: communityLink, hash: communityHash },
       })
 
@@ -375,17 +375,17 @@ function AdminPanel() {
     }
   }
 
-  const listBonaFideNames = async () => {
-    const receipt = await execTx(namePolicy, 'addBonaFideNames', [listLabels])
+  const listCommunityNames = async () => {
+    const receipt = await execTx(namePolicy, 'addCommunityNames', [listLabels])
     if (!receipt) return
     const skipped = parseEventLogs({
       abi: namePolicyAbi,
       logs: receipt.logs,
-      eventName: 'BonaFideNameSkipped',
+      eventName: 'CommunityNameSkipped',
     }).map(({ args }) => args.name)
     if (skipped.length)
       setStatus(
-        `addBonaFideNames confirmed; skipped (registered or in grace): ${skipped.join(', ')}`,
+        `addCommunityNames confirmed; skipped (registered or in grace): ${skipped.join(', ')}`,
       )
   }
 
@@ -574,26 +574,26 @@ function AdminPanel() {
 
           <Card>
             <Section>
-              <Typography fontVariant="largeBold">Name Terms</Typography>
+              <Typography fontVariant="largeBold">General Terms</Typography>
               <Typography fontVariant="small">
                 A name that is not listed can be registered or received only by someone who accepts
-                the current name terms.
+                the current general terms.
               </Typography>
               <TermsSettings
-                terms={onChainTerms?.name}
-                testId="admin-name-terms"
-                setLabel="Set name terms"
-                onSet={(link) => execTx(namePolicy, 'setNameTerms', [link])}
+                terms={onChainTerms?.general}
+                testId="admin-general-terms"
+                setLabel="Set general terms"
+                onSet={(link) => execTx(namePolicy, 'setGeneralTerms', [link])}
               />
             </Section>
           </Card>
 
           <Card>
             <Section>
-              <Typography fontVariant="largeBold">Bona Fide Names</Typography>
+              <Typography fontVariant="largeBold">Community Names</Typography>
               <Typography fontVariant="small">
                 A listed name can be registered or received only by someone who accepts the current
-                community name terms. Names that are registered or in grace are skipped.
+                community terms. Names that are registered or in grace are skipped.
               </Typography>
               <Row>
                 <Input
@@ -606,8 +606,8 @@ function AdminPanel() {
                 />
                 <Button
                   size="small"
-                  data-testid="admin-list-bona-fide"
-                  onClick={listBonaFideNames}
+                  data-testid="admin-list-community"
+                  onClick={listCommunityNames}
                   disabled={!listLabels.length || !!listNameError}
                 >
                   List
@@ -624,7 +624,7 @@ function AdminPanel() {
                 />
                 <Button
                   size="small"
-                  onClick={() => execTx(namePolicy, 'removeBonaFideNames', [unListLabels])}
+                  onClick={() => execTx(namePolicy, 'removeCommunityNames', [unListLabels])}
                   disabled={!unListLabels.length || !!unListNameError}
                 >
                   Unlist
@@ -632,9 +632,9 @@ function AdminPanel() {
               </Row>
               <TermsSettings
                 terms={onChainTerms?.community}
-                testId="admin-terms"
-                setLabel="Set community name terms"
-                onSet={(link) => execTx(namePolicy, 'setCommunityNameTerms', [link])}
+                testId="admin-community-terms"
+                setLabel="Set community terms"
+                onSet={(link) => execTx(namePolicy, 'setCommunityTerms', [link])}
               />
             </Section>
           </Card>

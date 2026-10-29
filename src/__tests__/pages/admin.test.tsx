@@ -31,16 +31,16 @@ const CONTROLLER = '0x1111111111111111111111111111111111111111'
 const NAME_POLICY = '0x4444444444444444444444444444444444444444'
 const COMMIT = 'ab'.repeat(20)
 const DIGEST = 'cd'.repeat(32)
-const LINK = `https://git.simplex.chat/simplex-chat/simplex-chat/raw/commit/${COMMIT}/name-terms.md#sha256=${DIGEST}`
+const LINK = `https://git.simplex.chat/simplex-chat/simplex-chat/raw/commit/${COMMIT}/general-terms.md#sha256=${DIGEST}`
 
 const reads: Record<string, unknown> = {
   owner: OWNER,
   minCharLength: 6,
   nftGateEnabled: false,
-  nameTermsLink: '',
-  nameTermsHash: `0x${'00'.repeat(32)}`,
-  communityNameTermsLink: '',
-  communityNameTermsHash: `0x${'00'.repeat(32)}`,
+  generalTermsLink: '',
+  generalTermsHash: `0x${'00'.repeat(32)}`,
+  communityTermsLink: '',
+  communityTermsHash: `0x${'00'.repeat(32)}`,
 }
 const writeContract = vi.fn(async () => '0xabcdef0123')
 
@@ -56,7 +56,7 @@ describe('admin page', () => {
       waitForTransactionReceipt: async () => ({ logs: [] }),
     } as never)
     mockFunction(useWalletClient).mockReturnValue({ data: { writeContract } } as never)
-    mockFunction(useNameTerms).mockReturnValue({ kind: 'name' })
+    mockFunction(useNameTerms).mockReturnValue({ kind: 'general' })
     mockFunction(useTermsText).mockReturnValue({ text: { data: undefined } } as never)
   })
 
@@ -64,24 +64,24 @@ describe('admin page', () => {
     connect(OTHER)
     render(<Page />)
     expect(await screen.findByText('You are NOT the owner')).toBeVisible()
-    expect(screen.queryByTestId('admin-name-terms-set')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('admin-terms-set')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('admin-general-terms-set')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('admin-community-terms-set')).not.toBeInTheDocument()
   })
 
   it('shows a malformed link as an error and does not send it', async () => {
     connect(OWNER)
     render(<Page />)
     await userEvent.type(
-      await screen.findByTestId('admin-name-terms-input'),
-      'https://example.com/name-terms.md',
+      await screen.findByTestId('admin-general-terms-input'),
+      'https://example.com/general-terms.md',
     )
     expect(screen.getByText('Not a terms link for this chain')).toBeVisible()
-    expect(screen.getByTestId('admin-name-terms-set')).toBeDisabled()
+    expect(screen.getByTestId('admin-general-terms-set')).toBeDisabled()
   })
 
   it.each([
-    ['admin-name-terms', 'setNameTerms'],
-    ['admin-terms', 'setCommunityNameTerms'],
+    ['admin-general-terms', 'setGeneralTerms'],
+    ['admin-community-terms', 'setCommunityTerms'],
   ])('sends the link from %s with %s', async (testId, functionName) => {
     connect(OWNER)
     render(<Page />)

@@ -43,8 +43,8 @@ const COMMIT = 'ab'.repeat(20)
 const BOM = [0xef, 0xbb, 0xbf]
 const BYTES = new Uint8Array([...BOM, ...Array.from('# Terms\r\n', (c) => c.charCodeAt(0))])
 const DIGEST = sha256(BYTES).slice(2)
-const LINK = `https://git.simplex.chat/simplex-chat/simplex-chat/raw/commit/${COMMIT}/docs/name-terms.md#sha256=${DIGEST}`
-const LOOPBACK = `http://127.0.0.1:8098/terms/name-terms.md#sha256=${DIGEST}`
+const LINK = `https://git.simplex.chat/simplex-chat/simplex-chat/raw/commit/${COMMIT}/docs/general-terms.md#sha256=${DIGEST}`
+const LOOPBACK = `http://127.0.0.1:8098/terms/general-terms.md#sha256=${DIGEST}`
 
 const mockReadContract = vi.mocked(readContract)
 const mockUseChainId = vi.mocked(useChainId)
@@ -85,8 +85,8 @@ describe('parseTermsLink', () => {
   it('reads a commit link from the GitHub mirror, links its reader page and hashes the link', () => {
     expect(parseTermsLink(LINK, 1)).toEqual({
       hash: keccak256(stringToBytes(LINK)),
-      textUrl: `https://raw.githubusercontent.com/simplex-chat/simplex-chat/${COMMIT}/docs/name-terms.md`,
-      readerUrl: `https://git.simplex.chat/simplex-chat/simplex-chat/src/commit/${COMMIT}/docs/name-terms.md`,
+      textUrl: `https://raw.githubusercontent.com/simplex-chat/simplex-chat/${COMMIT}/docs/general-terms.md`,
+      readerUrl: `https://git.simplex.chat/simplex-chat/simplex-chat/src/commit/${COMMIT}/docs/general-terms.md`,
       digest: `0x${DIGEST}`,
     })
   })
@@ -96,7 +96,7 @@ describe('parseTermsLink', () => {
     expect(parseTermsLink(LOOPBACK, 11155111)).toBeUndefined()
     expect(parseTermsLink(LOOPBACK, 1337)).toEqual({
       hash: keccak256(stringToBytes(LOOPBACK)),
-      textUrl: 'http://127.0.0.1:8098/terms/name-terms.md',
+      textUrl: 'http://127.0.0.1:8098/terms/general-terms.md',
       readerUrl: undefined,
       digest: `0x${DIGEST}`,
     })
@@ -113,7 +113,7 @@ describe('parseTermsLink', () => {
     ['a parent segment', LINK.replace('docs/', 'docs/../')],
     ['a current segment', LINK.replace('docs/', './docs/')],
     ['an empty segment', LINK.replace('docs/', 'docs//')],
-    ['an escape', LINK.replace('name-terms', 'name%2dterms')],
+    ['an escape', LINK.replace('general-terms', 'general%2dterms')],
     ['a query', LINK.replace('.md', '.md?raw=1')],
     ['another extension', LINK.replace('.md', '.txt')],
     ['an empty link', ''],
@@ -123,7 +123,7 @@ describe('parseTermsLink', () => {
 })
 
 describe('useNameTerms', () => {
-  it.each(['name', 'community'] as const)(
+  it.each(['general', 'community'] as const)(
     'gives the %s terms with their hash, text and reader page',
     (kind) => {
       queries({ data: { kind, link: LINK } }, { data: 'the terms' })
@@ -147,7 +147,7 @@ describe('useNameTerms', () => {
     expect(refetch).toHaveBeenCalledOnce()
   })
 
-  it.each(['name', 'community'] as const)(
+  it.each(['general', 'community'] as const)(
     'shows no %s text after a failed fetch or digest check, and retries the fetch',
     (kind) => {
       const listingRefetch = vi.fn()
@@ -165,13 +165,13 @@ describe('useNameTerms', () => {
     },
   )
 
-  it.each(['name', 'community'] as const)('has no %s terms to accept while unset', (kind) => {
+  it.each(['general', 'community'] as const)('has no %s terms to accept while unset', (kind) => {
     queries({ data: { kind, link: '' } })
     expect(nameTerms()).toMatchObject({ required: true, kind, hash: undefined, isError: false })
     expect(mockUseQuery).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }))
   })
 
-  it.each(['name', 'community'] as const)(
+  it.each(['general', 'community'] as const)(
     'fetches the %s terms from a loopback link only on the local chain',
     (kind) => {
       queries({ data: { kind, link: LOOPBACK } })
@@ -189,9 +189,9 @@ describe('useNameTerms', () => {
   it('waits for the listing and the text, and reports a refetch', () => {
     queries({ isLoading: true })
     expect(nameTerms().isLoading).toBe(true)
-    queries({ data: { kind: 'name', link: LINK } }, { isLoading: true })
+    queries({ data: { kind: 'general', link: LINK } }, { isLoading: true })
     expect(nameTerms().isLoading).toBe(true)
-    queries({ data: { kind: 'name', link: LINK }, isFetching: true }, { data: 'the terms' })
+    queries({ data: { kind: 'general', link: LINK }, isFetching: true }, { data: 'the terms' })
     expect(nameTerms()).toMatchObject({ isLoading: false, isFetching: true })
   })
 })
@@ -203,19 +203,19 @@ describe('getNameTermsQueryFn', () => {
     } as never)
 
   it.each([
-    [false, 'name', 'the name terms link'],
+    [false, 'general', 'the general terms link'],
     [true, 'community', 'the community terms link'],
   ] as const)('gives a name listed %s the %s terms link', async (isListed, kind, link) => {
     mockReadContract
       .mockResolvedValueOnce(isListed)
-      .mockResolvedValueOnce('the name terms link')
+      .mockResolvedValueOnce('the general terms link')
       .mockResolvedValueOnce('the community terms link')
     expect(await getNameTerms('alice.testing')).toEqual({ kind, link })
     expect(mockReadContract).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         address: NAME_POLICY,
-        functionName: 'bonaFideNames',
+        functionName: 'communityNames',
         args: [labelhash('alice')],
       }),
     )
@@ -224,7 +224,7 @@ describe('getNameTermsQueryFn', () => {
   it('fails when the listing cannot be read, instead of taking the name for unlisted', async () => {
     mockReadContract
       .mockRejectedValueOnce(new Error('listing unreadable'))
-      .mockResolvedValueOnce('the name terms link')
+      .mockResolvedValueOnce('the general terms link')
       .mockResolvedValueOnce('the community terms link')
     await expect(getNameTerms('alice.testing')).rejects.toThrow('listing unreadable')
   })

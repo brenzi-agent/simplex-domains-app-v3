@@ -295,7 +295,7 @@ describe('ClaimName', () => {
     expect(screen.getByTestId('claim-name-acknowledge')).toBeVisible()
   })
 
-  it.each(['name', 'community'] as const)(
+  it.each(['general', 'community'] as const)(
     'queues the acceptance of the shown %s terms before the claim',
     async (kind) => {
       mockUseClaimChecks.mockReturnValue(checks({ nodes: [{ ...root, records: [] }] }))
@@ -303,10 +303,10 @@ describe('ClaimName', () => {
         nameTerms({ required: true, kind, hash: TERMS, text: 'the terms' }),
       )
       render(claimName())
-      expect(screen.getByTestId('bona-fide-terms-text')).toHaveTextContent('the terms')
+      expect(screen.getByTestId('terms-text')).toHaveTextContent('the terms')
       expect(screen.getByTestId('claim-name-confirm')).toBeDisabled()
 
-      await userEvent.click(screen.getByTestId('bona-fide-terms-accept'))
+      await userEvent.click(screen.getByTestId('terms-accept'))
       await userEvent.click(screen.getByTestId('claim-name-confirm'))
 
       expect(mockDispatch).toHaveBeenCalledWith({
@@ -330,13 +330,13 @@ describe('ClaimName', () => {
   it('offers no acceptance before the terms are set or while they cannot be read', () => {
     mockUseClaimChecks.mockReturnValue(checks({ nodes: [{ ...root, records: [] }] }))
     for (const [terms, shown] of [
-      [nameTerms({ required: true, kind: 'community' }), 'bona-fide-terms-unset'],
-      [nameTerms({ required: true, isError: true }), 'bona-fide-terms-load-failed'],
+      [nameTerms({ required: true, kind: 'community' }), 'terms-unset'],
+      [nameTerms({ required: true, isError: true }), 'terms-load-failed'],
     ] as const) {
       mockUseNameTerms.mockReturnValue(terms)
       const { unmount } = render(claimName())
       expect(screen.getByTestId(shown)).toBeVisible()
-      expect(screen.queryByTestId('bona-fide-terms-accept')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('terms-accept')).not.toBeInTheDocument()
       expect(screen.getByTestId('claim-name-confirm')).toBeDisabled()
       unmount()
     }
@@ -345,11 +345,11 @@ describe('ClaimName', () => {
   it('claims a name without a second acceptance when this offer already has one', async () => {
     mockUseClaimChecks.mockReturnValue(checks({ nodes: [{ ...root, records: [] }] }))
     mockUseNameTerms.mockReturnValue(
-      nameTerms({ required: true, kind: 'name', hash: TERMS, text: 'the terms' }),
+      nameTerms({ required: true, kind: 'general', hash: TERMS, text: 'the terms' }),
     )
     mockUseAcceptedClaimTerms.mockReturnValue(claimTerms(TERMS))
     render(claimName())
-    expect(screen.queryByTestId('bona-fide-terms')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('terms')).not.toBeInTheDocument()
     await userEvent.click(screen.getByTestId('claim-name-confirm'))
     expect(mockDispatch).toHaveBeenCalledWith({
       name: 'setTransactions',
@@ -362,7 +362,7 @@ describe('ClaimName', () => {
   it('waits for the listing, the terms and an earlier acceptance', () => {
     for (const [terms, accepted] of [
       [nameTerms({ required: true, isLoading: true }), claimTerms()],
-      [nameTerms({ required: true, kind: 'name', hash: TERMS }), claimTerms(undefined, true)],
+      [nameTerms({ required: true, kind: 'general', hash: TERMS }), claimTerms(undefined, true)],
     ] as const) {
       mockUseNameTerms.mockReturnValue(terms)
       mockUseAcceptedClaimTerms.mockReturnValue(accepted)
@@ -375,7 +375,7 @@ describe('ClaimName', () => {
   it("reads the recipient's acceptance for the holder's offer and disables Claim while it refreshes", () => {
     mockUseClaimChecks.mockReturnValue(checks({ nodes: [{ ...root, records: [] }] }))
     mockUseNameTerms.mockReturnValue(
-      nameTerms({ required: true, kind: 'name', hash: TERMS, text: 'the terms' }),
+      nameTerms({ required: true, kind: 'general', hash: TERMS, text: 'the terms' }),
     )
     mockUseAcceptedClaimTerms.mockReturnValue({
       data: TERMS,

@@ -6,8 +6,8 @@ import { Terms } from '@app/utils/snrcNameTerms'
 
 import { useTermsAcceptance } from './useTermsAcceptance'
 
-const TERMS: Terms = { kind: 'name', hash: `0x${'77'.repeat(32)}` }
-const NEW_TERMS: Terms = { kind: 'name', hash: `0x${'88'.repeat(32)}` }
+const TERMS: Terms = { kind: 'general', hash: `0x${'77'.repeat(32)}` }
+const NEW_TERMS: Terms = { kind: 'general', hash: `0x${'88'.repeat(32)}` }
 const COMMUNITY_TERMS: Terms = { kind: 'community', hash: TERMS.hash }
 
 describe('useTermsAcceptance', () => {

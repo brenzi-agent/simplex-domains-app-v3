@@ -48,14 +48,14 @@ test('SNRC: a register link greets with its links and terms, accepting them goes
       'href',
       channel,
     )
-    await expect(page.getByTestId('bona-fide-terms-text')).toBeVisible({ timeout: 30000 })
-    await page.getByTestId('bona-fide-terms-accept').check()
+    await expect(page.getByTestId('terms-text')).toBeVisible({ timeout: 30000 })
+    await page.getByTestId('terms-accept').check()
     await expect(page.getByTestId('body-connect-button')).toBeVisible()
   })
 
   await test.step('connecting the wallet waits for Next, which goes on to the links', async () => {
     await login.connect()
-    await page.getByTestId('bona-fide-terms-accept').check({ timeout: 30000 })
+    await page.getByTestId('terms-accept').check({ timeout: 30000 })
     await page.getByTestId('next-button').filter({ hasText: 'Next' }).click({ timeout: 30000 })
     await expect(page.getByTestId('multi-url-field-simplex.contact-input-0')).toHaveValue(contact, {
       timeout: 30000,
@@ -115,7 +115,7 @@ test('SNRC: a register link opened with a connected wallet waits for Next', asyn
   await page.goto(linkTo(name))
 
   const nextButton = page.getByTestId('next-button').filter({ hasText: 'Next' })
-  await page.getByTestId('bona-fide-terms-accept').check({ timeout: 90000 })
+  await page.getByTestId('terms-accept').check({ timeout: 90000 })
   await expect(nextButton).toBeEnabled({ timeout: 30000 })
   await nextButton.click()
   await expect(page.getByTestId('profile-submit-button')).toBeVisible()
@@ -131,7 +131,7 @@ test('SNRC: edits made in the profile step outlive going back to the greeting', 
 
   await page.goto(linkTo(name))
   await login.connect()
-  await page.getByTestId('bona-fide-terms-accept').check({ timeout: 90000 })
+  await page.getByTestId('terms-accept').check({ timeout: 90000 })
   await page.getByTestId('next-button').filter({ hasText: 'Next' }).click({ timeout: 30000 })
   await expect(channelInput).toHaveValue(channel, { timeout: 30000 })
   await channelInput.fill(editedChannel)

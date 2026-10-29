@@ -92,17 +92,16 @@ export const TermsText = ({
 )
 
 const KIND_TEXTS = {
-  name: {
-    title: 'SimpleX name terms',
-    description: 'Registering or receiving this name requires accepting the SimpleX name terms.',
-    accept: 'I accept the SimpleX name terms',
-    unset: "The name terms are not available, so names can't be registered or received now.",
+  general: {
+    title: 'SimpleX general terms',
+    description: 'Registering or receiving this name requires accepting the SimpleX general terms.',
+    accept: 'I accept the SimpleX general terms',
+    unset: "The general terms are not available, so names can't be registered or received now.",
   },
   community: {
-    title: 'Bona fide community name',
-    description:
-      'Registering or receiving this name requires accepting the bona fide community terms.',
-    accept: 'I accept the bona fide community terms',
+    title: 'Community name',
+    description: 'Registering or receiving this name requires accepting the community terms.',
+    accept: 'I accept the community terms',
     unset:
       "The community terms are not available, so this name can't be registered or received now.",
   },
@@ -114,7 +113,7 @@ type Props = {
 }
 
 export const NameTerms = ({ terms, acceptance }: Props) => (
-  <Helper alert="info" alignment="horizontal" data-testid="bona-fide-terms">
+  <Helper alert="info" alignment="horizontal" data-testid="terms">
     <Content>
       {terms.kind && (
         <div>
@@ -126,14 +125,14 @@ export const NameTerms = ({ terms, acceptance }: Props) => (
         .with({ isLoading: true }, () => <Typography>Loading the terms…</Typography>)
         .with({ kind: P.string, text: P.string }, ({ kind, text, readerUrl }) => (
           <>
-            <TermsText data-testid="bona-fide-terms-text" text={text} />
+            <TermsText data-testid="terms-text" text={text} />
             {readerUrl && (
-              <Outlink href={readerUrl} data-testid="bona-fide-terms-reader">
+              <Outlink href={readerUrl} data-testid="terms-reader">
                 View this version on git.simplex.chat
               </Outlink>
             )}
             <CheckboxRow
-              data-testid="bona-fide-terms-accept"
+              data-testid="terms-accept"
               label={KIND_TEXTS[kind].accept}
               checked={!!acceptance.acceptedTerms}
               onChange={(e) => acceptance.setAccepted(e.target.checked)}
@@ -142,14 +141,14 @@ export const NameTerms = ({ terms, acceptance }: Props) => (
         ))
         .with({ isError: true }, () => (
           <>
-            <Typography color="red" data-testid="bona-fide-terms-load-failed">
+            <Typography color="red" data-testid="terms-load-failed">
               The terms can&apos;t be loaded now.
             </Typography>
             <div>
               <Button
                 size="small"
                 colorStyle="accentSecondary"
-                data-testid="bona-fide-terms-retry"
+                data-testid="terms-retry"
                 onClick={terms.retry}
               >
                 Try again
@@ -158,7 +157,7 @@ export const NameTerms = ({ terms, acceptance }: Props) => (
           </>
         ))
         .with({ kind: P.string }, ({ kind }) => (
-          <Typography color="red" data-testid="bona-fide-terms-unset">
+          <Typography color="red" data-testid="terms-unset">
             {KIND_TEXTS[kind].unset}
           </Typography>
         ))

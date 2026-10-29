@@ -27,7 +27,7 @@ const transaction = ({ client, data }: TransactionFunctionParameters<Data>) => (
   data: encodeFunctionData({
     abi: namePolicyTermsAbi,
     functionName:
-      data.terms.kind === 'community' ? 'commitUnderCommunityNameTerms' : 'commitUnderNameTerms',
+      data.terms.kind === 'community' ? 'commitUnderCommunityTerms' : 'commitUnderGeneralTerms',
     args: [data.commitment, data.terms.hash],
   }),
 })

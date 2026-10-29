@@ -20,8 +20,8 @@ const connectorClient = {} as unknown as ConnectorClientWithEns
 
 describe('acceptTerms', () => {
   it.each([
-    ['name', 'commitUnderNameTerms'],
-    ['community', 'commitUnderCommunityNameTerms'],
+    ['general', 'commitUnderGeneralTerms'],
+    ['community', 'commitUnderCommunityTerms'],
   ] as const)('accepts the %s terms for a commitment through the name policy', (kind, call) => {
     const tx = acceptTerms.transaction({
       client,

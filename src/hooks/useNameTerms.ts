@@ -44,27 +44,27 @@ export const getNameTermsQueryFn =
     const tokenId = getSnrcTokenId(name)
     if (!namePolicyAddress || tokenId === undefined) return null
     const client = config.getClient({ chainId })
-    const [isListed, nameTermsLink, communityNameTermsLink] = await Promise.all([
+    const [isListed, generalTermsLink, communityTermsLink] = await Promise.all([
       readContract(client, {
         address: namePolicyAddress,
         abi: namePolicyTermsAbi,
-        functionName: 'bonaFideNames',
+        functionName: 'communityNames',
         args: [toHex(tokenId, { size: 32 })],
       }),
       readContract(client, {
         address: namePolicyAddress,
         abi: namePolicyTermsAbi,
-        functionName: 'nameTermsLink',
+        functionName: 'generalTermsLink',
       }),
       readContract(client, {
         address: namePolicyAddress,
         abi: namePolicyTermsAbi,
-        functionName: 'communityNameTermsLink',
+        functionName: 'communityTermsLink',
       }),
     ])
     return isListed
-      ? { kind: 'community' as const, link: communityNameTermsLink }
-      : { kind: 'name' as const, link: nameTermsLink }
+      ? { kind: 'community' as const, link: communityTermsLink }
+      : { kind: 'general' as const, link: generalTermsLink }
   }
 
 type TermsTextQueryKey = CreateQueryKey<{ termsLink?: TermsLink }, 'getTermsText', 'independent'>

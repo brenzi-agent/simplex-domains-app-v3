@@ -20,8 +20,8 @@ const connectorClient = {} as unknown as ConnectorClientWithEns
 
 describe('acceptClaimTerms', () => {
   it.each([
-    ['name', 'acceptNameTermsForClaim'],
-    ['community', 'acceptCommunityNameTermsForClaim'],
+    ['general', 'acceptGeneralTermsForClaim'],
+    ['community', 'acceptCommunityTermsForClaim'],
   ] as const)('accepts the %s terms for the reviewed offer of the holder', (kind, call) => {
     const tx = acceptClaimTerms.transaction({
       client,

@@ -14,7 +14,7 @@ const nameTerms = (
   state: Partial<ReturnType<typeof useNameTerms>> = {},
 ): ReturnType<typeof useNameTerms> => ({
   required: true,
-  kind: 'name',
+  kind: 'general',
   hash: TERMS,
   readerUrl: READER,
   text: '# Terms',
@@ -42,41 +42,41 @@ describe('TermsText', () => {
 
 describe('NameTerms', () => {
   it.each([
-    ['name', 'SimpleX name terms', 'I accept the SimpleX name terms'],
-    ['community', 'Bona fide community name', 'I accept the bona fide community terms'],
+    ['general', 'SimpleX general terms', 'I accept the SimpleX general terms'],
+    ['community', 'Community name', 'I accept the community terms'],
   ] as const)('asks to accept the %s terms, linking their commit', async (kind, title, label) => {
     const accept = acceptance()
     render(<NameTerms terms={nameTerms({ kind })} acceptance={accept} />)
     expect(screen.getByText(title)).toBeVisible()
-    expect(screen.getByTestId('bona-fide-terms-text')).toHaveTextContent('Terms')
-    expect(screen.getByTestId('bona-fide-terms-reader')).toHaveAttribute('href', READER)
+    expect(screen.getByTestId('terms-text')).toHaveTextContent('Terms')
+    expect(screen.getByTestId('terms-reader')).toHaveAttribute('href', READER)
     expect(screen.getByText(label)).toBeVisible()
-    await userEvent.click(screen.getByTestId('bona-fide-terms-accept'))
+    await userEvent.click(screen.getByTestId('terms-accept'))
     expect(accept.setAccepted).toHaveBeenCalledWith(true)
   })
 
   it('links no commit page for a loopback link', () => {
     render(<NameTerms terms={nameTerms({ readerUrl: undefined })} acceptance={acceptance()} />)
-    expect(screen.getByTestId('bona-fide-terms-text')).toBeVisible()
-    expect(screen.queryByTestId('bona-fide-terms-reader')).not.toBeInTheDocument()
+    expect(screen.getByTestId('terms-text')).toBeVisible()
+    expect(screen.queryByTestId('terms-reader')).not.toBeInTheDocument()
   })
 
   it('offers a retry when the terms cannot be loaded, apart from terms that are not set', async () => {
     const terms = nameTerms({ text: undefined, isError: true })
     const { unmount } = render(<NameTerms terms={terms} acceptance={acceptance()} />)
-    expect(screen.getByTestId('bona-fide-terms-load-failed')).toBeVisible()
-    expect(screen.queryByTestId('bona-fide-terms-unset')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('bona-fide-terms-accept')).not.toBeInTheDocument()
-    await userEvent.click(screen.getByTestId('bona-fide-terms-retry'))
+    expect(screen.getByTestId('terms-load-failed')).toBeVisible()
+    expect(screen.queryByTestId('terms-unset')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('terms-accept')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByTestId('terms-retry'))
     expect(terms.retry).toHaveBeenCalledOnce()
     unmount()
 
     const unset = nameTerms({ hash: undefined, text: undefined })
     render(<NameTerms terms={unset} acceptance={acceptance()} />)
-    expect(screen.getByTestId('bona-fide-terms-unset')).toHaveTextContent(
+    expect(screen.getByTestId('terms-unset')).toHaveTextContent(
       "names can't be registered or received now",
     )
-    expect(screen.queryByTestId('bona-fide-terms-retry')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('terms-retry')).not.toBeInTheDocument()
   })
 
   it('offers a retry when the listing cannot be read', () => {
@@ -86,7 +86,7 @@ describe('NameTerms', () => {
         acceptance={acceptance()}
       />,
     )
-    expect(screen.getByTestId('bona-fide-terms-load-failed')).toBeVisible()
-    expect(screen.getByTestId('bona-fide-terms-retry')).toBeVisible()
+    expect(screen.getByTestId('terms-load-failed')).toBeVisible()
+    expect(screen.getByTestId('terms-retry')).toBeVisible()
   })
 })
