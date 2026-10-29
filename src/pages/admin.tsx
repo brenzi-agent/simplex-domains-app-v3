@@ -6,17 +6,17 @@ import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi'
 
 import { Button, Card, Heading, Input, Select, Typography } from '@ensdomains/thorin'
 
-import { TermsText } from '@app/components/BonaFideTerms'
+import { TermsText } from '@app/components/NameTerms'
 import { getNamePolicyAddress, getSnrcAddresses } from '@app/constants/chains'
 import {
   MAX_REGISTRATION_DURATION,
   MAX_SPONSORED_REGISTRATION_DURATION,
   MIN_REGISTRATION_DURATION,
 } from '@app/constants/simplex'
-import { useBonaFideTerms } from '@app/hooks/useBonaFideTerms'
+import { useNameTerms, useTermsText } from '@app/hooks/useNameTerms'
 import { Content } from '@app/layouts/Content'
-import { namePolicyBonaFideAbi } from '@app/utils/snrcBonaFide'
 import { getUnregistrableLabelsError, parseLabels } from '@app/utils/snrcLabels'
+import { namePolicyTermsAbi, TermsKind } from '@app/utils/snrcNameTerms'
 import { ONE_DAY } from '@app/utils/time'
 
 const controllerAbi = [
@@ -162,6 +162,23 @@ const codeBadge = (zero: boolean, has?: boolean) => {
   return has ? { char: '✓', color: 'green' as const } : { char: '✗', color: 'red' as const }
 }
 
+type OnChainTerms = { link: string; hash: string }
+
+const TermsSettings = ({ terms, testId }: { terms?: OnChainTerms; testId: string }) => {
+  const { text } = useTermsText(terms?.link)
+  return (
+    <>
+      <Mono fontVariant="small" data-testid={`${testId}-link`}>
+        Link: {terms ? terms.link || 'not set' : 'loading...'}
+      </Mono>
+      <Mono fontVariant="small" data-testid={`${testId}-hash`}>
+        Terms on chain: {terms?.hash || 'loading...'}
+      </Mono>
+      {text.data !== undefined && <TermsText data-testid={`${testId}-text`} text={text.data} />}
+    </>
+  )
+}
+
 function AdminPanel() {
   const { address } = useAccount()
   const chainId = useChainId()
@@ -197,13 +214,12 @@ function AdminPanel() {
   const [regDuration, setRegDuration] = useState(String(MIN_RESERVED_DAYS))
   const [listName, setListName] = useState('')
   const [unListName, setUnListName] = useState('')
-  const [termsHash, setTermsHash] = useState<string>('')
-  const [termsText, setTermsText] = useState('')
+  const [terms, setTerms] = useState<Record<TermsKind, OnChainTerms>>()
   const regDays = Number(regDuration)
-  const regBonaFide = useBonaFideTerms({
+  const regTerms = useNameTerms({
     name: `${regLabel}.${process.env.NEXT_PUBLIC_SIMPLEX_TLD || 'testing'}`,
   })
-  const maxRegDays = regBonaFide.isListed ? MAX_BONA_FIDE_DAYS : MAX_RESERVED_DAYS
+  const maxRegDays = regTerms.kind === 'community' ? MAX_BONA_FIDE_DAYS : MAX_RESERVED_DAYS
   const isRegDurationValid =
     Number.isInteger(regDays) && regDays >= MIN_RESERVED_DAYS && regDays <= maxRegDays
   const reserveLabels = parseLabels(reserveName)
@@ -254,26 +270,25 @@ function AdminPanel() {
         next[name] = !!codes[i] && codes[i] !== '0x'
       })
       setCodeStatus(next)
-      const [onChainTermsHash, onChainTermsText] = namePolicyAddress
-        ? await Promise.all([
-            publicClient
-              .readContract({
-                address: namePolicyAddress,
-                abi: namePolicyBonaFideAbi,
-                functionName: 'termsHash',
-              })
-              .catch(() => 'unreadable'),
-            publicClient
-              .readContract({
-                address: namePolicyAddress,
-                abi: namePolicyBonaFideAbi,
-                functionName: 'termsText',
-              })
-              .catch(() => ''),
-          ])
-        : ['not deployed', '']
-      setTermsHash(onChainTermsHash)
-      setTermsText(onChainTermsText)
+      const termsReads = [
+        'nameTermsLink',
+        'nameTermsHash',
+        'communityNameTermsLink',
+        'communityNameTermsHash',
+      ] as const
+      const [nameLink, nameHash, communityLink, communityHash] = await Promise.all(
+        termsReads.map((functionName) =>
+          namePolicyAddress
+            ? publicClient
+                .readContract({ address: namePolicyAddress, abi: namePolicyTermsAbi, functionName })
+                .catch(() => 'unreadable')
+            : 'not deployed',
+        ),
+      )
+      setTerms({
+        name: { link: nameLink, hash: nameHash },
+        community: { link: communityLink, hash: communityHash },
+      })
 
       setLoaded(true)
       setStatus('')
@@ -512,10 +527,21 @@ function AdminPanel() {
 
           <Card>
             <Section>
+              <Typography fontVariant="largeBold">Name Terms</Typography>
+              <Typography fontVariant="small">
+                A name that is not listed can be registered or received only by someone who accepts
+                the current name terms.
+              </Typography>
+              <TermsSettings terms={terms?.name} testId="admin-name-terms" />
+            </Section>
+          </Card>
+
+          <Card>
+            <Section>
               <Typography fontVariant="largeBold">Bona Fide Names</Typography>
               <Typography fontVariant="small">
                 A listed name can be registered or received only by someone who accepts the current
-                terms. Names that are registered or in grace are skipped.
+                community name terms. Names that are registered or in grace are skipped.
               </Typography>
               <Row>
                 <Input
@@ -552,14 +578,7 @@ function AdminPanel() {
                   Unlist
                 </Button>
               </Row>
-              <Mono fontVariant="small" data-testid="admin-terms-hash">
-                Terms on chain: {termsHash || 'loading...'}
-              </Mono>
-              {termsText && <TermsText data-testid="admin-terms-text" text={termsText} />}
-              <Typography fontVariant="small">
-                The terms are set from the namespace repository&apos;s bona-fide-terms file by its
-                deploy scripts.
-              </Typography>
+              <TermsSettings terms={terms?.community} testId="admin-terms" />
             </Section>
           </Card>
 

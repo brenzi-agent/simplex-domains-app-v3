@@ -1,11 +1,12 @@
 import Markdown from 'markdown-to-jsx'
 import type { ComponentPropsWithoutRef } from 'react'
 import styled, { css } from 'styled-components'
-import { match } from 'ts-pattern'
+import { match, P } from 'ts-pattern'
 
-import { CheckboxRow, Helper, Typography } from '@ensdomains/thorin'
+import { Button, CheckboxRow, Helper, Typography } from '@ensdomains/thorin'
 
-import { useBonaFideTerms } from '@app/hooks/useBonaFideTerms'
+import { Outlink } from '@app/components/Outlink'
+import { useNameTerms } from '@app/hooks/useNameTerms'
 import { useTermsAcceptance } from '@app/hooks/useTermsAcceptance'
 
 const TermsBox = styled.div(
@@ -79,49 +80,89 @@ const Content = styled.div(
   `,
 )
 
-// The terms as kept on chain, rendered from their markdown; HTML in them shows as text.
+// The terms as fetched from their link, rendered from their markdown; HTML in them shows as text.
 export const TermsText = ({
   text,
   ...props
 }: { text: string } & ComponentPropsWithoutRef<'div'>) => (
   // focusable, so the terms scroll from the keyboard too
-  <TermsBox tabIndex={0} aria-label="Bona fide community terms" {...props}>
+  <TermsBox tabIndex={0} aria-label="Terms" {...props}>
     <Markdown options={{ disableParsingRawHTML: true }}>{text}</Markdown>
   </TermsBox>
 )
 
+const KIND_TEXTS = {
+  name: {
+    title: 'SimpleX name terms',
+    description: 'Registering or receiving this name requires accepting the SimpleX name terms.',
+    accept: 'I accept the SimpleX name terms',
+    unset: "The name terms are not available, so names can't be registered or received now.",
+  },
+  community: {
+    title: 'Bona fide community name',
+    description:
+      'Registering or receiving this name requires accepting the bona fide community terms.',
+    accept: 'I accept the bona fide community terms',
+    unset:
+      "The community terms are not available, so this name can't be registered or received now.",
+  },
+}
+
 type Props = {
-  terms: ReturnType<typeof useBonaFideTerms>
+  terms: ReturnType<typeof useNameTerms>
   acceptance: ReturnType<typeof useTermsAcceptance>
 }
 
-export const BonaFideTerms = ({ terms, acceptance }: Props) => (
+export const NameTerms = ({ terms, acceptance }: Props) => (
   <Helper alert="info" alignment="horizontal" data-testid="bona-fide-terms">
     <Content>
-      <div>
-        <Typography weight="bold">Bona fide community name</Typography>
-        <Typography>
-          Registering or receiving this name requires accepting the bona fide community terms.
-        </Typography>
-      </div>
+      {terms.kind && (
+        <div>
+          <Typography weight="bold">{KIND_TEXTS[terms.kind].title}</Typography>
+          <Typography>{KIND_TEXTS[terms.kind].description}</Typography>
+        </div>
+      )}
       {match(terms)
         .with({ isLoading: true }, () => <Typography>Loading the terms…</Typography>)
-        .with({ hasTerms: true }, () => (
+        .with({ kind: P.string, text: P.string }, ({ kind, text, readerUrl }) => (
           <>
-            <TermsText data-testid="bona-fide-terms-text" text={terms.text ?? ''} />
+            <TermsText data-testid="bona-fide-terms-text" text={text} />
+            {readerUrl && (
+              <Outlink href={readerUrl} data-testid="bona-fide-terms-reader">
+                View this version on git.simplex.chat
+              </Outlink>
+            )}
             <CheckboxRow
               data-testid="bona-fide-terms-accept"
-              label="I accept the bona fide community terms"
-              checked={!!acceptance.acceptedTermsHash}
+              label={KIND_TEXTS[kind].accept}
+              checked={!!acceptance.acceptedTerms}
               onChange={(e) => acceptance.setAccepted(e.target.checked)}
             />
           </>
         ))
-        .otherwise(() => (
+        .with({ isError: true }, () => (
+          <>
+            <Typography color="red" data-testid="bona-fide-terms-load-failed">
+              The terms can&apos;t be loaded now.
+            </Typography>
+            <div>
+              <Button
+                size="small"
+                colorStyle="accentSecondary"
+                data-testid="bona-fide-terms-retry"
+                onClick={terms.retry}
+              >
+                Try again
+              </Button>
+            </div>
+          </>
+        ))
+        .with({ kind: P.string }, ({ kind }) => (
           <Typography color="red" data-testid="bona-fide-terms-unset">
-            The community terms are not set yet, so they cannot be accepted.
+            {KIND_TEXTS[kind].unset}
           </Typography>
-        ))}
+        ))
+        .otherwise(() => null)}
     </Content>
   </Helper>
 )
