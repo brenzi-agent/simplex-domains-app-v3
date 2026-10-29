@@ -261,7 +261,7 @@ function AdminPanel() {
   const [regDuration, setRegDuration] = useState(String(MIN_RESERVED_DAYS))
   const [listName, setListName] = useState('')
   const [unListName, setUnListName] = useState('')
-  const [terms, setTerms] = useState<Record<TermsKind, OnChainTerms>>()
+  const [onChainTerms, setOnChainTerms] = useState<Record<TermsKind, OnChainTerms>>()
   const regDays = Number(regDuration)
   const regTerms = useNameTerms({
     name: `${regLabel}.${process.env.NEXT_PUBLIC_SIMPLEX_TLD || 'testing'}`,
@@ -332,7 +332,7 @@ function AdminPanel() {
             : 'not deployed',
         ),
       )
-      setTerms({
+      setOnChainTerms({
         name: { link: nameLink, hash: nameHash },
         community: { link: communityLink, hash: communityHash },
       })
@@ -580,7 +580,7 @@ function AdminPanel() {
                 the current name terms.
               </Typography>
               <TermsSettings
-                terms={terms?.name}
+                terms={onChainTerms?.name}
                 testId="admin-name-terms"
                 setLabel="Set name terms"
                 onSet={(link) => execTx(namePolicy, 'setNameTerms', [link])}
@@ -631,7 +631,7 @@ function AdminPanel() {
                 </Button>
               </Row>
               <TermsSettings
-                terms={terms?.community}
+                terms={onChainTerms?.community}
                 testId="admin-terms"
                 setLabel="Set community name terms"
                 onSet={(link) => execTx(namePolicy, 'setCommunityNameTerms', [link])}
