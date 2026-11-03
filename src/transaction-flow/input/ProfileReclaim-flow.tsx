@@ -6,6 +6,7 @@ import { match } from 'ts-pattern'
 
 import { Button, Dialog, PlusSVG } from '@ensdomains/thorin'
 
+import { MultiUrlField } from '@app/components/@molecules/MultiUrlField/MultiUrlField'
 import { AvatarClickType } from '@app/components/@molecules/ProfileEditor/Avatar/AvatarButton'
 import { AvatarViewManager } from '@app/components/@molecules/ProfileEditor/Avatar/AvatarViewManager'
 import { AddProfileRecordView } from '@app/components/pages/profile/[name]/registration/steps/Profile/AddProfileRecordView'
@@ -15,13 +16,17 @@ import { ProfileRecordTextarea } from '@app/components/pages/profile/[name]/regi
 import {
   profileEditorFormToProfileRecords,
   profileToProfileRecords,
+  stripEmptySimplexRecords,
+  withDefaultSimplexRecords,
 } from '@app/components/pages/profile/[name]/registration/steps/Profile/profileRecordUtils'
 import { ProfileRecord } from '@app/constants/profileRecordOptions'
+import { SIMPLEX_LINK_SEPARATOR } from '@app/constants/simplex'
 import { useContractAddress } from '@app/hooks/chain/useContractAddress'
 import { useProfile } from '@app/hooks/useProfile'
 import { useProfileEditorForm } from '@app/hooks/useProfileEditorForm'
 import { createTransactionItem } from '@app/transaction-flow/transaction'
 import type { TransactionDialogPassthrough } from '@app/transaction-flow/types'
+import { parseSimplexUrls } from '@app/utils/parseSimplexUrls'
 
 import { WrappedAvatarButton } from './ProfileEditor/WrappedAvatarButton'
 
@@ -64,7 +69,7 @@ const ProfileReclaim = ({ data: { name, label, parent }, dispatch, onDismiss }: 
 
   const { data: profile } = useProfile({ name })
 
-  const existingRecords = profileToProfileRecords(profile)
+  const existingRecords = withDefaultSimplexRecords(profileToProfileRecords(profile))
 
   const defaultResolverAddress = useContractAddress({ contract: 'ensPublicResolver' })
 
@@ -74,6 +79,7 @@ const ProfileReclaim = ({ data: { name, label, parent }, dispatch, onDismiss }: 
     register,
     trigger,
     control,
+    setValue,
     addRecords,
     getValues,
     removeRecordAtIndex,
@@ -86,6 +92,7 @@ const ProfileReclaim = ({ data: { name, label, parent }, dispatch, onDismiss }: 
     isDirtyForRecordAtIndex,
   } = useProfileEditorForm(existingRecords)
   const handleSubmit = () => {
+    const profileRecords = stripEmptySimplexRecords(profileEditorFormToProfileRecords(getValues()))
     const payload = [
       createTransactionItem('createSubname', {
         label,
@@ -93,11 +100,11 @@ const ProfileReclaim = ({ data: { name, label, parent }, dispatch, onDismiss }: 
       }),
     ]
 
-    if (isDirty && records.length) {
+    if (isDirty && profileRecords.length) {
       payload.push(
         createTransactionItem('updateProfileRecords', {
           name,
-          records: profileEditorFormToProfileRecords(getValues()),
+          records: profileRecords,
           resolverAddress: defaultResolverAddress,
           clearRecords: false,
         }) as never,
@@ -164,6 +171,23 @@ const ProfileReclaim = ({ data: { name, label, parent }, dispatch, onDismiss }: 
                       {...register(`records.${index}.value`, {
                         validate: validatorForRecord(field),
                       })}
+                    />
+                  ))
+                  .with({ key: 'simplex.contact' }, { key: 'simplex.channel' }, () => (
+                    <MultiUrlField
+                      key={field.id}
+                      recordKey={field.key}
+                      label={labelForRecord(field)}
+                      secondaryLabel={secondaryLabelForRecord(field)}
+                      placeholder={placeholderForRecord(field)}
+                      value={parseSimplexUrls(field.value)}
+                      error={errorForRecordAtIndex(index)}
+                      onChange={(urls) => {
+                        setValue(`records.${index}.value`, urls.join(SIMPLEX_LINK_SEPARATOR), {
+                          shouldDirty: true,
+                          shouldTouch: true,
+                        })
+                      }}
                     />
                   ))
                   .otherwise(() => (

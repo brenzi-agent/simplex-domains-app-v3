@@ -124,8 +124,8 @@ test('should allow creating a subname', async ({ page, makeName, login, makePage
   await page.getByTestId('profile-record-option-description').click()
   await page.getByTestId('add-profile-records-button').click()
   await page
-    .getByTestId('profile-record-input-input-eth')
-    .fill('0x42D63ae25990889E35F215bC95884039Ba354115')
+    .getByTestId('multi-url-field-simplex.contact-input-0')
+    .fill('https://smp1.example.im/sub#H1')
   await page.getByTestId('profile-record-input-input-name').fill('Test Name')
   await page
     .getByTestId('profile-record-input-description')
@@ -142,8 +142,8 @@ test('should allow creating a subname', async ({ page, makeName, login, makePage
 
   await expect(recordsPage.getRecordValue('text', 'name')).toHaveText('Test Name')
   await expect(recordsPage.getRecordValue('text', 'description')).toHaveText('New profile')
-  await expect(recordsPage.getRecordValue('address', 'eth')).toHaveText(
-    '0x42D63ae25990889E35F215bC95884039Ba354115',
+  await expect(recordsPage.getRecordValue('text', 'simplex.contact')).toHaveText(
+    'https://smp1.example.im/sub#H1',
   )
 })
 
@@ -176,8 +176,8 @@ test('should allow creating a subnames if the user is the wrapped owner', async 
   await page.getByTestId('profile-record-option-description').click()
   await page.getByTestId('add-profile-records-button').click()
   await page
-    .getByTestId('profile-record-input-input-eth')
-    .fill('0x42D63ae25990889E35F215bC95884039Ba354115')
+    .getByTestId('multi-url-field-simplex.contact-input-0')
+    .fill('https://smp1.example.im/sub#H1')
   await page.getByTestId('profile-record-input-input-name').fill('Test Name')
   await page
     .getByTestId('profile-record-input-description')
@@ -193,8 +193,8 @@ test('should allow creating a subnames if the user is the wrapped owner', async 
   await recordsPage.goto(subname)
   await expect(recordsPage.getRecordValue('text', 'name')).toHaveText('Test Name')
   await expect(recordsPage.getRecordValue('text', 'description')).toHaveText('New profile')
-  await expect(recordsPage.getRecordValue('address', 'eth')).toHaveText(
-    '0x42D63ae25990889E35F215bC95884039Ba354115',
+  await expect(recordsPage.getRecordValue('text', 'simplex.contact')).toHaveText(
+    'https://smp1.example.im/sub#H1',
   )
 })
 

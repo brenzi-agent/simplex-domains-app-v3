@@ -7,6 +7,7 @@ import { useAccount } from 'wagmi'
 import { validateName } from '@ensdomains/ensjs/utils'
 import { Button, Dialog, Input, PlusSVG } from '@ensdomains/thorin'
 
+import { MultiUrlField } from '@app/components/@molecules/MultiUrlField/MultiUrlField'
 import { AvatarClickType } from '@app/components/@molecules/ProfileEditor/Avatar/AvatarButton'
 import { AvatarViewManager } from '@app/components/@molecules/ProfileEditor/Avatar/AvatarViewManager'
 import {
@@ -17,14 +18,20 @@ import { AddProfileRecordView } from '@app/components/pages/profile/[name]/regis
 import { CustomProfileRecordInput } from '@app/components/pages/profile/[name]/registration/steps/Profile/CustomProfileRecordInput'
 import { ProfileRecordInput } from '@app/components/pages/profile/[name]/registration/steps/Profile/ProfileRecordInput'
 import { ProfileRecordTextarea } from '@app/components/pages/profile/[name]/registration/steps/Profile/ProfileRecordTextarea'
-import { profileEditorFormToProfileRecords } from '@app/components/pages/profile/[name]/registration/steps/Profile/profileRecordUtils'
+import {
+  profileEditorFormToProfileRecords,
+  stripEmptySimplexRecords,
+  withDefaultSimplexRecords,
+} from '@app/components/pages/profile/[name]/registration/steps/Profile/profileRecordUtils'
 import { WrappedAvatarButton } from '@app/components/pages/profile/[name]/registration/steps/Profile/WrappedAvatarButton'
 import { WrappedHeaderButton } from '@app/components/pages/profile/[name]/registration/steps/Profile/WrappedHeaderButton'
 import { ProfileRecord } from '@app/constants/profileRecordOptions'
+import { SIMPLEX_LINK_SEPARATOR } from '@app/constants/simplex'
 import { useContractAddress } from '@app/hooks/chain/useContractAddress'
 import useDebouncedCallback from '@app/hooks/useDebouncedCallback'
 import { useProfileEditorForm } from '@app/hooks/useProfileEditorForm'
 import { useSubnameRegistrarApproval } from '@app/hooks/useSubnameRegistrarApproval'
+import { parseSimplexUrls } from '@app/utils/parseSimplexUrls'
 
 import { useValidateSubnameLabel } from '../../hooks/useValidateSubnameLabel'
 import { createTransactionItem } from '../transaction'
@@ -143,6 +150,7 @@ const CreateSubname = ({ data: { parent, isWrapped }, dispatch, onDismiss }: Pro
     register,
     trigger,
     control,
+    setValue,
     addRecords,
     getValues,
     removeRecordAtIndex,
@@ -154,16 +162,10 @@ const CreateSubname = ({ data: { parent, isWrapped }, dispatch, onDismiss }: Pro
     validatorForRecord,
     errorForRecordAtIndex,
     isDirtyForRecordAtIndex,
-  } = useProfileEditorForm([
-    {
-      key: 'eth',
-      value: '',
-      type: 'addr',
-      group: 'address',
-    },
-  ])
+  } = useProfileEditorForm(withDefaultSimplexRecords([]))
 
   const handleSubmit = () => {
+    const profileRecords = stripEmptySimplexRecords(profileEditorFormToProfileRecords(getValues()))
     const payload = [
       ...(!subnameRegistrarApproved
         ? [createTransactionItem('approveSubnameRegistrar', { parent })]
@@ -174,11 +176,11 @@ const CreateSubname = ({ data: { parent, isWrapped }, dispatch, onDismiss }: Pro
       }),
     ]
 
-    if (isDirty && records.length) {
+    if (isDirty && profileRecords.length) {
       payload.push(
         createTransactionItem('updateProfileRecords', {
           name,
-          records: profileEditorFormToProfileRecords(getValues()),
+          records: profileRecords,
           resolverAddress: defaultResolverAddress,
           clearRecords: false,
         }) as never,
@@ -293,6 +295,23 @@ const CreateSubname = ({ data: { parent, isWrapped }, dispatch, onDismiss }: Pro
                       {...register(`records.${index}.value`, {
                         validate: validatorForRecord(field),
                       })}
+                    />
+                  ))
+                  .with({ key: 'simplex.contact' }, { key: 'simplex.channel' }, () => (
+                    <MultiUrlField
+                      key={field.id}
+                      recordKey={field.key}
+                      label={labelForRecord(field)}
+                      secondaryLabel={secondaryLabelForRecord(field)}
+                      placeholder={placeholderForRecord(field)}
+                      value={parseSimplexUrls(field.value)}
+                      error={errorForRecordAtIndex(index)}
+                      onChange={(urls) => {
+                        setValue(`records.${index}.value`, urls.join(SIMPLEX_LINK_SEPARATOR), {
+                          shouldDirty: true,
+                          shouldTouch: true,
+                        })
+                      }}
                     />
                   ))
                   .otherwise(() => (
