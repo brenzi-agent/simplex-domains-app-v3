@@ -11,7 +11,7 @@ import { useContentWarning } from '@app/hooks/useContentWarning'
 import { useCopied } from '@app/hooks/useCopied'
 import { useRouterWithHistory } from '@app/hooks/useRouterWithHistory'
 import { useBreakpoint } from '@app/utils/BreakpointProvider'
-import { pageTitle } from '@app/utils/simplexTld'
+import { pageTitle } from '@app/utils/utils'
 
 type BannerProps = ComponentProps<typeof Banner>
 

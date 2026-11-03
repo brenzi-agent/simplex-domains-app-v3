@@ -14,8 +14,7 @@ import { usePrimaryProfile } from '@app/hooks/usePrimaryProfile'
 import { Content } from '@app/layouts/Content'
 import { ContentGrid } from '@app/layouts/ContentGrid'
 import { OG_IMAGE_URL } from '@app/utils/constants'
-import { pageTitle } from '@app/utils/simplexTld'
-import { makeEtherscanLink, shortenAddress } from '@app/utils/utils'
+import { makeEtherscanLink, pageTitle, shortenAddress } from '@app/utils/utils'
 
 import { useAccountSafely } from '../hooks/account/useAccountSafely'
 

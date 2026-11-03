@@ -9,7 +9,7 @@ import { useRouterWithHistory } from '@app/hooks/useRouterWithHistory'
 import { Content } from '@app/layouts/Content'
 import { useTransactionFlow } from '@app/transaction-flow/TransactionFlowProvider'
 import { shouldRedirect } from '@app/utils/shouldRedirect'
-import { pageTitle } from '@app/utils/simplexTld'
+import { pageTitle } from '@app/utils/utils'
 
 import { CompleteImport } from './steps/CompleteImport'
 import { EnableDnssec } from './steps/EnableDnssec'

@@ -198,6 +198,10 @@ export function isEthLikeTld(name: string): boolean {
   return tld === (process.env.NEXT_PUBLIC_SIMPLEX_TLD || 'testing')
 }
 
+export const IS_TESTING_TLD = (process.env.NEXT_PUBLIC_SIMPLEX_TLD || 'testing') === 'testing'
+
+export const pageTitle = (title: string) => (IS_TESTING_TLD ? `Testing - ${title}` : title)
+
 /*
   Following types are based on this solution: https://stackoverflow.com/questions/53173203/typescript-recursive-function-composition/53175538#53175538
   Best to just move on and not try to understand it. (This is copilot's opintion!)

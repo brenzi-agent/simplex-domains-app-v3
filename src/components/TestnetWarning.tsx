@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import styled, { css } from 'styled-components'
 
 import { getChainsFromUrl } from '@app/constants/chains'
-import { IS_TESTING_TLD } from '@app/utils/simplexTld'
+import { IS_TESTING_TLD } from '@app/utils/utils'
 
 const Container = styled.div(
   ({ theme }) => css`

@@ -5,7 +5,7 @@ import styled, { css } from 'styled-components'
 import ErrorScreen from '@app/components/@atoms/ErrorScreen'
 import Hamburger from '@app/components/@molecules/Hamburger/Hamburger'
 import { LeadingHeading } from '@app/components/LeadingHeading'
-import { pageTitle } from '@app/utils/simplexTld'
+import { pageTitle } from '@app/utils/utils'
 
 import ENSFull from '../assets/SimplexFull.svg'
 

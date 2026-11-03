@@ -10,7 +10,7 @@ import { SearchInput } from '@app/components/@molecules/SearchInput/SearchInput'
 import { LeadingHeading } from '@app/components/LeadingHeading'
 import { AnnouncementBanner } from '@app/components/pages/AnnouncementBanner'
 import { SimplexHomeBanner } from '@app/components/SimplexHomeBanner'
-import { pageTitle } from '@app/utils/simplexTld'
+import { pageTitle } from '@app/utils/utils'
 
 const GradientTitle = styled.h1(
   ({ theme }) => css`
