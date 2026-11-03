@@ -1,23 +1,8 @@
 name: Build & deploy SPA to GitHub Pages
 
-# SNRC mainnet .testing deploy. Self-contained: this workflow lives in the
-# ens-app-v3 fork and does NOT depend on the parent simplex-namespace-contract
-# repo — `deployments.mainnet.testing.json` is checked in beside this file.
-#
-# Coexists with the Cloudflare Pages deploy. Both hit the same source tree
-# and the same .env.production-baked NEXT_PUBLIC_* values, so the rendered
-# bundles should match. The Cloudflare one is the primary URL; this is a
-# mirror under testing-names.simplex.chat.
-#
-# One-time setup on simplex-network/ens-app-v3:
-#   Settings → Pages → Source: GitHub Actions
-#   Settings → Pages → Custom domain: testing-names.simplex.chat
-#   Add a DNS CNAME record  testing-names → simplex-network.github.io
-#   Once DNS resolves, toggle "Enforce HTTPS" to get the Let's Encrypt cert.
-
 on:
   push:
-    branches: [simplex]
+    branches: [production]
   workflow_dispatch:
 
 permissions:
@@ -64,7 +49,7 @@ jobs:
       - name: Build static SPA
         env:
           NEXT_PUBLIC_CHAIN_NAME: mainnet
-          NEXT_PUBLIC_SIMPLEX_TLD: testing
+          NEXT_PUBLIC_SIMPLEX_TLD: simplex
           # Dedicated mainnet RPC (replaces the shared DRPC/Tenderly fallback keys).
           # This Alchemy key is origin-restricted to *.simplex.chat + spend-capped, so
           # it is safe to ship in the bundle. Rotate via Alchemy if abused.
@@ -77,7 +62,7 @@ jobs:
           # server-side proxy if the key must truly stay private.
           NEXT_PUBLIC_MAINNET_RPC_URL: https://eth-mainnet.g.alchemy.com/v2/h4DH2Ryi1evqyV54f3Faw
         run: |
-          export NEXT_PUBLIC_MAINNET_DEPLOYMENT_ADDRESSES="$(node -e "process.stdout.write(JSON.stringify(JSON.parse(require('fs').readFileSync('deployments.mainnet.testing.json','utf8'))))")"
+          export NEXT_PUBLIC_MAINNET_DEPLOYMENT_ADDRESSES="$(node -e "process.stdout.write(JSON.stringify(JSON.parse(require('fs').readFileSync('deployments.mainnet.simplex.json','utf8'))))")"
           pnpm build
           pnpm export
 
@@ -89,7 +74,7 @@ jobs:
       - name: Add GitHub-Pages-only files to artifact
         working-directory: out
         run: |
-          echo testing-names.simplex.chat > CNAME
+          echo app.simplex.domains > CNAME
           touch .nojekyll
           cat > 404.html <<'HTML'
           <!DOCTYPE html>
