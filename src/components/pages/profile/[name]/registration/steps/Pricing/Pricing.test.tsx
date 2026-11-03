@@ -148,7 +148,7 @@ describe('Pricing', () => {
       estimatedGasFee: 1n,
       priceLoading: false,
     })
-    mockUseControllerLimits.mockReturnValue({ minCharLength: 6 })
+    mockUseControllerLimits.mockReturnValue({ minCharLength: 6, publicSalesOpen: true })
     mockUseEthPrice.mockReturnValue({ data: 1n })
     mockUseNftGateStatus.mockReturnValue({ required: false, hasNft: undefined, loaded: true })
     mockUseReservedStatus.mockReturnValue({ isReserved: false, loaded: true })
@@ -276,6 +276,17 @@ describe('Pricing', () => {
       "names can't be registered or received now",
     )
     expect(screen.getByTestId('next-button')).toBeDisabled()
+  })
+
+  it('should say public sales are not open before checking the terms', () => {
+    mockUseControllerLimits.mockReturnValue({ minCharLength: 6, publicSalesOpen: false })
+    nameTerms('general', { hash: undefined, text: undefined })
+    const props = makeProps()
+    render(<Pricing {...props} />)
+    connect(false)
+    expect(screen.getByTestId('next-button')).toBeDisabled()
+    expect(screen.getByTestId('next-button')).toHaveTextContent('Public sales are not open yet')
+    expect(props.callback).not.toHaveBeenCalled()
   })
 
   it.each([

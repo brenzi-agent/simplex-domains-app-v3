@@ -39,6 +39,13 @@ const controllerAbi = [
     stateMutability: 'view',
     type: 'function',
   },
+  {
+    inputs: [],
+    name: 'publicSalesOpen',
+    outputs: [{ type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
 ] as const
 
 export const useControllerLimits = () => {
@@ -57,6 +64,7 @@ export const useControllerLimits = () => {
           { address: controllerAddress!, abi: controllerAbi, functionName: 'smpxNft' },
           { address: controllerAddress!, abi: controllerAbi, functionName: 'tldSuffix' },
           { address: controllerAddress!, abi: controllerAbi, functionName: 'prices' },
+          { address: controllerAddress!, abi: controllerAbi, functionName: 'publicSalesOpen' },
         ]
       : [],
     query: { enabled, staleTime: 60_000 },
@@ -69,5 +77,6 @@ export const useControllerLimits = () => {
     smpxNft: data?.[2]?.status === 'success' ? (data[2].result as Address) : undefined,
     tldSuffix: data?.[3]?.status === 'success' ? (data[3].result as string) : undefined,
     priceOracle: data?.[4]?.status === 'success' ? (data[4].result as Address) : undefined,
+    publicSalesOpen: data?.[5]?.status === 'success' ? (data[5].result as boolean) : undefined,
   }
 }

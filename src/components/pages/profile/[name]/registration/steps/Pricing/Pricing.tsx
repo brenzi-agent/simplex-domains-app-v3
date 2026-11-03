@@ -558,7 +558,7 @@ const Pricing = ({
   const { isReserved, loaded: reservedLoaded } = useReservedStatus({ name })
   const terms = useNameTerms({ name })
   const acceptance = useTermsAcceptance(terms, registrationData.terms)
-  const { minCharLength } = useControllerLimits()
+  const { minCharLength, publicSalesOpen } = useControllerLimits()
   const labelLen = name ? name.split('.')[0].length : 0
   // minCharLength is only enforced on top-level register(); subname creation
   // bypasses the controller, so the UI gate must too.
@@ -705,6 +705,10 @@ const Pricing = ({
         ) : blockedByNftGate ? (
           <Button data-testid="next-button" disabled>
             SimpleX NFT required
+          </Button>
+        ) : publicSalesOpen === false ? (
+          <Button data-testid="next-button" disabled>
+            Public sales are not open yet
           </Button>
         ) : terms.isLoading || terms.isFetching ? (
           <Button data-testid="next-button" disabled loading>
