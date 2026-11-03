@@ -14,6 +14,7 @@ import { usePrimaryProfile } from '@app/hooks/usePrimaryProfile'
 import { Content } from '@app/layouts/Content'
 import { ContentGrid } from '@app/layouts/ContentGrid'
 import { OG_IMAGE_URL } from '@app/utils/constants'
+import { pageTitle } from '@app/utils/simplexTld'
 import { makeEtherscanLink, shortenAddress } from '@app/utils/utils'
 
 import { useAccountSafely } from '../hooks/account/useAccountSafely'
@@ -56,7 +57,7 @@ const Page = () => {
   return (
     <>
       <Head>
-        <title>{titleContent}</title>
+        <title>{pageTitle(titleContent)}</title>
         <meta name="description" content={descriptionContent} />
         <meta property="og:image" content={ogImageUrl} />
         <meta property="og:title" content={titleContent} />

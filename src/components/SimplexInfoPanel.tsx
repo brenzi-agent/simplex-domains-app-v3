@@ -5,6 +5,7 @@ import { AlertSVG, Helper, Typography } from '@ensdomains/thorin'
 import { useControllerLimits } from '@app/hooks/useControllerLimits'
 import { useNftGateStatus } from '@app/hooks/useNftGateStatus'
 import { useReservedStatus } from '@app/hooks/useReservedStatus'
+import { IS_TESTING_TLD } from '@app/utils/simplexTld'
 
 const WarnCard = styled.div(
   ({ theme }) => css`
@@ -140,8 +141,6 @@ export const SimplexInfoPanel = ({ name, address }: Props) => {
   // .testing is free during the testing phase (gas only). The pricing tiers
   // panel and the NFT-holder positive callout are both noise for users on
   // that TLD; hide them.
-  const isTestingTld = (process.env.NEXT_PUBLIC_SIMPLEX_TLD || 'testing') === 'testing'
-
   return (
     <Container data-testid="simplex-info-panel">
       {isReserved && (
@@ -182,7 +181,7 @@ export const SimplexInfoPanel = ({ name, address }: Props) => {
           </WarnText>
         </WarnCard>
       )}
-      {!isTestingTld && (
+      {!IS_TESTING_TLD && (
         <div>
           <Typography weight="bold">SimpleX pricing (per year)</Typography>
           <TiersGrid>

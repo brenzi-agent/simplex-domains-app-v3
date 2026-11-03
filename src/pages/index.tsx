@@ -10,6 +10,7 @@ import { SearchInput } from '@app/components/@molecules/SearchInput/SearchInput'
 import { LeadingHeading } from '@app/components/LeadingHeading'
 import { AnnouncementBanner } from '@app/components/pages/AnnouncementBanner'
 import { SimplexHomeBanner } from '@app/components/SimplexHomeBanner'
+import { pageTitle } from '@app/utils/simplexTld'
 
 const GradientTitle = styled.h1(
   ({ theme }) => css`
@@ -99,7 +100,7 @@ export default function Page() {
   return (
     <>
       <Head>
-        <title>SimpleX Namespace</title>
+        <title>{pageTitle('SimpleX Namespace')}</title>
         <meta name="description" content="Decentralised SimpleX naming on Ethereum." />
         <meta property="og:title" content="SimpleX Namespace" />
         <meta property="og:description" content="Decentralised SimpleX naming on Ethereum." />

@@ -11,6 +11,7 @@ import { useContentWarning } from '@app/hooks/useContentWarning'
 import { useCopied } from '@app/hooks/useCopied'
 import { useRouterWithHistory } from '@app/hooks/useRouterWithHistory'
 import { useBreakpoint } from '@app/utils/BreakpointProvider'
+import { pageTitle } from '@app/utils/simplexTld'
 
 type BannerProps = ComponentProps<typeof Banner>
 
@@ -282,7 +283,7 @@ export const Content = ({
 
   if (!children.leading && singleColumnContent) LeadingComponent = null
 
-  const fullTitle = `${title} - ENS`
+  const fullTitle = pageTitle(`${title} - ENS`)
 
   if (!router.isReady) return null
   return (

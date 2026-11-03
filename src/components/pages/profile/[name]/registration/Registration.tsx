@@ -23,6 +23,7 @@ import { Content } from '@app/layouts/Content'
 import { useTransactionFlow } from '@app/transaction-flow/TransactionFlowProvider'
 import { sendEvent } from '@app/utils/analytics/events'
 import { getReferrerHex } from '@app/utils/referrer'
+import { pageTitle } from '@app/utils/simplexTld'
 import { isLabelTooLong, secondsToYears } from '@app/utils/utils'
 
 import RegistrationDisabledBanner from './RegistrationDisabledBanner'
@@ -309,7 +310,7 @@ const Registration = ({ nameDetails, isLoading }: Props) => {
   return (
     <>
       <Head>
-        <title>{t('title', { name: beautifiedName })}</title>
+        <title>{pageTitle(t('title', { name: beautifiedName }))}</title>
       </Head>
       <Content
         noTitle
