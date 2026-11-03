@@ -55,8 +55,8 @@ const Button = styled.button(
   `,
 )
 
-const LabelContainer = styled.div(
-  ({ theme }) => css`
+const LabelContainer = styled.div<{ $editable: boolean }>(
+  ({ theme, $editable }) => css`
     position: relative;
     flex: 1;
     height: ${theme.space['11']};
@@ -65,9 +65,12 @@ const LabelContainer = styled.div(
     transition: background-color 150ms ease-in-out;
     overflow: hidden;
 
-    :hover {
-      background-color: ${theme.colors.accentSurface};
-    }
+    ${$editable &&
+    css`
+      :hover {
+        background-color: ${theme.colors.accentSurface};
+      }
+    `}
 
     :focus-within label {
       opacity: 0;
@@ -187,6 +190,7 @@ export const PlusMinusControl = forwardRef(
 
     const minusDisabled = typeof value === 'number' && value <= minValue
     const plusDisabled = typeof value === 'number' && value >= maxValue
+    const editable = minValue !== maxValue
 
     const incrementHandler = (inc: number) => () => {
       const newValue = (value || 0) + inc
@@ -228,30 +232,32 @@ export const PlusMinusControl = forwardRef(
         >
           <MinusIcon />
         </Button>
-        <LabelContainer>
-          <LabelInput
-            data-testid="plus-minus-control-input"
-            $highlighted={highlighted}
-            type="number"
-            {...props}
-            ref={inputRef}
-            value={inputValue}
-            onChange={handleChange}
-            min={minValue}
-            max={maxValue}
-            inputMode="numeric"
-            pattern="[0-9]*"
-            onKeyDown={(e) => {
-              // rely on type="number" to prevent non-numeric input
-              // additionally prevent . and -
-              if (['.', '-'].includes(e.key)) e.preventDefault()
-            }}
-            onFocus={(e) => {
-              e.target.select()
-              setFocused(true)
-            }}
-            onBlur={handleBlur}
-          />
+        <LabelContainer $editable={editable}>
+          {editable && (
+            <LabelInput
+              data-testid="plus-minus-control-input"
+              $highlighted={highlighted}
+              type="number"
+              {...props}
+              ref={inputRef}
+              value={inputValue}
+              onChange={handleChange}
+              min={minValue}
+              max={maxValue}
+              inputMode="numeric"
+              pattern="[0-9]*"
+              onKeyDown={(e) => {
+                // rely on type="number" to prevent non-numeric input
+                // additionally prevent . and -
+                if (['.', '-'].includes(e.key)) e.preventDefault()
+              }}
+              onFocus={(e) => {
+                e.target.select()
+                setFocused(true)
+              }}
+              onBlur={handleBlur}
+            />
+          )}
           <Label data-testid="plus-minus-control-label" $highlighted={highlighted}>
             {t(`unit.${unit}`, { count: value })}
           </Label>

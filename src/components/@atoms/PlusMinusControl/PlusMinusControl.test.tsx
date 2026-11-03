@@ -18,6 +18,14 @@ describe('PlusMinusControl', () => {
     expect(screen.getByText('unit.years.2')).toBeVisible()
   })
 
+  it('should show a single value with disabled buttons and no input', () => {
+    render(<PlusMinusControl value={2} minValue={2} maxValue={2} />)
+    expect(screen.getByText('unit.years.2')).toBeVisible()
+    expect(screen.getByTestId('plus-minus-control-minus')).toBeDisabled()
+    expect(screen.getByTestId('plus-minus-control-plus')).toBeDisabled()
+    expect(screen.queryByTestId('plus-minus-control-input')).not.toBeInTheDocument()
+  })
+
   it('should call onChange when value is incremented', async () => {
     render(<PlusMinusControl value={2} onChange={mockChangeHandler} />)
     await userEvent.click(screen.getByTestId('plus-minus-control-plus'))
