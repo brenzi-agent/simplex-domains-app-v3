@@ -278,14 +278,17 @@ describe('Pricing', () => {
     expect(screen.getByTestId('next-button')).toBeDisabled()
   })
 
-  it('should say public sales are not open before checking the terms', () => {
+  it('should only say public sales are not open while they are closed', () => {
     mockUseControllerLimits.mockReturnValue({ minCharLength: 6, publicSalesOpen: false })
     nameTerms('general', { hash: undefined, text: undefined })
     const props = makeProps()
     render(<Pricing {...props} />)
     connect(false)
-    expect(screen.getByTestId('next-button')).toBeDisabled()
-    expect(screen.getByTestId('next-button')).toHaveTextContent('Public sales are not open yet')
+    expect(screen.getByTestId('public-sales-closed')).toHaveTextContent(
+      'Public sales are not open yet',
+    )
+    expect(screen.queryByTestId('terms')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('next-button')).not.toBeInTheDocument()
     expect(props.callback).not.toHaveBeenCalled()
   })
 

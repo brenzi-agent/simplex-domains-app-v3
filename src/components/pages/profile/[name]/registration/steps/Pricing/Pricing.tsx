@@ -649,6 +649,19 @@ const Pricing = ({
   const unsafeDisplayEstimatedGasFee =
     estimatedGasFee === 0n ? previousEstimatedGasFee : estimatedGasFee
 
+  if (publicSalesOpen === false)
+    return (
+      <StyledCard>
+        <StyledHeading>{t('heading', { name: beautifiedName })}</StyledHeading>
+        <Helper alert="warning" alignment="horizontal" data-testid="public-sales-closed">
+          <div>
+            <Typography weight="bold">Public sales are not open yet</Typography>
+            <Typography>Names can&apos;t be registered here until public sales open.</Typography>
+          </div>
+        </Helper>
+      </StyledCard>
+    )
+
   return (
     <StyledCard>
       <StyledHeading>{t('heading', { name: beautifiedName })}</StyledHeading>
@@ -705,10 +718,6 @@ const Pricing = ({
         ) : blockedByNftGate ? (
           <Button data-testid="next-button" disabled>
             SimpleX NFT required
-          </Button>
-        ) : publicSalesOpen === false ? (
-          <Button data-testid="next-button" disabled>
-            Public sales are not open yet
           </Button>
         ) : terms.isLoading || terms.isFetching ? (
           <Button data-testid="next-button" disabled loading>
