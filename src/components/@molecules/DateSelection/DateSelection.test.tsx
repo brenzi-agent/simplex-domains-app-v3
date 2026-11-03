@@ -103,6 +103,21 @@ describe('DateSelection', () => {
     expect(screen.getByTestId('plus-minus-control-plus')).toBeDisabled()
     expect(setSeconds.mock.calls).toEqual([[3 * ONE_YEAR]])
   })
+  it('should show a single duration without a choice', () => {
+    render(
+      <DateSelection
+        minSeconds={2 * ONE_YEAR}
+        maxSeconds={2 * ONE_YEAR}
+        seconds={2 * ONE_YEAR}
+        setSeconds={() => {}}
+        durationType="years"
+      />,
+    )
+    expect(screen.getByText('unit.years.2')).toBeVisible()
+    expect(screen.getByTestId('plus-minus-control-minus')).toBeDisabled()
+    expect(screen.getByTestId('plus-minus-control-plus')).toBeDisabled()
+    expect(screen.queryByTestId('date-selection')).not.toBeInTheDocument()
+  })
   it('should clamp a duration above the maximum', () => {
     const setSeconds = vi.fn()
     render(

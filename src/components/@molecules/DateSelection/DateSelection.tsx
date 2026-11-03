@@ -112,7 +112,7 @@ export const DateSelection = ({
           postFix: mode === 'register' ? ' registration. ' : ' extension. ',
           t,
         })}
-        {!isSafeApp && (
+        {!isSafeApp && minSeconds !== maxSeconds && (
           <YearsViewSwitch
             type="button"
             data-testid="date-selection"

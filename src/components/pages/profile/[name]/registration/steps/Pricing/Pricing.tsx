@@ -24,6 +24,7 @@ import MobileFullWidth from '@app/components/@atoms/MobileFullWidth'
 import { RegistrationTimeComparisonBanner } from '@app/components/@atoms/RegistrationTimeComparisonBanner/RegistrationTimeComparisonBanner'
 import { Spacer } from '@app/components/@atoms/Spacer'
 import { ConnectButton } from '@app/components/@molecules/ConnectButton/ConnectButton'
+import { DateSelection } from '@app/components/@molecules/DateSelection/DateSelection'
 import { Card } from '@app/components/Card'
 import { NameTerms } from '@app/components/NameTerms'
 import { SocialProfileButton } from '@app/components/pages/profile/ProfileButton'
@@ -527,6 +528,7 @@ export type PricingProps = {
   linkRecords?: ProfileRecord[]
 }
 
+const minSeconds = MIN_REGISTRATION_DURATION
 const hideTimeComparison = true
 
 const Pricing = ({
@@ -562,7 +564,7 @@ const Pricing = ({
   const isSubname = !!name && name.split('.').length > 2
   const isTooShort = !!minCharLength && !isSubname && labelLen > 0 && labelLen < minCharLength
 
-  const seconds = MIN_REGISTRATION_DURATION
+  const [seconds, setSeconds] = useState(minSeconds)
   const durationType = 'years'
 
   const [reverseRecord, setReverseRecord] = useState(() =>
@@ -652,6 +654,10 @@ const Pricing = ({
         <SocialProfileButton key={key} iconKey={key} normalisedKey={key} value={value!} />
       ))}
       {terms.required && <NameTerms terms={terms} acceptance={acceptance} />}
+      <DateSelection
+        {...{ seconds, setSeconds, minSeconds, durationType }}
+        maxSeconds={minSeconds}
+      />
       <FullInvoice {...fullEstimate} />
       {hasPremium && gracePeriodEndDate ? (
         <TemporaryPremium startDate={gracePeriodEndDate} name={name} />

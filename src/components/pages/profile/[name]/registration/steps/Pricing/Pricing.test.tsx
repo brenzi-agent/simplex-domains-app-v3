@@ -28,6 +28,9 @@ vi.mock('@app/hooks/useNameTerms')
 vi.mock('@app/hooks/useNftGateStatus')
 vi.mock('@app/hooks/useReservedStatus')
 vi.mock('@app/components/SimplexInfoPanel', () => ({ SimplexInfoPanel: () => null }))
+vi.mock('@app/components/@molecules/DateSelection/DateSelection', () => ({
+  DateSelection: ({ maxSeconds }: { maxSeconds: number }) => <div>{maxSeconds}</div>,
+}))
 vi.mock('@app/components/pages/profile/ProfileButton', () => ({
   SocialProfileButton: ({ value }: { value: string }) => <div>{value}</div>,
 }))
@@ -239,7 +242,7 @@ describe('Pricing', () => {
       } as RegistrationReducerDataItem,
     })
     render(<Pricing {...props} />)
-    expect(screen.queryByTestId('date-selection')).not.toBeInTheDocument()
+    expect(screen.getByText(yearsToSeconds(2))).toBeInTheDocument()
     await userEvent.click(screen.getByTestId('next-button'))
     expect(props.callback).toHaveBeenCalledWith(
       expect.objectContaining({ seconds: yearsToSeconds(2), durationType: 'years' }),
