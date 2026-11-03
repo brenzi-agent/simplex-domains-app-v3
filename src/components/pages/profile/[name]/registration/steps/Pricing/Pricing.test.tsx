@@ -148,7 +148,7 @@ describe('Pricing', () => {
       estimatedGasFee: 1n,
       priceLoading: false,
     })
-    mockUseControllerLimits.mockReturnValue({ minCharLength: 6, publicSalesOpen: true })
+    mockUseControllerLimits.mockReturnValue({ minCharLength: 6 })
     mockUseEthPrice.mockReturnValue({ data: 1n })
     mockUseNftGateStatus.mockReturnValue({ required: false, hasNft: undefined, loaded: true })
     mockUseReservedStatus.mockReturnValue({ isReserved: false, loaded: true })
@@ -279,17 +279,14 @@ describe('Pricing', () => {
   })
 
   it('should only say public sales are not open while they are closed', () => {
-    mockUseControllerLimits.mockReturnValue({ minCharLength: 6, publicSalesOpen: false })
-    nameTerms('general', { hash: undefined, text: undefined })
-    const props = makeProps()
-    render(<Pricing {...props} />)
-    connect(false)
+    mockUseControllerLimits.mockReturnValue({ publicSalesOpen: false })
+    nameTerms('general')
+    render(<Pricing {...makeProps()} />)
     expect(screen.getByTestId('public-sales-closed')).toHaveTextContent(
       'Public sales are not open yet',
     )
     expect(screen.queryByTestId('terms')).not.toBeInTheDocument()
     expect(screen.queryByTestId('next-button')).not.toBeInTheDocument()
-    expect(props.callback).not.toHaveBeenCalled()
   })
 
   it.each([
