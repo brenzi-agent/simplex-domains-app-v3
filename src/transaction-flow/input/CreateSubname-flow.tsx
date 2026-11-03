@@ -304,7 +304,7 @@ const CreateSubname = ({ data: { parent, isWrapped }, dispatch, onDismiss }: Pro
                       label={labelForRecord(field)}
                       secondaryLabel={secondaryLabelForRecord(field)}
                       placeholder={placeholderForRecord(field)}
-                      value={parseSimplexUrls(field.value)}
+                      value={parseSimplexUrls(getValues(`records.${index}.value`))}
                       error={errorForRecordAtIndex(index)}
                       onChange={(urls) => {
                         setValue(`records.${index}.value`, urls.join(SIMPLEX_LINK_SEPARATOR), {
