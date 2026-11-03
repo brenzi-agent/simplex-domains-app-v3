@@ -232,9 +232,17 @@ describe('Pricing', () => {
     expect(props.callback).not.toHaveBeenCalled()
   })
 
-  it('should register for two years without a choice', async () => {
+  it('should offer every name for two years only', () => {
+    nameTerms('general')
+    const { rerender } = render(<Pricing {...makeProps()} />)
+    expect(screen.getByText(yearsToSeconds(2))).toBeInTheDocument()
+    nameTerms('community')
+    rerender(<Pricing {...makeProps()} />)
+    expect(screen.getByText(yearsToSeconds(2))).toBeInTheDocument()
+  })
+
+  it('should register for two years when a longer duration or a date was saved', async () => {
     const props = makeProps({
-      linkRecords: undefined,
       registrationData: {
         seconds: yearsToSeconds(3),
         durationType: 'date',
@@ -242,7 +250,6 @@ describe('Pricing', () => {
       } as RegistrationReducerDataItem,
     })
     render(<Pricing {...props} />)
-    expect(screen.getByText(yearsToSeconds(2))).toBeInTheDocument()
     await userEvent.click(screen.getByTestId('next-button'))
     expect(props.callback).toHaveBeenCalledWith(
       expect.objectContaining({ seconds: yearsToSeconds(2), durationType: 'years' }),
