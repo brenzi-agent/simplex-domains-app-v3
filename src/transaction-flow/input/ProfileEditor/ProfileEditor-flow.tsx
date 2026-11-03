@@ -160,6 +160,7 @@ const ProfileEditor = ({ data = {}, transactions = [], dispatch, onDismiss }: Pr
     trigger,
     control,
     handleSubmit,
+    getValues,
     setValue,
     addRecords,
     updateRecord,
@@ -475,7 +476,7 @@ const ProfileEditor = ({ data = {}, transactions = [], dispatch, onDismiss }: Pr
                     label={labelForRecord(field)}
                     secondaryLabel={secondaryLabelForRecord(field)}
                     placeholder={placeholderForRecord(field)}
-                    value={parseSimplexUrls(field.value)}
+                    value={parseSimplexUrls(getValues(`records.${index}.value`))}
                     error={errorForRecordAtIndex(index)}
                     onChange={(urls) => {
                       // setValue() updates the field's `value` while keeping
