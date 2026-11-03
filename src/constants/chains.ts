@@ -1,4 +1,5 @@
 import { match } from 'ts-pattern'
+import { Address, zeroAddress } from 'viem'
 import { localhost, mainnet, sepolia } from 'viem/chains'
 
 import type { Register } from '@app/local-contracts'
@@ -41,6 +42,11 @@ export const getSnrcAddresses = (chainId: number | undefined) => {
   if (chainId === 1) return mainnetDeploymentAddresses
   if (chainId === 11155111) return sepoliaDeploymentAddresses
   return deploymentAddresses
+}
+
+export const getNamePolicyAddress = (chainId: number | undefined) => {
+  const namePolicyAddress = getSnrcAddresses(chainId).SimplexNamePolicy as Address | undefined
+  return namePolicyAddress && namePolicyAddress !== zeroAddress ? namePolicyAddress : undefined
 }
 
 export const chainsWithEns = [mainnetWithEns, sepoliaWithEns, localhostWithEns] as const

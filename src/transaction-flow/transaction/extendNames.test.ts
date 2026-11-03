@@ -130,7 +130,7 @@ describe('extendNamesTransaction', () => {
         },
         {
           duration: 157680000,
-          expectedDuration: '4 year, 11 months',
+          expectedDuration: '5 year',
           expectedExpiry: 'December 31, 2026',
         },
       ]

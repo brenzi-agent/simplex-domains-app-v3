@@ -18,7 +18,7 @@ import {
  *   4. add a `simplex.contact` record to the subname
  *   5. assert the Ownership tab works on the 2LD but is hidden on the subname
  *      (subnames have no independent ownership — they're soulbound to the NFT)
- *   6. transfer the 2LD NFT to another account
+ *   6. transfer the 2LD NFT to another account (offer, then the recipient claims)
  *   7. assert the subname followed the 2LD to the new owner (auto-reclaim +
  *      walk-up ownerOf), and the old owner can no longer manage it
  */
@@ -34,6 +34,13 @@ const subnameOwnerOfAbi = [
   { name: 'ownerOf', type: 'function', stateMutability: 'view', inputs: [{ type: 'uint256' }], outputs: [{ type: 'address' }] },
 ] as const
 const baseRegistrarTransferAbi = [
+  {
+    name: 'approve',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ type: 'address' }, { type: 'uint256' }],
+    outputs: [],
+  },
   { name: 'safeTransferFrom', type: 'function', stateMutability: 'nonpayable', inputs: [{ type: 'address' }, { type: 'address' }, { type: 'uint256' }], outputs: [] },
 ] as const
 
@@ -87,7 +94,7 @@ test('SNRC: register 2LD + subname (both with simplex.contact), then transfer th
   })
 
   await test.step('add simplex.contact to the 2LD', async () => {
-    await profilePage.goto(name)
+    await page.getByTestId('view-name').click()
     await profilePage.editProfileButton.click()
     await expect(contactInput(page)).toBeVisible()
     await contactInput(page).fill('https://smp1.example.im/2ld#H1')
@@ -154,12 +161,20 @@ test('SNRC: register 2LD + subname (both with simplex.contact), then transfer th
     })) as Address
     expect(before.toLowerCase()).toBe(owner.toLowerCase())
 
+    const offerHash = await walletClient.writeContract({
+      address: deploymentAddresses.BaseRegistrarImplementation as Address,
+      abi: baseRegistrarTransferAbi,
+      functionName: 'approve',
+      args: [newOwner, tokenId],
+      account: owner,
+    })
+    await waitForTransaction(offerHash)
     const hash = await walletClient.writeContract({
       address: deploymentAddresses.BaseRegistrarImplementation as Address,
       abi: baseRegistrarTransferAbi,
       functionName: 'safeTransferFrom',
       args: [owner, newOwner, tokenId],
-      account: owner,
+      account: newOwner,
     })
     await waitForTransaction(hash)
   })

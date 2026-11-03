@@ -17,6 +17,7 @@ import { useNameType } from '@app/hooks/nameType/useNameType'
 import type { GroupedRoleRecord } from '@app/hooks/ownership/useRoles/useRoles'
 import { getAvailableRoles } from '@app/hooks/ownership/useRoles/utils/getAvailableRoles'
 import type { useNameDetails } from '@app/hooks/useNameDetails'
+import { useNameOffer } from '@app/hooks/useNameOffer'
 import { checkCanSend } from '@app/transaction-flow/input/SendName/utils/checkCanSend'
 import { checkCanSyncManager } from '@app/transaction-flow/input/SyncManager/utils/checkCanSyncManager'
 import { useTransactionFlow } from '@app/transaction-flow/TransactionFlowProvider'
@@ -46,10 +47,12 @@ export const useRoleActions = ({ name, roles, details }: Props) => {
   const account = useAccountSafely()
   const nameType = useNameType(name)
   const abilities = useAbilities({ name })
+  const offer = useNameOffer({ name })
   const queryClient = useQueryClient()
 
   const { usePreparedDataInput } = useTransactionFlow()
   const showSendNameInput = usePreparedDataInput('SendName')
+  const showOfferNameInput = usePreparedDataInput('OfferName')
   const showEditRolesInput = usePreparedDataInput('EditRoles')
   const showSyncManagerInput = usePreparedDataInput('SyncManager')
 
@@ -114,6 +117,14 @@ export const useRoleActions = ({ name, roles, details }: Props) => {
             onClick: () => showSendNameInput(`send-name-${name}`, { name }),
           }
         : null,
+      offer.data?.isHolder
+        ? {
+            type: 'offer-name',
+            icon: AeroplaneIcon,
+            label: t('action.send'),
+            onClick: () => showOfferNameInput(`offer-name-${name}`, { name }),
+          }
+        : null,
       canEditRoles
         ? {
             type: 'edit-roles',
@@ -132,10 +143,12 @@ export const useRoleActions = ({ name, roles, details }: Props) => {
     details.ownerData,
     details.dnsOwner,
     abilities.data,
+    offer.data,
     roles,
     t,
     queryClient,
     showSendNameInput,
+    showOfferNameInput,
     showEditRolesInput,
     showSyncManagerInput,
   ])

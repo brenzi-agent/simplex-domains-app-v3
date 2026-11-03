@@ -36,6 +36,11 @@ vi.mock('@app/hooks/ownership/useRoles/utils/getAvailableRoles', () => ({
   getAvailableRoles: () => mockGetAvailableRoles(),
 }))
 
+const mockUseNameOffer = vi.fn().mockReturnValue({ data: undefined })
+vi.mock('@app/hooks/useNameOffer', () => ({
+  useNameOffer: () => mockUseNameOffer(),
+}))
+
 describe('useRoleActions', () => {
   it('should include the ability to send eth name if checkCanSend return true', async () => {
     mockCheckCanSend.mockReturnValueOnce(true)
@@ -209,6 +214,38 @@ describe('useRoleActions', () => {
     )
     expect(result.current.data).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ type: 'edit-roles' })]),
+    )
+  })
+
+  it('should include the ability to offer the name if the account holds it', async () => {
+    mockUseNameOffer.mockReturnValueOnce({ data: { isHolder: true } })
+    const { result } = renderHook(() =>
+      useRoleActions({
+        name: 'test.testing',
+        roles: [],
+        details: {
+          isLoading: false,
+        } as any,
+      }),
+    )
+    expect(result.current.data).toEqual(
+      expect.arrayContaining([expect.objectContaining({ type: 'offer-name' })]),
+    )
+  })
+
+  it('should not include the ability to offer the name if the account does not hold it', async () => {
+    mockUseNameOffer.mockReturnValueOnce({ data: { isHolder: false } })
+    const { result } = renderHook(() =>
+      useRoleActions({
+        name: 'test.testing',
+        roles: [],
+        details: {
+          isLoading: false,
+        } as any,
+      }),
+    )
+    expect(result.current.data).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ type: 'offer-name' })]),
     )
   })
 })

@@ -24,7 +24,7 @@ const tryDecodeURIComponent = (input: string) => {
 // RFC 1123 hostname labels (strict LDH): a-z, 0-9 and hyphen, no leading or
 // trailing hyphen, and no '--' in positions 3-4 (reserved for Punycode
 // 'xn--' labels, which could IDNA-decode back to the Unicode this blocks).
-const ALLOWED_LABEL_REGEX = /^(?!.{2}--)[a-z0-9]([a-z0-9-]*[a-z0-9])?$/
+export const ALLOWED_LABEL_REGEX = /^(?!.{2}--)[a-z0-9]([a-z0-9-]*[a-z0-9])?$/
 
 const hasOnlyAllowedLabels = (name: string) =>
   name === '[root]' ||

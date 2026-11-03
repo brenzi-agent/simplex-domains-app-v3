@@ -6,9 +6,9 @@ import { Typography } from '@ensdomains/thorin'
 
 import { Calendar } from '@app/components/@atoms/Calendar/Calendar'
 import { PlusMinusControl } from '@app/components/@atoms/PlusMinusControl/PlusMinusControl'
-import { calculateDatesDiff, roundDurationWithDay, secondsFromDateDiff } from '@app/utils/date'
+import { roundDurationWithDay } from '@app/utils/date'
 import { isInsideSafe } from '@app/utils/safe'
-import { formatDurationOfDates } from '@app/utils/utils'
+import { formatDurationOfDates, secondsToYears, yearsToSeconds } from '@app/utils/utils'
 
 const YearsViewSwitch = styled.button(
   ({ theme }) => css`
@@ -38,6 +38,7 @@ export const DateSelection = ({
   onChangeDurationType,
   name,
   minSeconds,
+  maxSeconds,
   mode = 'register',
   expiry,
 }: {
@@ -46,6 +47,7 @@ export const DateSelection = ({
   durationType: 'years' | 'date'
   name?: string
   minSeconds: number
+  maxSeconds?: number
   mode?: 'register' | 'extend'
   expiry?: number
   onChangeDurationType?: (type: 'years' | 'date') => void
@@ -56,26 +58,21 @@ export const DateSelection = ({
 
   useEffect(() => {
     if (minSeconds > seconds) setSeconds(minSeconds)
+    else if (maxSeconds !== undefined && seconds > maxSeconds) setSeconds(maxSeconds)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [minSeconds, seconds])
+  }, [minSeconds, maxSeconds, seconds])
 
-  const dateInYears = calculateDatesDiff(
-    new Date(currentTime * 1000),
-    new Date((currentTime + seconds) * 1000),
-  ).diff.years
+  const dateInYears = Math.floor(secondsToYears(seconds))
+  const minYears = Math.max(1, Math.ceil(secondsToYears(minSeconds)))
+  const maxYears = maxSeconds === undefined ? undefined : Math.floor(secondsToYears(maxSeconds))
 
   // When the duration type is years, normalise the seconds to a year value
   useEffect(() => {
     if (durationType === 'years' && currentTime) {
-      setSeconds(
-        secondsFromDateDiff({
-          startDate: new Date(currentTime * 1000),
-          additionalYears: Math.max(1, dateInYears),
-        }),
-      )
+      setSeconds(yearsToSeconds(Math.min(Math.max(minYears, dateInYears), maxYears ?? Infinity)))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateInYears, durationType])
+  }, [dateInYears, minYears, maxYears, durationType])
 
   const isSafeApp = isInsideSafe()
 
@@ -93,22 +90,18 @@ export const DateSelection = ({
           highlighted
           name={name}
           min={currentTime + minSeconds}
+          max={maxSeconds === undefined ? undefined : currentTime + maxSeconds}
         />
       ) : (
         <PlusMinusControl
           highlighted
-          minValue={1}
+          minValue={minYears}
+          maxValue={maxYears}
           value={dateInYears}
           onChange={(e) => {
             const newYears = parseInt(e.target.value)
 
-            if (!Number.isNaN(newYears))
-              setSeconds(
-                secondsFromDateDiff({
-                  startDate: new Date(currentTime * 1000),
-                  additionalYears: newYears,
-                }),
-              )
+            if (!Number.isNaN(newYears)) setSeconds(yearsToSeconds(newYears))
           }}
         />
       )}

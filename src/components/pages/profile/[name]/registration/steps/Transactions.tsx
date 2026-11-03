@@ -11,11 +11,14 @@ import MobileFullWidth from '@app/components/@atoms/MobileFullWidth'
 import { StatusDots } from '@app/components/@atoms/StatusDots/StatusDots'
 import { TextWithTooltip } from '@app/components/@atoms/TextWithTooltip/TextWithTooltip'
 import { Card } from '@app/components/Card'
+import { NameTerms } from '@app/components/NameTerms'
 import { useCheckRegistered } from '@app/hooks/registration/useCheckRegistered'
 import { useExistingCommitment } from '@app/hooks/registration/useExistingCommitment'
 import { useSimulateRegistration } from '@app/hooks/registration/useSimulateRegistration'
 import { useDurationCountdown } from '@app/hooks/time/useDurationCountdown'
+import { useCommittedTerms, useNameTerms } from '@app/hooks/useNameTerms'
 import useRegistrationParams from '@app/hooks/useRegistrationParams'
+import { useTermsAcceptance } from '@app/hooks/useTermsAcceptance'
 import { CenteredTypography } from '@app/transaction-flow/input/ProfileEditor/components/CenteredTypography'
 import { createTransactionItem } from '@app/transaction-flow/transaction'
 import { useTransactionFlow } from '@app/transaction-flow/TransactionFlowProvider'
@@ -202,15 +205,17 @@ type Props = {
   registrationData: RegistrationReducerDataItem
   callback: (data: { back: boolean; resetSecret?: boolean }) => void
   onStart: () => void
+  fromLink?: boolean
 }
 
-const Transactions = ({ registrationData, name, callback, onStart }: Props) => {
+const Transactions = ({ registrationData, name, callback, onStart, fromLink }: Props) => {
   const { t } = useTranslation('register')
 
   const { address } = useAccount()
   const keySuffix = `${name}-${address}`
   const commitKey = `commit-${keySuffix}`
   const registerKey = `register-${keySuffix}`
+  const acceptTermsKey = `acceptTerms-${keySuffix}`
   const {
     getSelectedKey,
     getLatestTransaction,
@@ -221,6 +226,7 @@ const Transactions = ({ registrationData, name, callback, onStart }: Props) => {
   } = useTransactionFlow()
   const commitTx = getLatestTransaction(commitKey)
   const registerTx = getLatestTransaction(registerKey)
+  const acceptTermsTx = getLatestTransaction(acceptTermsKey)
   const [resetOpen, setResetOpen] = useState(false)
 
   const registrationParams = useRegistrationParams({
@@ -228,6 +234,14 @@ const Transactions = ({ registrationData, name, callback, onStart }: Props) => {
     owner: address!,
     registrationData,
   })
+  const commitment = makeCommitment(registrationParams)
+
+  const terms = useNameTerms({ name })
+  const awaitsRegister = terms.required && commitTx?.stage === 'complete' && !registerTx?.stage
+  const committedTerms = useCommittedTerms({ commitment, enabled: awaitsRegister })
+  const needsTermsAcceptance =
+    awaitsRegister && committedTerms.data != null && committedTerms.data !== terms.hash
+  const acceptance = useTermsAcceptance(terms)
 
   // E3 (clock-skew race): run the on-chain register simulation through the commit
   // `complete` stage too, not just `sent`. It simulates register() against real chain
@@ -275,7 +289,7 @@ const Transactions = ({ registrationData, name, callback, onStart }: Props) => {
     !commitTx?.stage || commitTx.stage === 'confirm' || commitTx.stage === 'failed'
   useExistingCommitment({
     registrationParams,
-    commitment: makeCommitment(registrationParams),
+    commitment,
     enabled: commitCouldBeFound,
     commitKey,
   })
@@ -354,12 +368,25 @@ const Transactions = ({ registrationData, name, callback, onStart }: Props) => {
   const makeCommitNameFlow = useCallback(() => {
     onStart()
     createTransactionFlow(commitKey, {
-      transactions: [createTransactionItem('commitName', registrationParams)],
+      transactions: [
+        createTransactionItem('commitName', {
+          ...registrationParams,
+          terms: registrationData.terms,
+        }),
+      ],
       requiresManualCleanup: true,
       autoClose: true,
-      resumeLink: `/register/${name}`,
+      resumeLink: fromLink ? undefined : `/register/${name}`,
     })
-  }, [commitKey, createTransactionFlow, name, onStart, registrationParams])
+  }, [
+    commitKey,
+    createTransactionFlow,
+    fromLink,
+    name,
+    onStart,
+    registrationParams,
+    registrationData.terms,
+  ])
 
   const makeRegisterNameFlow = () => {
     createTransactionFlow(registerKey, {
@@ -367,6 +394,17 @@ const Transactions = ({ registrationData, name, callback, onStart }: Props) => {
       requiresManualCleanup: true,
       autoClose: true,
       resumeLink: `/register/${name}`,
+    })
+  }
+
+  const makeAcceptTermsFlow = () => {
+    const { acceptedTerms } = acceptance
+    if (!acceptedTerms) return
+    createTransactionFlow(acceptTermsKey, {
+      transactions: [
+        createTransactionItem('acceptTerms', { name, commitment, terms: acceptedTerms }),
+      ],
+      autoClose: true,
     })
   }
 
@@ -552,6 +590,24 @@ const Transactions = ({ registrationData, name, callback, onStart }: Props) => {
           .with('commitReady', 'commitFailed', () => t('steps.transactions.subheading.default'))
           .exhaustive()}
       </CenteredTypography>
+      {needsTermsAcceptance && (
+        <>
+          <NameTerms terms={terms} acceptance={acceptance} />
+          <MobileFullWidth>
+            <Button
+              data-testid="accept-terms-button"
+              disabled={
+                !acceptance.acceptedTerms ||
+                acceptTermsTx?.stage === 'sent' ||
+                committedTerms.isFetching
+              }
+              onClick={makeAcceptTermsFlow}
+            >
+              {t('steps.transactions.acceptTerms')}
+            </Button>
+          </MobileFullWidth>
+        </>
+      )}
       <ButtonContainer>
         {match(transactionState)
           .with('registrationComplete', () => null)
@@ -598,6 +654,7 @@ const Transactions = ({ registrationData, name, callback, onStart }: Props) => {
               <MobileFullWidth>
                 <Button
                   data-testid="finish-button"
+                  disabled={needsTermsAcceptance || terms.isLoading || committedTerms.isLoading}
                   onClick={!registerTx ? makeRegisterNameFlow : showRegisterTransaction}
                 >
                   {t('steps.transactions.completeRegistration')}

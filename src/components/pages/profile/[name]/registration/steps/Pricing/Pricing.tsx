@@ -1,10 +1,10 @@
-import { Dispatch, SetStateAction, useEffect, useState } from 'react'
+import { Dispatch, SetStateAction, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { usePreviousDistinct } from 'react-use'
 import styled, { css } from 'styled-components'
 import { match, P } from 'ts-pattern'
 import type { Address } from 'viem'
-import { useBalance } from 'wagmi'
+import { useAccountEffect, useBalance } from 'wagmi'
 import { GetBalanceData } from 'wagmi/query'
 
 import {
@@ -26,16 +26,22 @@ import { Spacer } from '@app/components/@atoms/Spacer'
 import { ConnectButton } from '@app/components/@molecules/ConnectButton/ConnectButton'
 import { DateSelection } from '@app/components/@molecules/DateSelection/DateSelection'
 import { Card } from '@app/components/Card'
+import { NameTerms } from '@app/components/NameTerms'
+import { SocialProfileButton } from '@app/components/pages/profile/ProfileButton'
 import { SimplexInfoPanel } from '@app/components/SimplexInfoPanel'
-import { useControllerLimits } from '@app/hooks/useControllerLimits'
-import { useNftGateStatus } from '@app/hooks/useNftGateStatus'
-import { useReservedStatus } from '@app/hooks/useReservedStatus'
+import { ProfileRecord } from '@app/constants/profileRecordOptions'
+import { MAX_REGISTRATION_DURATION, MIN_REGISTRATION_DURATION } from '@app/constants/simplex'
 import { useAccountSafely } from '@app/hooks/account/useAccountSafely'
 import { useContractAddress } from '@app/hooks/chain/useContractAddress'
 import { useEstimateFullRegistration } from '@app/hooks/gasEstimation/useEstimateRegistration'
+import { useControllerLimits } from '@app/hooks/useControllerLimits'
 import { useEthPrice } from '@app/hooks/useEthPrice'
+import { useNameTerms } from '@app/hooks/useNameTerms'
+import { useNftGateStatus } from '@app/hooks/useNftGateStatus'
+import { useReservedStatus } from '@app/hooks/useReservedStatus'
+import { useTermsAcceptance } from '@app/hooks/useTermsAcceptance'
 import { useBreakpoint } from '@app/utils/BreakpointProvider'
-import { ONE_DAY, ONE_YEAR } from '@app/utils/time'
+import { Terms } from '@app/utils/snrcNameTerms'
 
 import FullInvoice from '../../FullInvoice'
 import {
@@ -377,6 +383,26 @@ export type ActionButtonProps = {
   estimatedTotal?: bigint
   ethPrice?: bigint
   durationType: 'date' | 'years'
+  terms?: Terms
+  autoNext?: boolean
+}
+
+const AutoNextButton = ({ onNext }: { onNext: () => void }) => {
+  const { t } = useTranslation('register')
+  const called = useRef(false)
+
+  useEffect(() => {
+    if (called.current) return
+    called.current = true
+    onNext()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return (
+    <Button data-testid="next-button" disabled loading>
+      {t('action.next', { ns: 'common' })}
+    </Button>
+  )
 }
 
 export const ActionButton = (props: ActionButtonProps) => {
@@ -460,25 +486,28 @@ export const ActionButton = (props: ActionButtonProps) => {
         estimatedTotal,
         ethPrice,
         durationType,
+        terms,
         callback,
-      }) => (
-        <Button
-          data-testid="next-button"
-          onClick={() =>
-            callback({
-              reverseRecord,
-              seconds,
-              paymentMethodChoice,
-              estimatedTotal,
-              ethPrice,
-              durationType,
-            })
-          }
-          disabled={!paymentMethodChoice}
-        >
-          {t('action.next', { ns: 'common' })}
-        </Button>
-      ),
+        autoNext,
+      }) => {
+        const onNext = () =>
+          callback({
+            reverseRecord,
+            seconds,
+            paymentMethodChoice,
+            estimatedTotal,
+            ethPrice,
+            durationType,
+            terms,
+          })
+        return autoNext && paymentMethodChoice ? (
+          <AutoNextButton onNext={onNext} />
+        ) : (
+          <Button data-testid="next-button" onClick={onNext} disabled={!paymentMethodChoice}>
+            {t('action.next', { ns: 'common' })}
+          </Button>
+        )
+      },
     )
 }
 
@@ -496,9 +525,12 @@ export type PricingProps = {
   initiateMoonpayRegistrationMutation: ReturnType<
     typeof useMoonpayRegistration
   >['initiateMoonpayRegistrationMutation']
+  linkRecords?: ProfileRecord[]
 }
 
-const minSeconds = 28 * ONE_DAY
+const minSeconds = MIN_REGISTRATION_DURATION
+const maxSeconds = MAX_REGISTRATION_DURATION
+const hideTimeComparison = true
 
 const Pricing = ({
   name,
@@ -511,16 +543,21 @@ const Pricing = ({
   resolverExists,
   moonpayTransactionStatus,
   initiateMoonpayRegistrationMutation,
+  linkRecords,
 }: PricingProps) => {
   const { t } = useTranslation('register')
 
   const { address } = useAccountSafely()
+  const [hasConnected, setHasConnected] = useState(false)
+  useAccountEffect({ onConnect: ({ isReconnected }) => setHasConnected(!isReconnected) })
   const { data: balance } = useBalance({ address })
   const resolverAddress = useContractAddress({ contract: 'ensPublicResolver' })
   const { data: ethPrice } = useEthPrice()
-  const { required: nftRequired, hasNft } = useNftGateStatus({ address })
+  const { required: nftRequired, hasNft, loaded: nftLoaded } = useNftGateStatus({ address })
   const blockedByNftGate = nftRequired && hasNft === false
-  const { isReserved } = useReservedStatus({ name })
+  const { isReserved, loaded: reservedLoaded } = useReservedStatus({ name })
+  const terms = useNameTerms({ name })
+  const acceptance = useTermsAcceptance(terms, registrationData.terms)
   const { minCharLength } = useControllerLimits()
   const labelLen = name ? name.split('.')[0].length : 0
   // minCharLength is only enforced on top-level register(); subname creation
@@ -528,7 +565,7 @@ const Pricing = ({
   const isSubname = !!name && name.split('.').length > 2
   const isTooShort = !!minCharLength && !isSubname && labelLen > 0 && labelLen < minCharLength
 
-  const [seconds, setSeconds] = useState(() => registrationData.seconds ?? ONE_YEAR)
+  const [seconds, setSeconds] = useState(() => registrationData.seconds ?? minSeconds)
   const [durationType, setDurationType] = useState<'date' | 'years'>(
     registrationData.durationType ?? 'years',
   )
@@ -576,6 +613,7 @@ const Pricing = ({
       records: [{ key: 'ETH', value: resolverAddress, type: 'addr', group: 'address' }],
       clearRecords: resolverExists,
       resolverAddress,
+      terms: terms.kind && terms.hash && { kind: terms.kind, hash: terms.hash },
     },
   })
 
@@ -615,14 +653,20 @@ const Pricing = ({
     <StyledCard>
       <StyledHeading>{t('heading', { name: beautifiedName })}</StyledHeading>
       <SimplexInfoPanel name={name} address={address} />
+      {linkRecords?.map(({ key, value }) => (
+        <SocialProfileButton key={key} iconKey={key} normalisedKey={key} value={value!} />
+      ))}
+      {terms.required && <NameTerms terms={terms} acceptance={acceptance} />}
       <DateSelection
         {...{ seconds, setSeconds, minSeconds, durationType }}
+        maxSeconds={terms.kind === 'community' ? minSeconds : maxSeconds}
         onChangeDurationType={setDurationType}
       />
       <FullInvoice {...fullEstimate} />
       {hasPremium && gracePeriodEndDate ? (
         <TemporaryPremium startDate={gracePeriodEndDate} name={name} />
       ) : (
+        !hideTimeComparison &&
         !!unsafeDisplayYearlyFee &&
         !!unsafeDisplayEstimatedGasFee &&
         !!gasPrice && (
@@ -662,6 +706,14 @@ const Pricing = ({
           <Button data-testid="next-button" disabled>
             SimpleX NFT required
           </Button>
+        ) : terms.isLoading || terms.isFetching ? (
+          <Button data-testid="next-button" disabled loading>
+            {t('action.next', { ns: 'common' })}
+          </Button>
+        ) : terms.required && !acceptance.acceptedTerms ? (
+          <Button data-testid="next-button" disabled>
+            {terms.text !== undefined ? 'Accept the terms to continue' : 'Terms unavailable'}
+          </Button>
         ) : (
           <ActionButton
             {...{
@@ -678,6 +730,15 @@ const Pricing = ({
               estimatedTotal,
               ethPrice,
               durationType,
+              terms: acceptance.acceptedTerms,
+              autoNext:
+                !!linkRecords &&
+                !terms.required &&
+                hasConnected &&
+                reservedLoaded &&
+                nftLoaded &&
+                minCharLength !== undefined &&
+                !fullEstimate.priceLoading,
             }}
           />
         )}

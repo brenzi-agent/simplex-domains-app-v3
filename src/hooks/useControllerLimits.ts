@@ -32,6 +32,13 @@ const controllerAbi = [
     stateMutability: 'view',
     type: 'function',
   },
+  {
+    inputs: [],
+    name: 'prices',
+    outputs: [{ type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
 ] as const
 
 export const useControllerLimits = () => {
@@ -49,6 +56,7 @@ export const useControllerLimits = () => {
           { address: controllerAddress!, abi: controllerAbi, functionName: 'nftGateEnabled' },
           { address: controllerAddress!, abi: controllerAbi, functionName: 'smpxNft' },
           { address: controllerAddress!, abi: controllerAbi, functionName: 'tldSuffix' },
+          { address: controllerAddress!, abi: controllerAbi, functionName: 'prices' },
         ]
       : [],
     query: { enabled, staleTime: 60_000 },
@@ -60,5 +68,6 @@ export const useControllerLimits = () => {
     nftGateEnabled: data?.[1]?.status === 'success' ? (data[1].result as boolean) : undefined,
     smpxNft: data?.[2]?.status === 'success' ? (data[2].result as Address) : undefined,
     tldSuffix: data?.[3]?.status === 'success' ? (data[3].result as string) : undefined,
+    priceOracle: data?.[4]?.status === 'success' ? (data[4].result as Address) : undefined,
   }
 }

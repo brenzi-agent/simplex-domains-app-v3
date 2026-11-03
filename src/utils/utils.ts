@@ -10,8 +10,8 @@ import { KNOWN_RESOLVER_DATA } from '@app/constants/resolverAddressData'
 import type { ConnectorClientWithEns } from '@app/types'
 
 import { CURRENCY_FLUCTUATION_BUFFER_PERCENTAGE } from './constants'
-import { calculateDatesDiff } from './date'
-import { ONE_YEAR } from './time'
+import { calculateDatesDiff, dateFromDateDiff } from './date'
+import { ONE_DAY, ONE_YEAR } from './time'
 
 export * from './time'
 
@@ -68,12 +68,20 @@ export const formatDurationOfDates = ({
 }) => {
   if (!startDate || !endDate) return t('unit.invalid_date', { ns: 'common' })
 
-  const { isNegative, diff } = calculateDatesDiff(startDate, endDate)
+  const days = Math.round((endDate.getTime() - startDate.getTime()) / 1000 / ONE_DAY)
+  const years = Math.max(0, Math.floor((days * ONE_DAY) / ONE_YEAR))
+  const afterYears = new Date(
+    Math.min(
+      dateFromDateDiff({ startDate, additionalDays: (years * ONE_YEAR) / ONE_DAY }).getTime(),
+      endDate.getTime(),
+    ),
+  )
+  const { isNegative, diff } = calculateDatesDiff(years ? afterYears : startDate, endDate)
 
   if (isNegative) return t('unit.invalid_date', { ns: 'common' })
 
   const diffEntries = [
-    [shortYears ? 'yrs' : 'years', diff.years],
+    [shortYears ? 'yrs' : 'years', years + diff.years],
     ['months', diff.months],
     ['days', diff.days],
   ] as [string, number][]

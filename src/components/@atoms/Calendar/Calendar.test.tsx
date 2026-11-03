@@ -41,6 +41,20 @@ describe('Calendar', () => {
 
     expect(screen.getByTestId('calendar')).toHaveValue(secondsToDateInput(value))
   })
+  it('should allow setting maximum date', () => {
+    render(<Calendar value={value} onChange={() => {}} max={value + 86400} name="test.eth" />)
+    expect(screen.getByTestId('calendar')).toHaveAttribute('max', secondsToDateInput(value + 86400))
+  })
+  it('should not allow choosing a date past the maximum', () => {
+    const onChange = vi.fn()
+    const now = Math.floor(Date.now() / 1000)
+    const max = now + 2 * 86400
+    render(<Calendar value={now} onChange={onChange} max={max} />)
+    fireEvent.change(screen.getByTestId('calendar'), {
+      target: { value: secondsToDateInput(now + 10 * 86400) },
+    })
+    expect(onChange.mock.calls[0][0].currentTarget.valueAsDate).toEqual(secondsToDate(max))
+  })
   it('should handle timezone offset correctly', async () => {
     const OnChange = vi.fn()
     // Render the Calendar component

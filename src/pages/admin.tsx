@@ -1,12 +1,23 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { ReactElement, useState } from 'react'
 import styled, { css } from 'styled-components'
-import { getAddress, keccak256, toBytes } from 'viem'
+import { Abi, getAddress, keccak256, parseEventLogs, toBytes } from 'viem'
 import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi'
 
-import { Button, Card, Heading, Input, Typography } from '@ensdomains/thorin'
+import { Button, Card, Heading, Input, Select, Typography } from '@ensdomains/thorin'
 
-import { getSnrcAddresses } from '@app/constants/chains'
+import { TermsText } from '@app/components/NameTerms'
+import { getNamePolicyAddress, getSnrcAddresses } from '@app/constants/chains'
+import {
+  MAX_REGISTRATION_DURATION,
+  MAX_SPONSORED_REGISTRATION_DURATION,
+  MIN_REGISTRATION_DURATION,
+} from '@app/constants/simplex'
+import { parseTermsLink, useNameTerms, useTermsText } from '@app/hooks/useNameTerms'
 import { Content } from '@app/layouts/Content'
+import { getUnregistrableLabelsError, parseLabels } from '@app/utils/snrcLabels'
+import { namePolicyTermsAbi, TermsKind } from '@app/utils/snrcNameTerms'
+import { ONE_DAY } from '@app/utils/time'
 
 const controllerAbi = [
   {
@@ -31,13 +42,6 @@ const controllerAbi = [
     type: 'function',
   },
   {
-    inputs: [{ name: 'hash', type: 'bytes32' }],
-    name: 'reservedNames',
-    outputs: [{ type: 'bool' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
     inputs: [{ name: 'newMinCharLength', type: 'uint8' }],
     name: 'setMinCharLength',
     outputs: [],
@@ -51,8 +55,21 @@ const controllerAbi = [
     stateMutability: 'nonpayable',
     type: 'function',
   },
+] as const
+
+const namePolicyAbi = [
   {
-    inputs: [{ name: 'names', type: 'string[]' }],
+    inputs: [{ name: 'hash', type: 'bytes32' }],
+    name: 'reservedNames',
+    outputs: [{ type: 'uint8' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { name: 'names', type: 'string[]' },
+      { name: 'reason', type: 'uint8' },
+    ],
     name: 'addReservedNames',
     outputs: [],
     stateMutability: 'nonpayable',
@@ -76,7 +93,48 @@ const controllerAbi = [
     stateMutability: 'nonpayable',
     type: 'function',
   },
+  {
+    inputs: [{ name: 'names', type: 'string[]' }],
+    name: 'addCommunityNames',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: 'names', type: 'string[]' }],
+    name: 'removeCommunityNames',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: 'link', type: 'string' }],
+    name: 'setGeneralTerms',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: 'link', type: 'string' }],
+    name: 'setCommunityTerms',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    anonymous: false,
+    inputs: [{ indexed: false, name: 'name', type: 'string' }],
+    name: 'CommunityNameSkipped',
+    type: 'event',
+  },
 ] as const
+
+// SimplexNamePolicy.Reason; each index is the value stored on chain, so entries are only appended.
+const REASONS = ['None', 'Internal', 'Trademark', 'Community'] as const
+const REASON_OPTIONS = REASONS.map((label, value) => ({ value: String(value), label })).slice(1)
+const MIN_RESERVED_DAYS = MIN_REGISTRATION_DURATION / ONE_DAY
+const MAX_RESERVED_DAYS = MAX_SPONSORED_REGISTRATION_DURATION / ONE_DAY
+const MAX_COMMUNITY_DAYS = MAX_REGISTRATION_DURATION / ONE_DAY
 
 const Section = styled.div(
   ({ theme }) => css`
@@ -118,6 +176,56 @@ const codeBadge = (zero: boolean, has?: boolean) => {
   return has ? { char: '✓', color: 'green' as const } : { char: '✗', color: 'red' as const }
 }
 
+type OnChainTerms = { link: string; hash: string }
+
+const TermsSettings = ({
+  terms,
+  testId,
+  setLabel,
+  onSet,
+}: {
+  terms?: OnChainTerms
+  testId: string
+  setLabel: string
+  onSet: (link: string) => void
+}) => {
+  const chainId = useChainId()
+  const { text } = useTermsText(terms?.link)
+  const [newLink, setNewLink] = useState('')
+  const newLinkError =
+    newLink && !parseTermsLink(newLink, chainId) ? 'Not a terms link for this chain' : undefined
+  return (
+    <>
+      <Mono fontVariant="small" data-testid={`${testId}-link`}>
+        Link: {terms ? terms.link || 'not set' : 'loading...'}
+      </Mono>
+      <Mono fontVariant="small" data-testid={`${testId}-hash`}>
+        Terms on chain: {terms?.hash || 'loading...'}
+      </Mono>
+      {text.data !== undefined && <TermsText data-testid={`${testId}-text`} text={text.data} />}
+      <Row>
+        <Input
+          label="New link"
+          data-testid={`${testId}-input`}
+          value={newLink}
+          onChange={(e) => setNewLink(e.target.value)}
+          placeholder="https://git.simplex.chat/simplex-chat/simplex-chat/raw/commit/…"
+          description="One file at one commit, ending #sha256= and the sha256 of the file."
+          error={newLinkError}
+        />
+        <Button
+          size="small"
+          data-testid={`${testId}-set`}
+          onClick={() => onSet(newLink)}
+          disabled={!newLink || !!newLinkError}
+        >
+          {setLabel}
+        </Button>
+      </Row>
+    </>
+  )
+}
+
 function AdminPanel() {
   const { address } = useAccount()
   const chainId = useChainId()
@@ -127,8 +235,12 @@ function AdminPanel() {
   // deployed at each address on the connected chain? — answered by the code check below.
   const deploymentAddresses = getSnrcAddresses(chainId)
   const controllerAddress = deploymentAddresses.ETHRegistrarController
+  const namePolicyAddress = getNamePolicyAddress(chainId)
+  const controller = { address: controllerAddress, abi: controllerAbi }
+  const namePolicy = { address: namePolicyAddress, abi: namePolicyAbi }
   const publicClient = usePublicClient()
   const { data: walletClient } = useWalletClient()
+  const queryClient = useQueryClient()
 
   const [ownerAddress, setOwnerAddress] = useState<string>('')
   const [minCharLen, setMinCharLen] = useState<number>(0)
@@ -140,12 +252,33 @@ function AdminPanel() {
 
   const [newMinChar, setNewMinChar] = useState('')
   const [reserveName, setReserveName] = useState('')
+  const [reserveReason, setReserveReason] = useState(String(REASONS.indexOf('Trademark')))
   const [unReserveName, setUnReserveName] = useState('')
   const [checkName, setCheckName] = useState('')
   const [checkResult, setCheckResult] = useState<string | null>(null)
   const [regLabel, setRegLabel] = useState('')
   const [regOwner, setRegOwner] = useState('')
-  const [regDuration, setRegDuration] = useState('365')
+  const [regDuration, setRegDuration] = useState(String(MIN_RESERVED_DAYS))
+  const [listName, setListName] = useState('')
+  const [unListName, setUnListName] = useState('')
+  const [onChainTerms, setOnChainTerms] = useState<Record<TermsKind, OnChainTerms>>()
+  const regDays = Number(regDuration)
+  const regTerms = useNameTerms({
+    name: `${regLabel}.${process.env.NEXT_PUBLIC_SIMPLEX_TLD || 'testing'}`,
+  })
+  const maxRegDays = regTerms.kind === 'community' ? MAX_COMMUNITY_DAYS : MAX_RESERVED_DAYS
+  const isRegDurationValid =
+    Number.isInteger(regDays) && regDays >= MIN_RESERVED_DAYS && regDays <= maxRegDays
+  const reserveLabels = parseLabels(reserveName)
+  const unReserveLabels = parseLabels(unReserveName)
+  const checkNameError = getUnregistrableLabelsError(checkName ? [checkName] : [])
+  const reserveNameError = getUnregistrableLabelsError(reserveLabels)
+  const unReserveNameError = getUnregistrableLabelsError(unReserveLabels)
+  const regLabelError = getUnregistrableLabelsError(regLabel ? [regLabel] : [])
+  const listLabels = parseLabels(listName)
+  const unListLabels = parseLabels(unListName)
+  const listNameError = getUnregistrableLabelsError(listLabels)
+  const unListNameError = getUnregistrableLabelsError(unListLabels)
 
   const loadState = async () => {
     if (!publicClient || !controllerAddress) return
@@ -184,6 +317,25 @@ function AdminPanel() {
         next[name] = !!codes[i] && codes[i] !== '0x'
       })
       setCodeStatus(next)
+      const termsReads = [
+        'generalTermsLink',
+        'generalTermsHash',
+        'communityTermsLink',
+        'communityTermsHash',
+      ] as const
+      const [generalLink, generalHash, communityLink, communityHash] = await Promise.all(
+        termsReads.map((functionName) =>
+          namePolicyAddress
+            ? publicClient
+                .readContract({ address: namePolicyAddress, abi: namePolicyTermsAbi, functionName })
+                .catch(() => 'unreadable')
+            : 'not deployed',
+        ),
+      )
+      setOnChainTerms({
+        general: { link: generalLink, hash: generalHash },
+        community: { link: communityLink, hash: communityHash },
+      })
 
       setLoaded(true)
       setStatus('')
@@ -198,35 +350,55 @@ function AdminPanel() {
 
   const isOwner = address && ownerAddress && getAddress(address) === getAddress(ownerAddress)
 
-  const execTx = async (functionName: string, args: any[]) => {
-    if (!walletClient || !controllerAddress) return
+  const execTx = async (
+    contract: { address?: string; abi: Abi },
+    functionName: string,
+    args: any[],
+  ) => {
+    if (!walletClient || !contract.address) return
     try {
       setStatus(`Sending ${functionName}...`)
       const hash = await walletClient.writeContract({
-        address: controllerAddress as `0x${string}`,
-        abi: controllerAbi,
+        address: contract.address as `0x${string}`,
+        abi: contract.abi,
         functionName: functionName as any,
         args: args as any,
       })
       setStatus(`Tx sent: ${hash.slice(0, 10)}... waiting...`)
-      await publicClient!.waitForTransactionReceipt({ hash })
+      const receipt = await publicClient!.waitForTransactionReceipt({ hash })
       setStatus(`${functionName} confirmed`)
+      await queryClient.invalidateQueries()
       await loadState()
+      return receipt
     } catch (e: any) {
       setStatus(`Error: ${e.shortMessage || e.message}`)
     }
   }
 
+  const listCommunityNames = async () => {
+    const receipt = await execTx(namePolicy, 'addCommunityNames', [listLabels])
+    if (!receipt) return
+    const skipped = parseEventLogs({
+      abi: namePolicyAbi,
+      logs: receipt.logs,
+      eventName: 'CommunityNameSkipped',
+    }).map(({ args }) => args.name)
+    if (skipped.length)
+      setStatus(
+        `addCommunityNames confirmed; skipped (registered or in grace): ${skipped.join(', ')}`,
+      )
+  }
+
   const checkReserved = async () => {
-    if (!publicClient || !controllerAddress || !checkName) return
+    if (!publicClient || !namePolicyAddress || !checkName) return
     try {
       const result = await publicClient.readContract({
-        address: controllerAddress as `0x${string}`,
-        abi: controllerAbi,
+        address: namePolicyAddress,
+        abi: namePolicyAbi,
         functionName: 'reservedNames',
         args: [keccak256(toBytes(checkName))],
       })
-      setCheckResult(result ? 'RESERVED' : 'NOT RESERVED')
+      setCheckResult(result ? `RESERVED (${REASONS[result] ?? result})` : 'NOT RESERVED')
     } catch (e: any) {
       setCheckResult(`Error: ${e.message}`)
     }
@@ -283,6 +455,27 @@ function AdminPanel() {
         </Section>
       </Card>
 
+      <Card>
+        <Section>
+          <Typography fontVariant="largeBold">Check Reserved Name</Typography>
+          <Row>
+            <Input
+              label="Check name"
+              value={checkName}
+              onChange={(e) => setCheckName(e.target.value)}
+              placeholder="simplex"
+              error={checkNameError}
+            />
+            <Button size="small" onClick={checkReserved} disabled={!checkName || !!checkNameError}>
+              Check
+            </Button>
+            {checkResult && (
+              <StatusText $success={checkResult === 'NOT RESERVED'}>{checkResult}</StatusText>
+            )}
+          </Row>
+        </Section>
+      </Card>
+
       {isOwner && (
         <>
           <Card>
@@ -302,7 +495,7 @@ function AdminPanel() {
                 <Button
                   size="small"
                   data-testid="admin-set-min-char-button"
-                  onClick={() => execTx('setMinCharLength', [Number(newMinChar)])}
+                  onClick={() => execTx(controller, 'setMinCharLength', [Number(newMinChar)])}
                   disabled={!newMinChar}
                 >
                   Set
@@ -321,7 +514,7 @@ function AdminPanel() {
                 <Button
                   size="small"
                   colorStyle="redSecondary"
-                  onClick={() => execTx('disableNftGate', [])}
+                  onClick={() => execTx(controller, 'disableNftGate', [])}
                 >
                   Disable NFT Gate
                 </Button>
@@ -334,36 +527,27 @@ function AdminPanel() {
               <Typography fontVariant="largeBold">Reserved Names</Typography>
               <Row>
                 <Input
-                  label="Check name"
-                  value={checkName}
-                  onChange={(e) => setCheckName(e.target.value)}
-                  placeholder="simplex"
-                />
-                <Button size="small" onClick={checkReserved} disabled={!checkName}>
-                  Check
-                </Button>
-                {checkResult && (
-                  <StatusText $success={checkResult === 'NOT RESERVED'}>{checkResult}</StatusText>
-                )}
-              </Row>
-              <Row>
-                <Input
                   label="Reserve name(s)"
                   value={reserveName}
                   onChange={(e) => setReserveName(e.target.value)}
                   placeholder="one name per line — submitted in a single tx"
-                  description="Newline or comma separated. ~1000 names per tx fits in the block gas limit."
+                  description="Newline or comma separated. Up to 200 names per tx fit under the per-transaction gas cap."
+                  error={reserveNameError}
+                />
+                <Select
+                  label="Reason"
+                  size="small"
+                  value={reserveReason}
+                  onChange={(e) => setReserveReason(e.target.value)}
+                  options={REASON_OPTIONS}
+                  id="reserve-reason"
                 />
                 <Button
                   size="small"
-                  onClick={() => {
-                    const labels = reserveName
-                      .split(/[\n,]/)
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                    if (labels.length) execTx('addReservedNames', [labels])
-                  }}
-                  disabled={!reserveName.trim()}
+                  onClick={() =>
+                    execTx(namePolicy, 'addReservedNames', [reserveLabels, Number(reserveReason)])
+                  }
+                  disabled={!reserveLabels.length || !!reserveNameError}
                 >
                   Reserve
                 </Button>
@@ -375,21 +559,83 @@ function AdminPanel() {
                   onChange={(e) => setUnReserveName(e.target.value)}
                   placeholder="one name per line — submitted in a single tx"
                   description="Newline or comma separated."
+                  error={unReserveNameError}
                 />
                 <Button
                   size="small"
-                  onClick={() => {
-                    const labels = unReserveName
-                      .split(/[\n,]/)
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                    if (labels.length) execTx('removeReservedNames', [labels])
-                  }}
-                  disabled={!unReserveName.trim()}
+                  onClick={() => execTx(namePolicy, 'removeReservedNames', [unReserveLabels])}
+                  disabled={!unReserveLabels.length || !!unReserveNameError}
                 >
                   Unreserve
                 </Button>
               </Row>
+            </Section>
+          </Card>
+
+          <Card>
+            <Section>
+              <Typography fontVariant="largeBold">General Terms</Typography>
+              <Typography fontVariant="small">
+                A name that is not listed can be registered or received only by someone who accepts
+                the current general terms.
+              </Typography>
+              <TermsSettings
+                terms={onChainTerms?.general}
+                testId="admin-general-terms"
+                setLabel="Set general terms"
+                onSet={(link) => execTx(namePolicy, 'setGeneralTerms', [link])}
+              />
+            </Section>
+          </Card>
+
+          <Card>
+            <Section>
+              <Typography fontVariant="largeBold">Community Names</Typography>
+              <Typography fontVariant="small">
+                A listed name can be registered or received only by someone who accepts the current
+                community terms. Names that are registered or in grace are skipped.
+              </Typography>
+              <Row>
+                <Input
+                  label="List name(s)"
+                  value={listName}
+                  onChange={(e) => setListName(e.target.value)}
+                  placeholder="one name per line — submitted in a single tx"
+                  description="Newline or comma separated."
+                  error={listNameError}
+                />
+                <Button
+                  size="small"
+                  data-testid="admin-list-community"
+                  onClick={listCommunityNames}
+                  disabled={!listLabels.length || !!listNameError}
+                >
+                  List
+                </Button>
+              </Row>
+              <Row>
+                <Input
+                  label="Unlist name(s)"
+                  value={unListName}
+                  onChange={(e) => setUnListName(e.target.value)}
+                  placeholder="one name per line — submitted in a single tx"
+                  description="Newline or comma separated."
+                  error={unListNameError}
+                />
+                <Button
+                  size="small"
+                  onClick={() => execTx(namePolicy, 'removeCommunityNames', [unListLabels])}
+                  disabled={!unListLabels.length || !!unListNameError}
+                >
+                  Unlist
+                </Button>
+              </Row>
+              <TermsSettings
+                terms={onChainTerms?.community}
+                testId="admin-community-terms"
+                setLabel="Set community terms"
+                onSet={(link) => execTx(namePolicy, 'setCommunityTerms', [link])}
+              />
             </Section>
           </Card>
 
@@ -404,6 +650,7 @@ function AdminPanel() {
                 value={regLabel}
                 onChange={(e) => setRegLabel(e.target.value)}
                 placeholder="simplex"
+                error={regLabelError}
               />
               <Input
                 label="Owner address"
@@ -415,18 +662,20 @@ function AdminPanel() {
                 label="Duration (days)"
                 value={regDuration}
                 onChange={(e) => setRegDuration(e.target.value)}
-                placeholder="365"
+                placeholder={String(MIN_RESERVED_DAYS)}
+                description={`${MIN_RESERVED_DAYS}–${maxRegDays} days`}
+                error={regDuration && !isRegDurationValid ? 'Out of range' : undefined}
               />
               <Button
                 size="small"
                 onClick={() =>
-                  execTx('registerReserved', [
+                  execTx(namePolicy, 'registerReserved', [
                     regLabel,
                     regOwner,
                     BigInt(Number(regDuration) * 86400),
                   ])
                 }
-                disabled={!regLabel || !regOwner}
+                disabled={!regLabel || !!regLabelError || !regOwner || !isRegDurationValid}
               >
                 Register
               </Button>
