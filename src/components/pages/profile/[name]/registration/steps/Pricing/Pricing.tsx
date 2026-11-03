@@ -24,13 +24,12 @@ import MobileFullWidth from '@app/components/@atoms/MobileFullWidth'
 import { RegistrationTimeComparisonBanner } from '@app/components/@atoms/RegistrationTimeComparisonBanner/RegistrationTimeComparisonBanner'
 import { Spacer } from '@app/components/@atoms/Spacer'
 import { ConnectButton } from '@app/components/@molecules/ConnectButton/ConnectButton'
-import { DateSelection } from '@app/components/@molecules/DateSelection/DateSelection'
 import { Card } from '@app/components/Card'
 import { NameTerms } from '@app/components/NameTerms'
 import { SocialProfileButton } from '@app/components/pages/profile/ProfileButton'
 import { SimplexInfoPanel } from '@app/components/SimplexInfoPanel'
 import { ProfileRecord } from '@app/constants/profileRecordOptions'
-import { MAX_REGISTRATION_DURATION, MIN_REGISTRATION_DURATION } from '@app/constants/simplex'
+import { MIN_REGISTRATION_DURATION } from '@app/constants/simplex'
 import { useAccountSafely } from '@app/hooks/account/useAccountSafely'
 import { useContractAddress } from '@app/hooks/chain/useContractAddress'
 import { useEstimateFullRegistration } from '@app/hooks/gasEstimation/useEstimateRegistration'
@@ -528,8 +527,6 @@ export type PricingProps = {
   linkRecords?: ProfileRecord[]
 }
 
-const minSeconds = MIN_REGISTRATION_DURATION
-const maxSeconds = MAX_REGISTRATION_DURATION
 const hideTimeComparison = true
 
 const Pricing = ({
@@ -565,10 +562,8 @@ const Pricing = ({
   const isSubname = !!name && name.split('.').length > 2
   const isTooShort = !!minCharLength && !isSubname && labelLen > 0 && labelLen < minCharLength
 
-  const [seconds, setSeconds] = useState(() => registrationData.seconds ?? minSeconds)
-  const [durationType, setDurationType] = useState<'date' | 'years'>(
-    registrationData.durationType ?? 'years',
-  )
+  const seconds = MIN_REGISTRATION_DURATION
+  const durationType = 'years'
 
   const [reverseRecord, setReverseRecord] = useState(() =>
     registrationData.started ? registrationData.reverseRecord : !hasPrimaryName,
@@ -657,11 +652,6 @@ const Pricing = ({
         <SocialProfileButton key={key} iconKey={key} normalisedKey={key} value={value!} />
       ))}
       {terms.required && <NameTerms terms={terms} acceptance={acceptance} />}
-      <DateSelection
-        {...{ seconds, setSeconds, minSeconds, durationType }}
-        maxSeconds={terms.kind === 'community' ? minSeconds : maxSeconds}
-        onChangeDurationType={setDurationType}
-      />
       <FullInvoice {...fullEstimate} />
       {hasPremium && gracePeriodEndDate ? (
         <TemporaryPremium startDate={gracePeriodEndDate} name={name} />

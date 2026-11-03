@@ -28,9 +28,6 @@ vi.mock('@app/hooks/useNameTerms')
 vi.mock('@app/hooks/useNftGateStatus')
 vi.mock('@app/hooks/useReservedStatus')
 vi.mock('@app/components/SimplexInfoPanel', () => ({ SimplexInfoPanel: () => null }))
-vi.mock('@app/components/@molecules/DateSelection/DateSelection', () => ({
-  DateSelection: ({ maxSeconds }: { maxSeconds: number }) => <div>{maxSeconds}</div>,
-}))
 vi.mock('@app/components/pages/profile/ProfileButton', () => ({
   SocialProfileButton: ({ value }: { value: string }) => <div>{value}</div>,
 }))
@@ -232,13 +229,21 @@ describe('Pricing', () => {
     expect(props.callback).not.toHaveBeenCalled()
   })
 
-  it('should offer a community name for two years only', () => {
-    nameTerms('general')
-    const { rerender } = render(<Pricing {...makeProps()} />)
-    expect(screen.getByText(yearsToSeconds(3))).toBeInTheDocument()
-    nameTerms('community')
-    rerender(<Pricing {...makeProps()} />)
-    expect(screen.getByText(yearsToSeconds(2))).toBeInTheDocument()
+  it('should register for two years without a choice', async () => {
+    const props = makeProps({
+      linkRecords: undefined,
+      registrationData: {
+        seconds: yearsToSeconds(3),
+        durationType: 'date',
+        started: false,
+      } as RegistrationReducerDataItem,
+    })
+    render(<Pricing {...props} />)
+    expect(screen.queryByTestId('date-selection')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByTestId('next-button'))
+    expect(props.callback).toHaveBeenCalledWith(
+      expect.objectContaining({ seconds: yearsToSeconds(2), durationType: 'years' }),
+    )
   })
 
   it.each(['general', 'community'] as const)(
