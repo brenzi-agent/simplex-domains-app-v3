@@ -1,14 +1,36 @@
-import { Address, parseEther } from 'viem'
+import { Address, parseEther, toHex } from 'viem'
 
 import { makeCommitment, RegistrationParameters } from '@ensdomains/ensjs/utils'
 
+import type { TransactionData } from '@app/transaction-flow/transaction'
 import { Terms } from '@app/utils/snrcNameTerms'
+import { getSnrcTokenId } from '@app/utils/snrcOffers'
 
 import { useEstimateGasWithStateOverride } from '../chain/useEstimateGasWithStateOverride'
 
 type ReturnType = null | Parameters<typeof useEstimateGasWithStateOverride>[0]['transactions']
 
 const ACCEPTED_TERMS_SLOT = 103
+const ACCEPTED_RENEWAL_TERMS_SLOT = 109
+
+export const acceptedRenewalTermsOverride = ({
+  namePolicyAddress,
+  holder,
+  renewal: { name, expires, duration, terms },
+}: {
+  namePolicyAddress: Address
+  holder: Address
+  renewal: TransactionData<'acceptRenewalTerms'>
+}) => ({
+  address: namePolicyAddress,
+  stateDiff: [
+    {
+      slot: ACCEPTED_RENEWAL_TERMS_SLOT,
+      keys: [toHex(getSnrcTokenId(name)!), holder, toHex(expires), toHex(duration)],
+      value: terms.hash,
+    },
+  ],
+})
 
 export const calculateTransactions = ({
   registrationParams,
