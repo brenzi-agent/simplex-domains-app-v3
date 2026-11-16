@@ -110,7 +110,7 @@ function NamePolicy() {
             </div>
           </>
         ))
-        .with({ data: P.nonNullable }, ({ data: names }) => (
+        .with({ data: P.not(P.nullish) }, ({ data: names }) => (
           <Lists>
             <Card>
               <Section>
