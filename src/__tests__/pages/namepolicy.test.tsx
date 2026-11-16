@@ -39,11 +39,18 @@ describe('name policy page', () => {
     expect(shown('name-policy-reserved')).toEqual([
       'apple.testingTrademark',
       'simplex.testingInternal',
-      'uganda.testingCommunity',
+      'uganda.testingReserved for a community',
     ])
     expect(shown('name-policy-community')).toEqual(['berlin.testing', 'paris.testing'])
-    expect(screen.getByTestId('name-policy-reserved-count')).toHaveTextContent('3')
-    expect(screen.getByTestId('name-policy-community-count')).toHaveTextContent('2')
+    expect(screen.getByTestId('name-policy-reserved-count')).toHaveTextContent(/^3$/)
+    expect(screen.getByTestId('name-policy-community-count')).toHaveTextContent(/^2$/)
+  })
+
+  it('says when the network has no name policy', () => {
+    mockUsePolicyNames.mockReturnValue({ data: null, isLoading: false, isError: false })
+    render(<Page />)
+    expect(screen.getByTestId('name-policy-none')).toBeVisible()
+    expect(screen.queryByTestId('name-policy-reserved')).not.toBeInTheDocument()
   })
 
   it('filters both lists by the search, in any letter case and by the full name', async () => {
@@ -55,8 +62,8 @@ describe('name policy page', () => {
       'simplex.testingInternal',
     ])
     expect(shown('name-policy-community')).toEqual([])
-    expect(screen.getByTestId('name-policy-reserved-count')).toHaveTextContent('2 of 3')
-    expect(screen.getByTestId('name-policy-community-count')).toHaveTextContent('0 of 2')
+    expect(screen.getByTestId('name-policy-reserved-count')).toHaveTextContent(/^2 of 3$/)
+    expect(screen.getByTestId('name-policy-community-count')).toHaveTextContent(/^0 of 2$/)
 
     await userEvent.clear(search)
     await userEvent.type(search, 'paris.testing')

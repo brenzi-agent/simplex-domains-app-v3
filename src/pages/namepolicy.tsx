@@ -1,5 +1,6 @@
 import { ReactElement, useState } from 'react'
 import styled, { css } from 'styled-components'
+import { match, P } from 'ts-pattern'
 import { useChainId } from 'wagmi'
 
 import { Button, Card, Heading, Input, Spinner, Tag, Typography } from '@ensdomains/thorin'
@@ -15,6 +16,11 @@ import { makeEtherscanLink } from '@app/utils/utils'
 const TLD = process.env.NEXT_PUBLIC_SIMPLEX_TLD || 'testing'
 
 const fullName = (label: string) => `${label}.${TLD}`
+
+const REASON_LABELS: Record<number, string> = {
+  ...REASONS,
+  [REASONS.indexOf('Community')]: 'Reserved for a community',
+}
 
 const Lists = styled.div(
   ({ theme }) => css`
@@ -61,7 +67,7 @@ function NamePolicy() {
   const chainId = useChainId()
   const chainName = useChainName()
   const namePolicyAddress = getNamePolicyAddress(chainId)
-  const { data, isLoading, isError, refetch } = usePolicyNames()
+  const { data, isError, refetch } = usePolicyNames()
   const [search, setSearch] = useState('')
   const query = search.trim().toLowerCase()
   const reserved = data?.reserved.filter(({ name }) => fullName(name).includes(query)) ?? []
@@ -75,7 +81,7 @@ function NamePolicy() {
         receiving a community name requires accepting the community terms.
       </Typography>
       {namePolicyAddress && (
-        <Outlink href={makeEtherscanLink(namePolicyAddress, chainName, 'address')}>
+        <Outlink href={`${makeEtherscanLink(namePolicyAddress, chainName, 'address')}#events`}>
           Read from the events of the name policy contract
         </Outlink>
       )}
@@ -86,55 +92,62 @@ function NamePolicy() {
         onChange={(e) => setSearch(e.target.value)}
         placeholder={fullName('name')}
       />
-      {!namePolicyAddress && <Typography>There is no name policy on this network.</Typography>}
-      {isLoading && <Spinner color="accent" />}
-      {isError && (
-        <>
-          <Typography color="red" data-testid="name-policy-load-failed">
-            The names can&apos;t be read now.
+      {match({ data, isError })
+        .with({ data: null }, () => (
+          <Typography data-testid="name-policy-none">
+            There is no name policy on this network.
           </Typography>
-          <div>
-            <Button size="small" colorStyle="accentSecondary" onClick={() => refetch()}>
-              Try again
-            </Button>
-          </div>
-        </>
-      )}
-      {data && (
-        <Lists>
-          <Card>
-            <Section>
-              <Typography fontVariant="largeBold">Reserved names</Typography>
-              <Typography color="grey" data-testid="name-policy-reserved-count">
-                {countText(reserved.length, data.reserved.length, query)}
-              </Typography>
-              <List data-testid="name-policy-reserved">
-                {reserved.map(({ name, reason }) => (
-                  <Row key={name}>
-                    <Typography>{fullName(name)}</Typography>
-                    <Tag colorStyle="greySecondary">{REASONS[reason] ?? reason}</Tag>
-                  </Row>
-                ))}
-              </List>
-            </Section>
-          </Card>
-          <Card>
-            <Section>
-              <Typography fontVariant="largeBold">Community names</Typography>
-              <Typography color="grey" data-testid="name-policy-community-count">
-                {countText(community.length, data.community.length, query)}
-              </Typography>
-              <List data-testid="name-policy-community">
-                {community.map((name) => (
-                  <Row key={name}>
-                    <Typography>{fullName(name)}</Typography>
-                  </Row>
-                ))}
-              </List>
-            </Section>
-          </Card>
-        </Lists>
-      )}
+        ))
+        .with({ isError: true, data: undefined }, () => (
+          <>
+            <Typography color="red" data-testid="name-policy-load-failed">
+              The names can&apos;t be read now.
+            </Typography>
+            <div>
+              <Button size="small" colorStyle="accentSecondary" onClick={() => refetch()}>
+                Try again
+              </Button>
+            </div>
+          </>
+        ))
+        .with({ data: P.nonNullable }, ({ data: names }) => (
+          <Lists>
+            <Card>
+              <Section>
+                <Typography fontVariant="largeBold">Reserved names</Typography>
+                <Typography color="grey" data-testid="name-policy-reserved-count">
+                  {countText(reserved.length, names.reserved.length, query)}
+                </Typography>
+                <List data-testid="name-policy-reserved">
+                  {reserved.map(({ name, reason }) => (
+                    <Row key={name}>
+                      <Typography>{fullName(name)}</Typography>
+                      <Tag colorStyle="greySecondary">{REASON_LABELS[reason] ?? reason}</Tag>
+                    </Row>
+                  ))}
+                </List>
+              </Section>
+            </Card>
+            <Card>
+              <Section>
+                <Typography fontVariant="largeBold">Community names</Typography>
+                <Typography color="grey" data-testid="name-policy-community-count">
+                  {countText(community.length, names.community.length, query)}
+                </Typography>
+                <List data-testid="name-policy-community">
+                  {community.map((name) => (
+                    <Row key={name}>
+                      <Typography>{fullName(name)}</Typography>
+                    </Row>
+                  ))}
+                </List>
+              </Section>
+            </Card>
+          </Lists>
+        ))
+        .otherwise(() => (
+          <Spinner color="accent" />
+        ))}
     </>
   )
 }

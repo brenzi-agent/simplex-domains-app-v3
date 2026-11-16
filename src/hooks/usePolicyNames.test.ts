@@ -34,7 +34,7 @@ describe('getPolicyNamesQueryFn', () => {
     vi.clearAllMocks()
   })
 
-  it("replays the policy's name events in order, from its first block", async () => {
+  it("replays the policy's name events in order, from the chain's first block", async () => {
     mockGetLogs.mockResolvedValue([
       log('ReservedNameAdded', 'simplex', 1),
       log('ReservedNameAdded', 'brand', 2),
