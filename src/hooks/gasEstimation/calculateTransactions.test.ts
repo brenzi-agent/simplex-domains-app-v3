@@ -20,7 +20,7 @@ const baseParams = {
 } as unknown as Parameters<typeof calculateTransactions>[0]['registrationParams']
 
 describe('calculateTransactions', () => {
-  it('overrides commitments[commitment] at slot 160 with a commitment five minutes old', () => {
+  it('overrides commitments[commitment] at slot 160 with the given timestamp', () => {
     const result = calculateTransactions({
       registrationParams: baseParams,
       ethRegistrarControllerAddress: '0x000000000000000000000000000000000000ca11',
