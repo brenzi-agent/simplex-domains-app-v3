@@ -234,7 +234,7 @@ const estimateIndividualGas = async <TName extends TransactionName>({
     .then((g) => hexToBigInt(g))
     .catch((err) => {
       // E5: the register estimate relies on a hardcoded storage-slot override
-      // (calculateTransactions.ts, slot 260) to make the commitment look old enough. If
+      // (calculateTransactions.ts) to make the commitment look old enough. If
       // that slot ever drifts (e.g. a SimplexController upgrade reorders storage), the
       // override misses and this estimate reverts CommitmentNotFound — which must not
       // block the pricing step, because the real register tx (which has a genuine

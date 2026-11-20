@@ -20,21 +20,6 @@ const baseParams = {
 } as unknown as Parameters<typeof calculateTransactions>[0]['registrationParams']
 
 describe('calculateTransactions', () => {
-  // BINDING — DO NOT CHANGE WITHOUT MATCHING CONTRACT CHANGE.
-  //
-  // SimplexController is UUPS-upgradeable on OpenZeppelin v4.9.3. The
-  // inheritance chain (Initializable + ContextUpgradeable + OwnableUpgradeable
-  // + Ownable2StepUpgradeable + ERC1967UpgradeUpgradeable + UUPSUpgradeable)
-  // consumes 251 storage slots of __gap padding + owner state before any of
-  // the controller's own variables. `commitments` is declared 10th in
-  // SimplexController.sol (after ens, base, minCommitmentAge,
-  // maxCommitmentAge, reverseRegistrar, defaultReverseRegistrar, prices,
-  // tldNode, tldSuffix), so it lands at slot 260. Verified on mainnet via
-  // eth_getStorageAt.
-  //
-  // Symptom of getting this wrong: `eth_estimateGas` for the register tx
-  // reverts during state-override simulation, the gas estimate is treated as
-  // 0n, and the user sees "0.0000 ETH" as the network fee.
   it('writes the simulated commitment to commitments-mapping slot 160, not slot 1 (upstream ENS)', () => {
     const result = calculateTransactions({
       registrationParams: baseParams,
