@@ -32,6 +32,7 @@ const NAME_POLICY = '0x4444444444444444444444444444444444444444'
 const COMMIT = 'ab'.repeat(20)
 const DIGEST = 'cd'.repeat(32)
 const LINK = `https://git.simplex.chat/simplex-chat/simplex-chat/raw/commit/${COMMIT}/general-terms.md#sha256=${DIGEST}`
+const GITHUB_LINK = `https://raw.githubusercontent.com/simplex-chat/simplex-chat/${COMMIT}/general-terms.md#sha256=${DIGEST}`
 
 const reads: Record<string, unknown> = {
   owner: OWNER,
@@ -80,15 +81,17 @@ describe('admin page', () => {
   })
 
   it.each([
-    ['admin-general-terms', 'setGeneralTerms'],
-    ['admin-community-terms', 'setCommunityTerms'],
-  ])('sends the link from %s with %s', async (testId, functionName) => {
+    ['admin-general-terms', 'setGeneralTerms', LINK],
+    ['admin-community-terms', 'setCommunityTerms', LINK],
+    ['admin-general-terms', 'setGeneralTerms', GITHUB_LINK],
+    ['admin-community-terms', 'setCommunityTerms', GITHUB_LINK],
+  ])('sends the link from %s with %s: %s', async (testId, functionName, link) => {
     connect(OWNER)
     render(<Page />)
-    await userEvent.type(await screen.findByTestId(`${testId}-input`), LINK)
+    await userEvent.type(await screen.findByTestId(`${testId}-input`), link)
     await userEvent.click(screen.getByTestId(`${testId}-set`))
     expect(writeContract).toHaveBeenCalledWith(
-      expect.objectContaining({ address: NAME_POLICY, functionName, args: [LINK] }),
+      expect.objectContaining({ address: NAME_POLICY, functionName, args: [link] }),
     )
   })
 })

@@ -44,6 +44,7 @@ const BOM = [0xef, 0xbb, 0xbf]
 const BYTES = new Uint8Array([...BOM, ...Array.from('# Terms\r\n', (c) => c.charCodeAt(0))])
 const DIGEST = sha256(BYTES).slice(2)
 const LINK = `https://git.simplex.chat/simplex-chat/simplex-chat/raw/commit/${COMMIT}/docs/general-terms.md#sha256=${DIGEST}`
+const GITHUB_LINK = `https://raw.githubusercontent.com/simplex-chat/simplex-chat/${COMMIT}/docs/NAMES-TERMS-GENERAL.md#sha256=${DIGEST}`
 const LOOPBACK = `http://127.0.0.1:8098/terms/general-terms.md#sha256=${DIGEST}`
 
 const mockReadContract = vi.mocked(readContract)
@@ -82,11 +83,20 @@ afterEach(() => {
 })
 
 describe('parseTermsLink', () => {
-  it('reads a commit link from the GitHub mirror, links its reader page and hashes the link', () => {
+  it('reads a git.simplex.chat commit link from the GitHub mirror, links its reader page and hashes the link', () => {
     expect(parseTermsLink(LINK, 1)).toEqual({
       hash: keccak256(stringToBytes(LINK)),
       textUrl: `https://raw.githubusercontent.com/simplex-chat/simplex-chat/${COMMIT}/docs/general-terms.md`,
       readerUrl: `https://git.simplex.chat/simplex-chat/simplex-chat/src/commit/${COMMIT}/docs/general-terms.md`,
+      digest: `0x${DIGEST}`,
+    })
+  })
+
+  it('reads a GitHub commit link from GitHub, links its GitHub page and hashes the link', () => {
+    expect(parseTermsLink(GITHUB_LINK, 1)).toEqual({
+      hash: keccak256(stringToBytes(GITHUB_LINK)),
+      textUrl: `https://raw.githubusercontent.com/simplex-chat/simplex-chat/${COMMIT}/docs/NAMES-TERMS-GENERAL.md`,
+      readerUrl: `https://github.com/simplex-chat/simplex-chat/blob/${COMMIT}/docs/NAMES-TERMS-GENERAL.md`,
       digest: `0x${DIGEST}`,
     })
   })
@@ -117,6 +127,19 @@ describe('parseTermsLink', () => {
     ['a query', LINK.replace('.md', '.md?raw=1')],
     ['another extension', LINK.replace('.md', '.txt')],
     ['an empty link', ''],
+    [
+      'a GitHub page',
+      GITHUB_LINK.replace(
+        'raw.githubusercontent.com/simplex-chat/simplex-chat/',
+        'github.com/simplex-chat/simplex-chat/blob/',
+      ),
+    ],
+    ['a GitHub branch', GITHUB_LINK.replace(COMMIT, 'stable')],
+    [
+      'another GitHub repository',
+      GITHUB_LINK.replace('simplex-chat/simplex-chat', 'simplex-chat/simplexmq'),
+    ],
+    ['a GitHub link without a digest', GITHUB_LINK.split('#')[0]],
   ])('refuses %s', (_, link) => {
     expect(parseTermsLink(link, 1337)).toBeUndefined()
   })
