@@ -166,12 +166,9 @@ describe('<AvatarUpload />', () => {
     fireEvent.click(screen.getByTestId('continue-button'))
     fireEvent.click(screen.getByTestId('upload-button'))
 
-    await waitFor(() => expect(global.fetch).toBeCalled())
-    await waitFor(() => expect(mockHandleSubmit).not.toHaveBeenCalled())
-
-    expect(screen.getByTestId('avatar-upload-error')).toBeVisible()
-    expect(screen.getByTestId('avatar-upload-error')).toHaveTextContent(
-      'Upload failed with status 500',
-    )
+    const error = await screen.findByTestId('avatar-upload-error')
+    expect(error).toBeVisible()
+    expect(error).toHaveTextContent('Upload failed with status 500')
+    expect(mockHandleSubmit).not.toHaveBeenCalled()
   })
 })
