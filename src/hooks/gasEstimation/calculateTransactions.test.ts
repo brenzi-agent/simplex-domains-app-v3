@@ -35,7 +35,7 @@ describe('calculateTransactions', () => {
   // Symptom of getting this wrong: `eth_estimateGas` for the register tx
   // reverts during state-override simulation, the gas estimate is treated as
   // 0n, and the user sees "0.0000 ETH" as the network fee.
-  it('writes the simulated commitment to commitments-mapping slot 260, not slot 1 (upstream ENS)', () => {
+  it('writes the simulated commitment to commitments-mapping slot 160, not slot 1 (upstream ENS)', () => {
     const result = calculateTransactions({
       registrationParams: baseParams,
       ethRegistrarControllerAddress: '0x000000000000000000000000000000000000ca11',
@@ -47,7 +47,7 @@ describe('calculateTransactions', () => {
     const registerTx = result!.find((t) => t.name === 'registerName')
     expect(registerTx).toBeDefined()
     const controllerOverride = registerTx!.stateOverride![0]
-    expect(controllerOverride.stateDiff![0].slot).toBe(260)
+    expect(controllerOverride.stateDiff![0].slot).toBe(160)
   })
 
   it('returns null when any required input is missing', () => {
@@ -77,7 +77,7 @@ describe('calculateTransactions', () => {
     ).toBeNull()
   })
 
-  it('commits through the name policy and simulates the acceptance at acceptedTerms, slot 103', () => {
+  it('commits through the name policy and simulates the acceptance at acceptedTerms, slot 2', () => {
     const terms = { kind: 'community', hash: `0x${'77'.repeat(32)}` } as const
     const namePolicyAddress = '0x0000000000000000000000000000000000004444'
     const result = calculateTransactions({
@@ -94,7 +94,7 @@ describe('calculateTransactions', () => {
     const acceptedTermsSlot = keccak256(
       encodeAbiParameters(
         [{ type: 'bytes32' }, { type: 'uint256' }],
-        [makeCommitment(baseParams!), 103n],
+        [makeCommitment(baseParams!), 2n],
       ),
     )
     const acceptedTermsKey = keccak256(
