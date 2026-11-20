@@ -101,6 +101,7 @@ describe('<AvatarUpload />', () => {
     mockUseChainName.mockImplementation(() => 'sepolia')
     global.fetch = vi.fn().mockImplementation(() =>
       Promise.resolve({
+        ok: true,
         json: () => ({ message: 'uploaded' }),
       }),
     )
@@ -132,6 +133,8 @@ describe('<AvatarUpload />', () => {
     mockHandleSubmit.mockClear()
     global.fetch = vi.fn().mockImplementation(() =>
       Promise.resolve({
+        ok: false,
+        status: 500,
         json: () => ({ error: 'failed', status: 500 }),
       }),
     )
@@ -147,6 +150,8 @@ describe('<AvatarUpload />', () => {
     mockHandleSubmit.mockClear()
     global.fetch = vi.fn().mockImplementation(() =>
       Promise.resolve({
+        ok: false,
+        status: 500,
         json: () => ({ error: 'failed', status: 500 }),
       }),
     )
@@ -159,6 +164,8 @@ describe('<AvatarUpload />', () => {
     await waitFor(() => expect(mockHandleSubmit).not.toHaveBeenCalled())
 
     expect(screen.getByTestId('avatar-upload-error')).toBeVisible()
-    expect(screen.getByTestId('avatar-upload-error')).toHaveTextContent('failed')
+    expect(screen.getByTestId('avatar-upload-error')).toHaveTextContent(
+      'Upload failed with status 500',
+    )
   })
 })
