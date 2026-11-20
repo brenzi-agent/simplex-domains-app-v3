@@ -61,6 +61,7 @@ describe('<AvatarUpload />', () => {
   it('calls handleSubmit with correct data if upload is successful', async () => {
     global.fetch = vi.fn().mockImplementation(() =>
       Promise.resolve({
+        ok: true,
         json: () => ({ message: 'uploaded' }),
       }),
     )
@@ -74,6 +75,7 @@ describe('<AvatarUpload />', () => {
     await waitFor(() =>
       expect(global.fetch).toBeCalledWith('https://euc.li/test.eth', {
         method: 'PUT',
+        signal: expect.any(AbortSignal),
         headers: {
           // eslint-disable-next-line @typescript-eslint/naming-convention
           'Content-Type': 'application/json',
@@ -112,6 +114,7 @@ describe('<AvatarUpload />', () => {
     await waitFor(() =>
       expect(global.fetch).toBeCalledWith('https://euc.li/sepolia/test.eth', {
         method: 'PUT',
+        signal: expect.any(AbortSignal),
         headers: {
           // eslint-disable-next-line @typescript-eslint/naming-convention
           'Content-Type': 'application/json',
