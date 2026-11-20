@@ -8,7 +8,7 @@ import { useEstimateGasWithStateOverride } from '../chain/useEstimateGasWithStat
 
 type ReturnType = null | Parameters<typeof useEstimateGasWithStateOverride>[0]['transactions']
 
-const ACCEPTED_TERMS_SLOT = 103
+const ACCEPTED_TERMS_SLOT = 2
 
 export const calculateTransactions = ({
   registrationParams,
@@ -41,7 +41,7 @@ export const calculateTransactions = ({
     address: ethRegistrarControllerAddress as Address,
     stateDiff: [
       {
-        slot: 260,
+        slot: 160,
         keys: [commitment],
         value: BigInt(fiveMinutesAgoInSeconds),
       },
