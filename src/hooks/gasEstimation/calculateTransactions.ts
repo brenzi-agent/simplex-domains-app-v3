@@ -28,15 +28,6 @@ export const calculateTransactions = ({
   if (!registrationParams || !ethRegistrarControllerAddress || !price) return null
   const commitment = makeCommitment(registrationParams)
 
-  // SimplexController is UUPS-upgradeable and inherits Initializable +
-  // Ownable2StepUpgradeable + UUPSUpgradeable (all OZ v4.9.3). That stack
-  // consumes 251 storage slots of __gap padding + owner/initializer state
-  // before any of the controller's own variables. `commitments` is the 10th
-  // variable declared in SimplexController, so it lives at slot 251 + 9 =
-  // 260. Upstream ENS's `ETHRegistrarController` keeps those vars as
-  // immutables (no storage) and lands `commitments` at slot 1; we don't.
-  // If state vars get inserted before `commitments` in SimplexController,
-  // bump this constant in lockstep. Verified on mainnet via eth_getStorageAt.
   const registrationStateOverride = {
     address: ethRegistrarControllerAddress as Address,
     stateDiff: [
