@@ -81,10 +81,10 @@ describe('admin page', () => {
   })
 
   it.each([
-    ['admin-general-terms', 'setGeneralTerms', LINK],
-    ['admin-community-terms', 'setCommunityTerms', LINK],
-    ['admin-general-terms', 'setGeneralTerms', GITHUB_LINK],
-  ])('sends the link from %s with %s: %s', async (testId, functionName, link) => {
+    ['git.simplex.chat', 'admin-general-terms', 'setGeneralTerms', LINK],
+    ['git.simplex.chat', 'admin-community-terms', 'setCommunityTerms', LINK],
+    ['GitHub', 'admin-general-terms', 'setGeneralTerms', GITHUB_LINK],
+  ])('sends the %s link from %s with %s', async (_, testId, functionName, link) => {
     connect(OWNER)
     render(<Page />)
     await userEvent.type(await screen.findByTestId(`${testId}-input`), link)

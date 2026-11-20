@@ -210,7 +210,7 @@ const TermsSettings = ({
           value={newLink}
           onChange={(e) => setNewLink(e.target.value)}
           placeholder="https://raw.githubusercontent.com/simplex-chat/simplex-chat/…"
-          description="The raw link of one file at one commit on raw.githubusercontent.com or git.simplex.chat, ending #sha256= and the sha256 of the file."
+          description="The raw link of one file at a full commit hash on raw.githubusercontent.com or git.simplex.chat, ending #sha256= and the sha256 of the file."
           error={newLinkError}
         />
         <Button

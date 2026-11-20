@@ -21,12 +21,11 @@ export const parseTermsLink = (link: string, chainId: number) => {
   const [, forgejoCommit, githubCommit, path, digest] = TERMS_LINK.exec(link) ?? []
   if (!path || path.split('/').some((segment) => ['', '.', '..'].includes(segment)))
     return undefined
-  const commit = forgejoCommit ?? githubCommit
+  const [commit, readerPages] = forgejoCommit
+    ? [forgejoCommit, 'https://git.simplex.chat/simplex-chat/simplex-chat/src/commit']
+    : [githubCommit, 'https://github.com/simplex-chat/simplex-chat/blob']
   if (!commit && chainId !== localhost.id) return undefined
   const url = link.slice(0, link.indexOf('#'))
-  const readerPages = forgejoCommit
-    ? 'https://git.simplex.chat/simplex-chat/simplex-chat/src/commit'
-    : 'https://github.com/simplex-chat/simplex-chat/blob'
   return {
     hash: keccak256(stringToBytes(link)),
     textUrl: commit
