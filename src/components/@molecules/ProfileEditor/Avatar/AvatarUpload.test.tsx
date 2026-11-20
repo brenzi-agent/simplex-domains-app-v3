@@ -128,6 +128,14 @@ describe('<AvatarUpload />', () => {
         }),
       }),
     )
+
+    await waitFor(() =>
+      expect(mockHandleSubmit).toHaveBeenCalledWith(
+        'upload',
+        'https://euc.li/sepolia/test.eth',
+        mockFileDataURL,
+      ),
+    )
   })
   it('does not call handleSubmit if upload is unsuccessful', async () => {
     mockHandleSubmit.mockClear()
@@ -135,7 +143,6 @@ describe('<AvatarUpload />', () => {
       Promise.resolve({
         ok: false,
         status: 500,
-        json: () => ({ error: 'failed', status: 500 }),
       }),
     )
 
@@ -152,7 +159,6 @@ describe('<AvatarUpload />', () => {
       Promise.resolve({
         ok: false,
         status: 500,
-        json: () => ({ error: 'failed', status: 500 }),
       }),
     )
 
