@@ -1,4 +1,4 @@
-import { encodeAbiParameters, keccak256 } from 'viem'
+import { encodeAbiParameters, keccak256, pad, toHex } from 'viem'
 import { describe, expect, it } from 'vitest'
 
 import { makeCommitment } from '@ensdomains/ensjs/utils'
@@ -20,7 +20,7 @@ const baseParams = {
 } as unknown as Parameters<typeof calculateTransactions>[0]['registrationParams']
 
 describe('calculateTransactions', () => {
-  it('writes the simulated commitment to commitments-mapping slot 160, not slot 1 (upstream ENS)', () => {
+  it('overrides commitments[commitment] at slot 160 with a commitment five minutes old', () => {
     const result = calculateTransactions({
       registrationParams: baseParams,
       ethRegistrarControllerAddress: '0x000000000000000000000000000000000000ca11',
@@ -28,11 +28,16 @@ describe('calculateTransactions', () => {
       price: { base: 0n, premium: 0n },
     })
 
-    expect(result).not.toBeNull()
     const registerTx = result!.find((t) => t.name === 'registerName')
-    expect(registerTx).toBeDefined()
-    const controllerOverride = registerTx!.stateOverride![0]
-    expect(controllerOverride.stateDiff![0].slot).toBe(160)
+    const commitmentKey = keccak256(
+      encodeAbiParameters(
+        [{ type: 'bytes32' }, { type: 'uint256' }],
+        [makeCommitment(baseParams!), 160n],
+      ),
+    )
+    expect(mapUserState(registerTx!.stateOverride![0].stateDiff!)).toEqual({
+      [commitmentKey]: pad(toHex(1_700_000_000n)),
+    })
   })
 
   it('returns null when any required input is missing', () => {
