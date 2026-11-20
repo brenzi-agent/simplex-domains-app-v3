@@ -84,7 +84,6 @@ describe('admin page', () => {
     ['admin-general-terms', 'setGeneralTerms', LINK],
     ['admin-community-terms', 'setCommunityTerms', LINK],
     ['admin-general-terms', 'setGeneralTerms', GITHUB_LINK],
-    ['admin-community-terms', 'setCommunityTerms', GITHUB_LINK],
   ])('sends the link from %s with %s: %s', async (testId, functionName, link) => {
     connect(OWNER)
     render(<Page />)

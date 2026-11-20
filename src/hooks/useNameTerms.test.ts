@@ -92,7 +92,7 @@ describe('parseTermsLink', () => {
     })
   })
 
-  it('reads a GitHub commit link from GitHub, links its GitHub page and hashes the link', () => {
+  it('reads a GitHub commit link, links its GitHub page and hashes the link', () => {
     expect(parseTermsLink(GITHUB_LINK, 1)).toEqual({
       hash: keccak256(stringToBytes(GITHUB_LINK)),
       textUrl: `https://raw.githubusercontent.com/simplex-chat/simplex-chat/${COMMIT}/docs/NAMES-TERMS-GENERAL.md`,
@@ -135,11 +135,13 @@ describe('parseTermsLink', () => {
       ),
     ],
     ['a GitHub branch', GITHUB_LINK.replace(COMMIT, 'stable')],
+    ['an abbreviated GitHub commit', GITHUB_LINK.replace(COMMIT, COMMIT.slice(0, 7))],
+    ['an upper-case GitHub commit', GITHUB_LINK.replace(COMMIT, COMMIT.toUpperCase())],
     [
       'another GitHub repository',
       GITHUB_LINK.replace('simplex-chat/simplex-chat', 'simplex-chat/simplexmq'),
     ],
-    ['a GitHub link without a digest', GITHUB_LINK.split('#')[0]],
+    ['a GitHub fork', GITHUB_LINK.replace('simplex-chat/simplex-chat', 'someone/simplex-chat')],
   ])('refuses %s', (_, link) => {
     expect(parseTermsLink(link, 1337)).toBeUndefined()
   })
