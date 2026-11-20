@@ -150,8 +150,9 @@ describe('<AvatarUpload />', () => {
     fireEvent.click(screen.getByTestId('continue-button'))
     fireEvent.click(screen.getByTestId('upload-button'))
 
-    await waitFor(() => expect(global.fetch).toBeCalled())
-    await waitFor(() => expect(mockHandleSubmit).not.toHaveBeenCalled())
+    await screen.findByTestId('avatar-upload-error')
+    expect(global.fetch).toBeCalled()
+    expect(mockHandleSubmit).not.toHaveBeenCalled()
   })
   it('shows error when upload fails', async () => {
     mockHandleSubmit.mockClear()
