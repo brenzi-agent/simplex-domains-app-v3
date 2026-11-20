@@ -44,7 +44,7 @@ const BOM = [0xef, 0xbb, 0xbf]
 const BYTES = new Uint8Array([...BOM, ...Array.from('# Terms\r\n', (c) => c.charCodeAt(0))])
 const DIGEST = sha256(BYTES).slice(2)
 const LINK = `https://git.simplex.chat/simplex-chat/simplex-chat/raw/commit/${COMMIT}/docs/general-terms.md#sha256=${DIGEST}`
-const GITHUB_LINK = `https://raw.githubusercontent.com/simplex-chat/simplex-chat/${COMMIT}/docs/NAMES-TERMS-GENERAL.md#sha256=${DIGEST}`
+const GITHUB_LINK = `https://raw.githubusercontent.com/simplex-chat/simplex-chat/${COMMIT}/docs/NAMES-CONDITIONS.md#sha256=${DIGEST}`
 const LOOPBACK = `http://127.0.0.1:8098/terms/general-terms.md#sha256=${DIGEST}`
 
 const mockReadContract = vi.mocked(readContract)
@@ -95,8 +95,8 @@ describe('parseTermsLink', () => {
   it('reads a GitHub commit link, links its GitHub page and hashes the link', () => {
     expect(parseTermsLink(GITHUB_LINK, 1)).toEqual({
       hash: keccak256(stringToBytes(GITHUB_LINK)),
-      textUrl: `https://raw.githubusercontent.com/simplex-chat/simplex-chat/${COMMIT}/docs/NAMES-TERMS-GENERAL.md`,
-      readerUrl: `https://github.com/simplex-chat/simplex-chat/blob/${COMMIT}/docs/NAMES-TERMS-GENERAL.md`,
+      textUrl: `https://raw.githubusercontent.com/simplex-chat/simplex-chat/${COMMIT}/docs/NAMES-CONDITIONS.md`,
+      readerUrl: `https://github.com/simplex-chat/simplex-chat/blob/${COMMIT}/docs/NAMES-CONDITIONS.md`,
       digest: `0x${DIGEST}`,
     })
   })
