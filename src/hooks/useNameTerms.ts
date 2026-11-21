@@ -13,14 +13,17 @@ import { getSnrcTokenId } from '@app/utils/snrcOffers'
 import { useQueryOptions } from './useQueryOptions'
 
 const TERMS_LINK =
-  /^(?:https:\/\/git\.simplex\.chat\/simplex-chat\/simplex-chat\/raw\/commit\/([0-9a-f]{40})|http:\/\/127\.0\.0\.1:[0-9]{1,5})\/([A-Za-z0-9_./-]+\.md)#sha256=([0-9a-f]{64})$/
+  /^(?:https:\/\/git\.simplex\.chat\/simplex-chat\/simplex-chat\/raw\/commit\/([0-9a-f]{40})|https:\/\/raw\.githubusercontent\.com\/simplex-chat\/simplex-chat\/([0-9a-f]{40})|http:\/\/127\.0\.0\.1:[0-9]{1,5})\/([A-Za-z0-9_./-]+\.md)#sha256=([0-9a-f]{64})$/
 const TERMS_CONTENT_TYPE = /^text\/(?:plain|markdown)(?:;\s*charset=utf-8)?$/i
 const MAX_TERMS_BYTES = 256 * 1024
 
 export const parseTermsLink = (link: string, chainId: number) => {
-  const [, commit, path, digest] = TERMS_LINK.exec(link) ?? []
+  const [, forgejoCommit, githubCommit, path, digest] = TERMS_LINK.exec(link) ?? []
   if (!path || path.split('/').some((segment) => ['', '.', '..'].includes(segment)))
     return undefined
+  const [commit, readerPages] = forgejoCommit
+    ? [forgejoCommit, 'https://git.simplex.chat/simplex-chat/simplex-chat/src/commit']
+    : [githubCommit, 'https://github.com/simplex-chat/simplex-chat/blob']
   if (!commit && chainId !== localhost.id) return undefined
   const url = link.slice(0, link.indexOf('#'))
   return {
@@ -28,7 +31,7 @@ export const parseTermsLink = (link: string, chainId: number) => {
     textUrl: commit
       ? `https://raw.githubusercontent.com/simplex-chat/simplex-chat/${commit}/${path}`
       : url,
-    readerUrl: commit ? url.replace('/raw/commit/', '/src/commit/') : undefined,
+    readerUrl: commit ? `${readerPages}/${commit}/${path}` : undefined,
     digest: `0x${digest}` as const,
   }
 }
