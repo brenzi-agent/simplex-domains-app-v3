@@ -128,7 +128,7 @@ export const NameTerms = ({ terms, acceptance }: Props) => (
             <TermsText data-testid="terms-text" text={text} />
             {readerUrl && (
               <Outlink href={readerUrl} data-testid="terms-reader">
-                View this version on git.simplex.chat
+                View this version
               </Outlink>
             )}
             <CheckboxRow

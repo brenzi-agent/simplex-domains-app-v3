@@ -209,8 +209,8 @@ const TermsSettings = ({
           data-testid={`${testId}-input`}
           value={newLink}
           onChange={(e) => setNewLink(e.target.value)}
-          placeholder="https://git.simplex.chat/simplex-chat/simplex-chat/raw/commit/…"
-          description="One file at one commit, ending #sha256= and the sha256 of the file."
+          placeholder="https://raw.githubusercontent.com/simplex-chat/simplex-chat/…"
+          description="The raw link of one file at a full commit hash on raw.githubusercontent.com or git.simplex.chat, ending #sha256= and the sha256 of the file."
           error={newLinkError}
         />
         <Button
