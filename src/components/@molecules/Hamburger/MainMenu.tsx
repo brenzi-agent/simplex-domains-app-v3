@@ -27,7 +27,7 @@ import { SocialIcon } from '@app/components/SocialIcon'
 import { useChainName } from '@app/hooks/chain/useChainName'
 import { useGasPrice } from '@app/hooks/chain/useGasPrice'
 import { useReadLocalStorage } from '@app/hooks/useLocalStorage'
-import { routes } from '@app/routes'
+import { getRoute, routes } from '@app/routes'
 import { SIMPLEX_LINKS } from '@app/utils/constants'
 import { makeDisplay } from '@app/utils/currency'
 import { useGraphOutOfSync } from '@app/utils/SyncProvider/SyncProvider'
@@ -232,6 +232,13 @@ export const NetworkSection = () => {
         <Typography id="chain-name" weight="bold" color="text">
           {chainName}
         </Typography>
+        <BaseLink href={getRoute('admin').href} passHref>
+          <a>
+            <Typography weight="bold" color="text">
+              {`.${process.env.NEXT_PUBLIC_SIMPLEX_TLD || 'testing'} TLD`}
+            </Typography>
+          </a>
+        </BaseLink>
         {!!gasPrice && (
           <Typography color="grey">
             {makeDisplay({
