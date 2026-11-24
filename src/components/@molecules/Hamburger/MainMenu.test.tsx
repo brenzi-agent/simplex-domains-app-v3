@@ -1,4 +1,4 @@
-import { mockFunction, render, screen, userEvent, waitFor } from '@app/test-utils'
+import { mockFunction, render, screen, userEvent } from '@app/test-utils'
 
 import mockRouter from 'next-router-mock'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -37,10 +37,10 @@ describe('NetworkSection', () => {
       Node.DOCUMENT_POSITION_FOLLOWING,
     )
     await userEvent.click(tld)
-    await waitFor(() => expect(mockRouter.asPath).toBe('/admin'))
+    expect(mockRouter.asPath).toBe('/admin')
   })
 
-  it('the testing TLD is shown when the deployment sets none', () => {
+  it('the testing TLD is shown when NEXT_PUBLIC_SIMPLEX_TLD is empty', () => {
     vi.stubEnv('NEXT_PUBLIC_SIMPLEX_TLD', '')
     render(<NetworkSection />)
     expect(screen.getByText('.testing TLD')).toBeInTheDocument()
