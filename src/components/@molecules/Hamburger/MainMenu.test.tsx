@@ -9,9 +9,6 @@ import { useGraphOutOfSync } from '@app/utils/SyncProvider/SyncProvider'
 
 import { NetworkSection } from './MainMenu'
 
-vi.mock('next/router', () => ({
-  useRouter: () => ({ query: {} }),
-}))
 vi.mock('@app/hooks/chain/useChainName')
 vi.mock('@app/hooks/chain/useGasPrice')
 vi.mock('@app/hooks/useRouterWithHistory')
