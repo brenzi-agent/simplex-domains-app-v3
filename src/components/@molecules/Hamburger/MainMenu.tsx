@@ -219,7 +219,7 @@ const NetworkSectionRow = styled.div(
   `,
 )
 
-const NetworkSection = () => {
+export const NetworkSection = () => {
   const { t } = useTranslation('common')
   const graphOutOfSync = useGraphOutOfSync()
   const chainName = useChainName()
