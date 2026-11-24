@@ -40,8 +40,8 @@ describe('NetworkSection', () => {
     await waitFor(() => expect(mockRouter.asPath).toBe('/admin'))
   })
 
-  it('the TLD of the deployment is shown', () => {
-    vi.stubEnv('NEXT_PUBLIC_SIMPLEX_TLD', 'testing')
+  it('the testing TLD is shown when the deployment sets none', () => {
+    vi.stubEnv('NEXT_PUBLIC_SIMPLEX_TLD', '')
     render(<NetworkSection />)
     expect(screen.getByText('.testing TLD')).toBeInTheDocument()
   })
