@@ -26,7 +26,7 @@ afterEach(() => {
 })
 
 describe('NetworkSection', () => {
-  it('opens the admin page from the TLD between the network and the gas price, shown as text', async () => {
+  it('the admin page is opened by a click on the TLD, shown as text between the network and the gas price', async () => {
     vi.stubEnv('NEXT_PUBLIC_SIMPLEX_TLD', 'simplex')
     render(<NetworkSection />)
     const tld = screen.getByText('.simplex TLD')
@@ -41,7 +41,7 @@ describe('NetworkSection', () => {
     expect(push).toHaveBeenCalledWith('/admin')
   })
 
-  it('names the TLD of the deployment', () => {
+  it('the TLD of the deployment is shown', () => {
     vi.stubEnv('NEXT_PUBLIC_SIMPLEX_TLD', 'testing')
     render(<NetworkSection />)
     expect(screen.getByText('.testing TLD')).toBeInTheDocument()
