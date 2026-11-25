@@ -2,8 +2,8 @@ import { Address, parseEther } from 'viem'
 
 import { makeCommitment, RegistrationParameters } from '@ensdomains/ensjs/utils'
 
+import type { TransactionData } from '@app/transaction-flow/transaction'
 import { Terms } from '@app/utils/snrcNameTerms'
-import { Credit } from '@app/utils/snrcSponsor'
 
 import { useEstimateGasWithStateOverride } from '../chain/useEstimateGasWithStateOverride'
 
@@ -27,7 +27,7 @@ export const calculateTransactions = ({
   namePolicyAddress?: Address
   fiveMinutesAgoInSeconds: number
   price?: { base: bigint; premium: bigint }
-  credit?: Credit
+  credit?: TransactionData<'registerName'>['credit']
 }): ReturnType => {
   if (!registrationParams || !ethRegistrarControllerAddress || !price) return null
   const commitment = makeCommitment(registrationParams)
