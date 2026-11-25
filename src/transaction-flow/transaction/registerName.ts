@@ -46,6 +46,7 @@ const transaction = async ({
       registrationParams: data,
       intent: credit.intents?.register,
     })
+    if (!address) throw new Error(`No SimplexSponsor address on chain ${client.chain.id}`)
     return { to: address, data: encodeFunctionData(call) }
   }
   const price = await getPrice(client, { nameOrNames: data.name, duration: data.duration })

@@ -32,7 +32,7 @@ export const makeRegisterWithCreditCall = ({
   intent?: Intent
 }) =>
   ({
-    address: getSponsorAddress(chainId)!,
+    address: getSponsorAddress(chainId),
     abi: sponsorAbi,
     functionName: 'registerWithCredit',
     args: [

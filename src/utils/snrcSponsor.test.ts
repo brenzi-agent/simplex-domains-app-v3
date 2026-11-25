@@ -72,8 +72,18 @@ describe('the sponsored registration', () => {
   })
 
   it.each([
-    ['InsufficientAllowance', 'error InsufficientAllowance(uint256 required, uint256 available)', [2n, 1n]],
+    [
+      'InsufficientAllowance',
+      'error InsufficientAllowance(uint256 required, uint256 available)',
+      [2n, 1n],
+    ],
     ['DisputeDaysOutOfRange', 'error DisputeDaysOutOfRange(uint256 disputeDays)', [200n]],
+    ['DisputePeriodOver', 'error DisputePeriodOver(uint256 id)', [1n]],
+    [
+      'DisputeUntilMismatch',
+      'error DisputeUntilMismatch(uint256 named, uint256 current)',
+      [1n, 2n],
+    ],
   ] as const)('names a %s revert', (errorName, signature, args) => {
     const data = encodeErrorResult({ abi: parseAbi([signature]), errorName, args } as never)
     const error = new BaseError('reverted', { cause: new RawContractError({ data }) })

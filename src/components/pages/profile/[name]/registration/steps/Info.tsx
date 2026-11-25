@@ -16,6 +16,7 @@ import { signingErrorMessage } from '@app/utils/snrcIntents'
 import { isSignedFor } from '@app/utils/snrcSponsor'
 
 import AllowanceInvoice from '../AllowanceInvoice'
+import AllowanceTooLowButton from '../AllowanceTooLowButton'
 import FullInvoice from '../FullInvoice'
 import { BackObj, RegistrationReducerDataItem, RegistrationStepData } from '../types'
 
@@ -119,7 +120,11 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
     name,
     registrationData,
   })
-  const { covers } = useRegistrarAllowance({ name, seconds: registrationData.seconds })
+  const { allowance, price, covers } = useRegistrarAllowance({
+    name,
+    seconds: registrationData.seconds,
+  })
+  const readsAllowance = !!registrationData.credit && covers === undefined
 
   const { address } = useAccountSafely()
   const { credit, terms } = registrationData
@@ -158,8 +163,9 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
       </InfoItems>
       {registrationData.credit ? (
         <AllowanceInvoice
-          name={name}
           seconds={registrationData.seconds}
+          allowance={allowance}
+          price={price}
           estimatedGasFee={estimate.estimatedGasLoading ? undefined : estimate.estimatedGasFee}
         />
       ) : (
@@ -190,14 +196,12 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
         </MobileFullWidth>
         <MobileFullWidth>
           {registrationData.credit && covers === false ? (
-            <Button data-testid="next-button" disabled>
-              {t('steps.pricing.allowanceTooLow')}
-            </Button>
+            <AllowanceTooLowButton />
           ) : (
             <Button
               data-testid="next-button"
-              loading={signatures.isPending}
-              disabled={signatures.isPending}
+              loading={readsAllowance || signatures.isPending}
+              disabled={readsAllowance || signatures.isPending}
               onClick={begin}
             >
               {t('action.begin', { ns: 'common' })}

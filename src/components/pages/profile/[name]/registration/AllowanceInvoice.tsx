@@ -6,19 +6,18 @@ import {
   Container as InvoiceContainer,
   LineItem as InvoiceLineItem,
 } from '@app/components/@atoms/Invoice/Invoice'
-import { useRegistrarAllowance } from '@app/hooks/useRegistrarAllowance'
 import { makeDisplay } from '@app/utils/currency'
 import { formatDurationOfDates } from '@app/utils/utils'
 
 type Props = {
-  name: string
   seconds: number
+  allowance?: bigint
+  price?: { base: bigint; premium: bigint }
   estimatedGasFee?: bigint
 }
 
-const AllowanceInvoice = ({ name, seconds, estimatedGasFee }: Props) => {
+const AllowanceInvoice = ({ seconds, allowance, price, estimatedGasFee }: Props) => {
   const { t } = useTranslation(['register', 'common'])
-  const { allowance, price } = useRegistrarAllowance({ name, seconds })
 
   const items = [
     {

@@ -104,6 +104,6 @@ export const getConnectedHolder = ({
 export const useConnectedHolder = ({ name }: UseNameOfferParameters) => {
   const offer = useNameOffer({ name })
   const { addresses } = useAccountSafely()
-  const { data: allowance } = useAccountAllowance()
-  return { offer, ...getConnectedHolder({ offer: offer.data, addresses, allowance }) }
+  const { allowance } = useAccountAllowance()
+  return { offer, ...getConnectedHolder({ offer: offer.data, addresses, allowance: allowance.data }) }
 }
