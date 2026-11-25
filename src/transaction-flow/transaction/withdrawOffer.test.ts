@@ -30,6 +30,34 @@ describe('withdrawOffer', () => {
     })
   })
 
+  it('relays the withdrawal that the holder signed, without an announcement', () => {
+    const intent = {
+      signer: '0x2222222222222222222222222222222222222222',
+      nonce: 1n,
+      deadline: 1_900_000_000n,
+      signature: `0x${'ab'.repeat(65)}`,
+    } as const
+    const tx = withdrawOffer.transaction({
+      client,
+      connectorClient,
+      data: { name: 'alice.testing', intent },
+    })
+    expect(tx.to).toBe(REGISTRAR)
+    expect(decodeFunctionData({ abi: registrarOfferAbi, data: tx.data })).toEqual({
+      functionName: 'approveWithSig',
+      args: [
+        intent.signer,
+        zeroAddress,
+        BigInt(labelhash('alice')),
+        intent.nonce,
+        intent.deadline,
+        intent.signature,
+        '0x',
+        '0x00',
+      ],
+    })
+  })
+
   it('displays the name and the action', () => {
     const t = ((key: string) => key) as never
     expect(withdrawOffer.displayItems({ name: 'alice.testing' }, t)).toEqual([

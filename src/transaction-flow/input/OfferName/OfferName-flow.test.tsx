@@ -4,7 +4,7 @@ import { BaseError, labelhash } from 'viem'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useBytecode, usePublicClient, useSignTypedData } from 'wagmi'
 
-import { useNameOffer } from '@app/hooks/useNameOffer'
+import { useConnectedHolder } from '@app/hooks/useNameOffer'
 
 import { makeMockIntersectionObserver } from '../../../../test/mock/makeMockIntersectionObserver'
 import OfferName from './OfferName-flow'
@@ -42,15 +42,23 @@ vi.mock('@app/components/@molecules/AvatarWithIdentifier/AvatarWithIdentifier', 
 }))
 
 const mockUseBytecode = mockFunction(useBytecode)
-const mockUseNameOffer = mockFunction(useNameOffer)
+const mockUseConnectedHolder = mockFunction(useConnectedHolder)
 const mockDispatch = vi.fn()
 
 makeMockIntersectionObserver()
 
+const connectedHolder = (
+  offer: { data: object; isError?: boolean },
+  relayedHolder?: string,
+) =>
+  mockUseConnectedHolder.mockReturnValue({
+    offer,
+    relayedHolder,
+    isConnectedHolder: true,
+  } as unknown as ReturnType<typeof useConnectedHolder>)
+
 const offerTo = (recipient?: string) =>
-  mockUseNameOffer.mockReturnValue({
-    data: { holder: HOLDER, recipient, isHolder: true, isRecipient: false },
-  } as unknown as ReturnType<typeof useNameOffer>)
+  connectedHolder({ data: { holder: HOLDER, recipient, isHolder: true, isRecipient: false } })
 
 const renderAndSelect = async () => {
   render(
@@ -64,7 +72,11 @@ describe('OfferName', () => {
     vi.clearAllMocks()
     offerTo(undefined)
     mockUseBytecode.mockReturnValue({ data: undefined, isSuccess: true } as never)
-    mockFunction(usePublicClient).mockReturnValue({ chain: { id: 1 }, readContract } as never)
+    mockFunction(usePublicClient).mockReturnValue({
+      chain: { id: 1 },
+      readContract,
+      verifyTypedData: async () => true,
+    } as never)
     mockFunction(useSignTypedData).mockReturnValue({ signTypedDataAsync } as never)
     signTypedDataAsync.mockResolvedValue(`0x${'aa'.repeat(65)}`)
   })
@@ -115,10 +127,7 @@ describe('OfferName', () => {
     expect(screen.getByTestId('offer-name-confirm')).toBeDisabled()
 
     mockUseBytecode.mockReturnValue({ data: undefined, isSuccess: true } as never)
-    mockUseNameOffer.mockReturnValue({
-      data: { holder: HOLDER, isHolder: true, isRecipient: false },
-      isError: true,
-    } as unknown as ReturnType<typeof useNameOffer>)
+    connectedHolder({ data: { holder: HOLDER, isHolder: true, isRecipient: false }, isError: true })
     await userEvent.click(screen.getByText('action.back'))
     await userEvent.click(screen.getByTestId('select-recipient'))
     expect(screen.getByText('input.offerName.failed')).toBeVisible()
@@ -137,11 +146,9 @@ describe('OfferName', () => {
   })
 
   const heldByAnotherConnectedAccount = () =>
-    mockUseNameOffer.mockReturnValue({
-      data: { holder: HOLDER, isHolder: false, isRecipient: false },
-    } as unknown as ReturnType<typeof useNameOffer>)
+    connectedHolder({ data: { holder: HOLDER, isHolder: false, isRecipient: false } }, HOLDER)
 
-  it('has the holder, another connected account, sign the offer for the connected one to send', async () => {
+  it('the holder, another connected account, signs the offer, and the selected account sends it', async () => {
     heldByAnotherConnectedAccount()
     await renderAndSelect()
     expect(screen.getByText('input.offerName.relayed')).toBeVisible()
@@ -185,7 +192,7 @@ describe('OfferName', () => {
     )
   })
 
-  it('says why the holder did not sign the offer, and offers nothing', async () => {
+  it('the reason why the holder did not sign the offer is shown, and nothing is offered', async () => {
     heldByAnotherConnectedAccount()
     signTypedDataAsync.mockRejectedValue(new BaseError('User rejected the request.'))
     await renderAndSelect()

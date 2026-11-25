@@ -53,17 +53,22 @@ describe('commitName', () => {
     })
   })
 
-  it('commits through the name policy with the terms the owner accepted by signing', async () => {
-    const termsIntent = {
-      signer: registration.owner,
-      nonce: 0n,
-      deadline: 1_900_000_000n,
-      signature: `0x${'ab'.repeat(65)}`,
-    } as const
+  const intent = { nonce: 0n, deadline: 1_900_000_000n, signature: `0x${'ab'.repeat(65)}` } as const
+  const terms = { kind: 'general', hash: TERMS } as const
+  const credit = {
+    owner: registration.owner,
+    intents: {
+      commitment: makeCommitment(registration),
+      terms: { ...terms, intent },
+      register: intent,
+    },
+  }
+
+  it('commits through the name policy with the terms the temporary owner accepted by signing', async () => {
     const tx = await commitName.transaction({
       client,
       connectorClient,
-      data: { ...registration, terms: { kind: 'general', hash: TERMS }, termsIntent },
+      data: { ...registration, terms, credit },
     })
     expect(tx.to).toBe(NAME_POLICY)
     expect(decodeFunctionData({ abi: namePolicyTermsAbi, data: tx.data })).toEqual({
@@ -74,7 +79,7 @@ describe('commitName', () => {
         registration.owner,
         0n,
         1_900_000_000n,
-        termsIntent.signature,
+        intent.signature,
       ],
     })
   })
@@ -84,8 +89,16 @@ describe('commitName', () => {
     expect(commitName.displayItems(registration, t)).not.toContainEqual(
       expect.objectContaining({ value: 'transaction.description.acceptTerms' }),
     )
-    expect(
-      commitName.displayItems({ ...registration, terms: { kind: 'general', hash: TERMS } }, t),
-    ).toContainEqual({ label: 'action', value: 'transaction.description.acceptTerms' })
+    expect(commitName.displayItems({ ...registration, terms }, t)).toContainEqual({
+      label: 'action',
+      value: 'transaction.description.acceptTerms',
+    })
+  })
+
+  it('shows the owner in the confirmation of a commit for a temporary owner', () => {
+    const t = ((key: string) => key) as never
+    const owner = { label: 'owner', value: registration.owner, type: 'address' }
+    expect(commitName.displayItems({ ...registration, terms }, t)).not.toContainEqual(owner)
+    expect(commitName.displayItems({ ...registration, terms, credit }, t)).toContainEqual(owner)
   })
 })

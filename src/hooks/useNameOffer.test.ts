@@ -14,7 +14,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ConfigWithEns } from '@app/types'
 
-import { getNameOfferQueryFn } from './useNameOffer'
+import { getConnectedHolder, getNameOfferQueryFn } from './useNameOffer'
 
 vi.mock('viem/actions')
 vi.mock('@app/constants/chains', async (importOriginal) => ({
@@ -99,6 +99,45 @@ describe('getNameOfferQueryFn', () => {
     expect(await getNameOffer('alice.testing')).toMatchObject({
       isHolder: false,
       isRecipient: false,
+    })
+  })
+})
+
+describe('getConnectedHolder', () => {
+  const SELECTED = '0x4444444444444444444444444444444444444444'
+  const heldBy = (isHolder: boolean) => ({ holder: HOLDER, isHolder })
+
+  it('is the selected account that holds the name, without a relay', () => {
+    expect(
+      getConnectedHolder({ offer: heldBy(true), addresses: [HOLDER], allowance: 0n }),
+    ).toEqual({ isConnectedHolder: true, relayedHolder: undefined })
+  })
+
+  it('is another connected account that holds the name, relayed by a selected account with an allowance', () => {
+    expect(
+      getConnectedHolder({
+        offer: heldBy(false),
+        addresses: [SELECTED, HOLDER.toUpperCase() as Address],
+        allowance: 1n,
+      }),
+    ).toEqual({ isConnectedHolder: true, relayedHolder: HOLDER.toUpperCase() })
+  })
+
+  it.each([
+    ['the selected account has no allowance', [SELECTED, HOLDER], 0n],
+    ['the allowance is not read yet', [SELECTED, HOLDER], undefined],
+    ['no connected account holds the name', [SELECTED], 1n],
+  ] as const)('is none when %s', (_, addresses, allowance) => {
+    expect(getConnectedHolder({ offer: heldBy(false), addresses, allowance })).toEqual({
+      isConnectedHolder: false,
+      relayedHolder: undefined,
+    })
+  })
+
+  it('is none for a name without a holder', () => {
+    expect(getConnectedHolder({ offer: null, addresses: [SELECTED], allowance: 1n })).toEqual({
+      isConnectedHolder: false,
+      relayedHolder: undefined,
     })
   })
 })

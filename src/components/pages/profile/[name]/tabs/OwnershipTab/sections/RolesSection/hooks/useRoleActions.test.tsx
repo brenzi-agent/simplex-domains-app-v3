@@ -37,9 +37,9 @@ vi.mock('@app/hooks/ownership/useRoles/utils/getAvailableRoles', () => ({
   getAvailableRoles: () => mockGetAvailableRoles(),
 }))
 
-const mockUseNameOffer = vi.fn().mockReturnValue({ data: undefined })
+const mockUseConnectedHolder = vi.fn().mockReturnValue({ isConnectedHolder: false })
 vi.mock('@app/hooks/useNameOffer', () => ({
-  useNameOffer: () => mockUseNameOffer(),
+  useConnectedHolder: () => mockUseConnectedHolder(),
 }))
 
 describe('useRoleActions', () => {
@@ -218,8 +218,8 @@ describe('useRoleActions', () => {
     )
   })
 
-  it('should include the ability to offer the name if the account holds it', async () => {
-    mockUseNameOffer.mockReturnValueOnce({ data: { isHolder: true } })
+  it('should include the ability to offer the name if a connected account holds it', async () => {
+    mockUseConnectedHolder.mockReturnValueOnce({ isConnectedHolder: true })
     const { result } = renderHook(() =>
       useRoleActions({
         name: 'test.testing',
@@ -234,28 +234,8 @@ describe('useRoleActions', () => {
     )
   })
 
-  it('should include the ability to offer the name if another connected account holds it', async () => {
-    mockUseAccountSafely.mockReturnValueOnce({
-      address: '0xaccount',
-      addresses: ['0xaccount', '0xPartner'],
-    })
-    mockUseNameOffer.mockReturnValueOnce({ data: { holder: '0xpartner', isHolder: false } })
-    const { result } = renderHook(() =>
-      useRoleActions({
-        name: 'test.testing',
-        roles: [],
-        details: {
-          isLoading: false,
-        } as any,
-      }),
-    )
-    expect(result.current.data).toEqual(
-      expect.arrayContaining([expect.objectContaining({ type: 'offer-name' })]),
-    )
-  })
-
-  it('should not include the ability to offer the name if the account does not hold it', async () => {
-    mockUseNameOffer.mockReturnValueOnce({ data: { isHolder: false } })
+  it('should not include the ability to offer the name if no connected account holds it', async () => {
+    mockUseConnectedHolder.mockReturnValueOnce({ isConnectedHolder: false })
     const { result } = renderHook(() =>
       useRoleActions({
         name: 'test.testing',

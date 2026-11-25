@@ -8,14 +8,16 @@ import {
   parseAbiParameters,
   toBytes,
 } from 'viem'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { makeRegistrationCallData, RegistrationParameters } from '@ensdomains/ensjs/utils'
 
 import {
+  intentDeadline,
   makeAcceptTermsTypedData,
   makeApproveNameTypedData,
   makeRegisterNameTypedData,
+  signingErrorMessage,
 } from './snrcIntents'
 
 const MAINNET_NAME_POLICY = '0x5147b65f547b766dbaf520127e8f59834475021e'
@@ -28,7 +30,7 @@ const MAINNET_SPONSOR_DOMAIN_SEPARATOR =
 const MAINNET_REGISTRAR_DOMAIN_SEPARATOR =
   '0x5389ed6d8553d20912d30655a5a3ba7f9b028b82066e750750ee33ca3ca8e841'
 
-const PARTNER = '0x2222222222222222222222222222222222222222'
+const TEMPORARY_OWNER = '0x2222222222222222222222222222222222222222'
 const RECIPIENT = '0x3333333333333333333333333333333333333333'
 const COMMITMENT = `0x${'cc'.repeat(32)}` as const
 const TERMS = `0x${'77'.repeat(32)}` as const
@@ -37,7 +39,7 @@ const DEADLINE = 1_900_000_000n
 const contractDigest = (domainSeparator: Hex, structHash: Hex) =>
   keccak256(concat(['0x1901', domainSeparator, structHash]))
 
-describe('the typed data the partner signs, hashed as the contracts at 6e035ada hash it', () => {
+describe('the typed data the temporary owner signs, hashed as the contracts at 6e035ada hash it', () => {
   it.each([
     [
       'general',
@@ -60,6 +62,7 @@ describe('the typed data the partner signs, hashed as the contracts at 6e035ada 
       nonce: 3n,
       deadline: DEADLINE,
     })
+    expect(Object.keys(typedData.types)).toEqual([typedData.primaryType])
     expect(hashTypedData(typedData)).toBe(
       contractDigest(
         MAINNET_NAME_POLICY_DOMAIN_SEPARATOR,
@@ -76,14 +79,14 @@ describe('the typed data the partner signs, hashed as the contracts at 6e035ada 
     )
   })
 
-  it('registers a name with its records to the partner on the sponsor', () => {
+  it('registers a name with its records to the temporary owner on the sponsor', () => {
     const type =
       'RegisterName(string label,address owner,uint256 duration,address resolver,bytes[] data,uint256 disputeDays,uint256 nonce,uint256 deadline)'
     const typeHash = '0x799a78e785584cefb5f76cae6faf2327553af45ef5da9491d690f7d4b851e444'
     expect(keccak256(toBytes(type))).toBe(typeHash)
     const registrationParams: RegistrationParameters = {
       name: 'alicebob.simplex',
-      owner: PARTNER,
+      owner: TEMPORARY_OWNER,
       duration: 63072000,
       secret: `0x${'33'.repeat(32)}` as const,
       resolverAddress: '0x4444444444444444444444444444444444444444',
@@ -115,7 +118,7 @@ describe('the typed data the partner signs, hashed as the contracts at 6e035ada 
             [
               typeHash,
               keccak256(toBytes('alicebob')),
-              PARTNER,
+              TEMPORARY_OWNER,
               63072000n,
               '0x4444444444444444444444444444444444444444',
               keccak256(concat(data.map((call) => keccak256(call)))),
@@ -138,7 +141,7 @@ describe('the typed data the partner signs, hashed as the contracts at 6e035ada 
     const typedData = makeApproveNameTypedData({
       chainId: 1,
       registrar: MAINNET_REGISTRAR,
-      from: PARTNER,
+      from: TEMPORARY_OWNER,
       to: RECIPIENT,
       tokenId,
       nonce: 1n,
@@ -152,10 +155,29 @@ describe('the typed data the partner signs, hashed as the contracts at 6e035ada 
             parseAbiParameters(
               'bytes32, address, address, uint256, bytes32, bytes1, uint256, uint256',
             ),
-            [typeHash, PARTNER, RECIPIENT, tokenId, keccak256('0x'), '0x00', 1n, DEADLINE],
+            [typeHash, TEMPORARY_OWNER, RECIPIENT, tokenId, keccak256('0x'), '0x00', 1n, DEADLINE],
           ),
         ),
       ),
     )
+  })
+})
+
+describe('a signature', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('holds for two days, beyond the 24 hours of a commitment signed at once', () => {
+    vi.useFakeTimers({ now: 1_800_000_000_000 })
+    expect(intentDeadline()).toBe(1_800_000_000n + 2n * 86400n)
+  })
+
+  it('is refused with the short message of its error, from viem or from wagmi', () => {
+    const wagmiError = Object.assign(new Error('Account not found.\n\nVersion: wagmi@2.12.4'), {
+      shortMessage: 'Account not found.',
+    })
+    expect(signingErrorMessage(wagmiError)).toBe('Account not found.')
+    expect(signingErrorMessage(new Error('Rejected.'))).toBe('Rejected.')
   })
 })

@@ -439,28 +439,55 @@ describe('Pricing', () => {
     )
   })
 
-  it('should register from the allowance for a partner, another connected account', async () => {
-    const partner = '0x7777777777777777777777777777777777777777'
-    mockUseAccountSafely.mockReturnValue({ address: '0x123', addresses: ['0x123', partner] })
+  const temporaryOwner = '0x7777777777777777777777777777777777777777'
+
+  it('should register from the allowance to a temporary owner, another connected account', async () => {
+    mockUseAccountSafely.mockReturnValue({ address: '0x123', addresses: ['0x123', temporaryOwner] })
     readAllowance(1000n * USD, { base: 100n * USD, premium: 0n })
     const props = makeProps({ linkRecords: undefined })
     render(<Pricing {...props} />)
-    expect(screen.queryByText('steps.pricing.partnerHint')).not.toBeInTheDocument()
-    await userEvent.click(screen.getByTestId(`owner-${partner}`))
+    expect(screen.queryByText('steps.pricing.temporaryOwnerHint')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByTestId(`owner-${temporaryOwner}`))
     await userEvent.click(screen.getByTestId('next-button'))
     expect(props.callback).toHaveBeenCalledWith(
-      expect.objectContaining({ credit: { owner: partner } }),
+      expect.objectContaining({ credit: { owner: temporaryOwner } }),
     )
   })
 
-  it('should register from the allowance for this account until a partner is chosen', async () => {
+  it('should register from the allowance to this account until a temporary owner is chosen', async () => {
     mockUseAccountSafely.mockReturnValue({ address: '0x123', addresses: ['0x123'] })
     readAllowance(1000n * USD, { base: 100n * USD, premium: 0n })
     const props = makeProps({ linkRecords: undefined })
     render(<Pricing {...props} />)
-    expect(screen.getByText('steps.pricing.partnerHint')).toBeVisible()
+    expect(screen.getByText('steps.pricing.temporaryOwnerHint')).toBeVisible()
     await userEvent.click(screen.getByTestId('next-button'))
     expect(vi.mocked(props.callback).mock.calls[0][0].credit).toEqual({ owner: '0x123' })
+  })
+
+  it('should keep the temporary owner and its signatures when the step is shown again', async () => {
+    mockUseAccountSafely.mockReturnValue({ address: '0x123', addresses: ['0x123', temporaryOwner] })
+    readAllowance(1000n * USD, { base: 100n * USD, premium: 0n })
+    const intent = { nonce: 0n, deadline: 1_900_000_000n, signature: `0x${'ab'.repeat(65)}` }
+    const credit = {
+      owner: temporaryOwner,
+      intents: { commitment: `0x${'cc'.repeat(32)}`, register: intent },
+    } as const
+    const props = makeProps({
+      linkRecords: undefined,
+      registrationData: {
+        seconds: yearsToSeconds(2),
+        durationType: 'years',
+        started: false,
+        credit,
+      } as RegistrationReducerDataItem,
+    })
+    render(<Pricing {...props} />)
+    await userEvent.click(screen.getByTestId('next-button'))
+    expect(vi.mocked(props.callback).mock.calls[0][0].credit).toBe(credit)
+
+    await userEvent.click(screen.getByTestId('owner-self'))
+    await userEvent.click(screen.getByTestId('next-button'))
+    expect(vi.mocked(props.callback).mock.calls[1][0].credit).toEqual({ owner: '0x123' })
   })
 
   it.each([
