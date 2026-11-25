@@ -1,7 +1,7 @@
 import { act, mockFunction, render, screen, userEvent } from '@app/test-utils'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useAccountEffect, UseAccountEffectParameters, useBalance } from 'wagmi'
+import { useAccountEffect, UseAccountEffectParameters, useBalance, useReadContract } from 'wagmi'
 import type { GetBalanceData } from 'wagmi/query'
 
 import { ProfileRecord } from '@app/constants/profileRecordOptions'
@@ -34,11 +34,20 @@ vi.mock('@app/components/@molecules/DateSelection/DateSelection', () => ({
 vi.mock('@app/components/pages/profile/ProfileButton', () => ({
   SocialProfileButton: ({ value }: { value: string }) => <div>{value}</div>,
 }))
-vi.mock('../../FullInvoice', () => ({ default: () => null }))
+vi.mock('../../FullInvoice', () => ({ default: () => <div data-testid="full-invoice" /> }))
+vi.mock('@app/constants/chains', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getSnrcAddresses: () => ({ SimplexSponsor: SPONSOR, ETHRegistrarController: CONTROLLER }),
+}))
+
+const SPONSOR = '0x5555555555555555555555555555555555555555'
+const CONTROLLER = '0x6666666666666666666666666666666666666666'
+const USD = 10n ** 18n
 
 const mockUseAccountSafely = mockFunction(useAccountSafely)
 const mockUseAccountEffect = mockFunction(useAccountEffect)
 const mockUseBalance = mockFunction(useBalance)
+const mockUseReadContract = mockFunction(useReadContract)
 const mockUseContractAddress = mockFunction(useContractAddress)
 const mockUseEstimateFullRegistration = mockFunction(useEstimateFullRegistration)
 const mockUseControllerLimits = mockFunction(useControllerLimits)
@@ -135,7 +144,14 @@ describe('Pricing', () => {
   const connect = (isReconnected: boolean) =>
     act(() => onConnect?.({ isReconnected } as Parameters<OnConnect>[0]))
 
+  const readAllowance = (allowance: bigint, price?: { base: bigint; premium: bigint }) =>
+    mockUseReadContract.mockImplementation(((parameters: { functionName: string }) => ({
+      data: parameters.functionName === 'registrarAllowance' ? allowance : price,
+      isLoading: false,
+    })) as never)
+
   const setLoaded = () => {
+    readAllowance(0n)
     mockUseAccountSafely.mockReturnValue({ address: '0x123' })
     mockUseAccountEffect.mockImplementation((parameters) => {
       onConnect = parameters?.onConnect
@@ -304,6 +320,84 @@ describe('Pricing', () => {
     expect(screen.queryByTestId('next-button')).not.toBeInTheDocument()
   })
 
+  it('should register with the allowance of the account while public sales are closed', async () => {
+    mockUseControllerLimits.mockReturnValue({ minCharLength: 6, publicSalesOpen: false })
+    readAllowance(1000n * USD, { base: 100n * USD, premium: 0n })
+    nameTerms('general')
+    const props = makeProps()
+    render(<Pricing {...props} />)
+    expect(screen.queryByTestId('public-sales-closed')).not.toBeInTheDocument()
+    expect(mockUseReadContract).toHaveBeenCalledWith(
+      expect.objectContaining({
+        address: SPONSOR,
+        functionName: 'registrarAllowance',
+        args: ['0x123'],
+      }),
+    )
+    expect(mockUseReadContract).toHaveBeenCalledWith(
+      expect.objectContaining({
+        address: CONTROLLER,
+        functionName: 'rentPriceUSD',
+        args: ['alicebob', BigInt(yearsToSeconds(2))],
+      }),
+    )
+    expect(screen.getByText('$100.00')).toBeVisible()
+    expect(screen.getByText('$1,000.00')).toBeVisible()
+    expect(screen.queryByTestId('full-invoice')).not.toBeInTheDocument()
+    expect(screen.getByTestId('next-button')).toBeDisabled()
+    await userEvent.click(screen.getByTestId('terms-accept'))
+    expect(screen.getByTestId('next-button')).toHaveTextContent(
+      'steps.pricing.registerWithAllowance',
+    )
+    await userEvent.click(screen.getByTestId('next-button'))
+    expect(props.callback).toHaveBeenCalledWith(
+      expect.objectContaining({
+        seconds: yearsToSeconds(2),
+        terms: { kind: 'general', hash: TERMS },
+        credit: { disputeDays: 14 },
+      }),
+    )
+  })
+
+  it('should register with the allowance, not with ETH, while public sales are open', async () => {
+    readAllowance(1000n * USD, { base: 100n * USD, premium: 0n })
+    const props = makeProps({ linkRecords: undefined })
+    render(<Pricing {...props} />)
+    expect(screen.queryByTestId('full-invoice')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByTestId('next-button'))
+    expect(props.callback).toHaveBeenCalledWith(
+      expect.objectContaining({ credit: { disputeDays: 14 } }),
+    )
+  })
+
+  it('should register with ETH without an allowance', async () => {
+    const props = makeProps({ linkRecords: undefined })
+    render(<Pricing {...props} />)
+    expect(screen.getByTestId('full-invoice')).toBeInTheDocument()
+    await userEvent.click(screen.getByTestId('next-button'))
+    expect(vi.mocked(props.callback).mock.calls[0][0].credit).toBeUndefined()
+  })
+
+  it('should not register for more than the allowance left, temporary premium included', () => {
+    readAllowance(120n * USD, { base: 100n * USD, premium: 50n * USD })
+    render(<Pricing {...makeProps()} />)
+    expect(screen.getByText('invoice.temporaryPremium')).toBeVisible()
+    expect(screen.getByText('$50.00')).toBeVisible()
+    expect(screen.getByText('$120.00')).toBeVisible()
+    expect(screen.getByTestId('next-button')).toBeDisabled()
+    expect(screen.getByTestId('next-button')).toHaveTextContent('steps.pricing.allowanceTooLow')
+  })
+
+  it('should not hold an account with an allowance at the NFT gate', () => {
+    mockUseNftGateStatus.mockReturnValue({ required: true, hasNft: false, loaded: true })
+    readAllowance(1000n * USD, { base: 100n * USD, premium: 0n })
+    render(<Pricing {...makeProps()} />)
+    expect(screen.getByTestId('next-button')).toBeEnabled()
+    expect(screen.getByTestId('next-button')).toHaveTextContent(
+      'steps.pricing.registerWithAllowance',
+    )
+  })
+
   it.each([
     [
       'the reserved status',
@@ -315,6 +409,10 @@ describe('Pricing', () => {
         mockUseNftGateStatus.mockReturnValue({ required: true, hasNft: undefined, loaded: false }),
     ],
     ['the controller limits', () => mockUseControllerLimits.mockReturnValue({})],
+    [
+      'the registrar allowance',
+      () => mockUseReadContract.mockReturnValue({ data: undefined, isLoading: true } as never),
+    ],
     [
       'the price',
       () =>

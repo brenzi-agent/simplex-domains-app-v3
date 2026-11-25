@@ -146,4 +146,34 @@ describe('Transactions', () => {
       expect.objectContaining({ commitment: committedCommitment(), enabled: true }),
     )
   })
+
+  it('waits for and sends the register from the allowance when the pricing step chose it', async () => {
+    flow('complete')
+    nameTerms('general', GENERAL_TERMS)
+    committed(GENERAL_TERMS)
+    const credit = { disputeDays: 14 }
+    render(
+      <Transactions
+        name={NAME}
+        registrationData={{ ...registrationData, credit }}
+        callback={vi.fn()}
+        onStart={vi.fn()}
+      />,
+    )
+    expect(useSimulateRegistration).toHaveBeenCalledWith(expect.objectContaining({ credit }))
+
+    await userEvent.click(screen.getByTestId('finish-button'))
+
+    expect(createTransactionFlow).toHaveBeenCalledWith(
+      `register-${NAME}-${OWNER}`,
+      expect.objectContaining({
+        transactions: [
+          {
+            name: 'registerName',
+            data: expect.objectContaining({ name: NAME, owner: OWNER, credit }),
+          },
+        ],
+      }),
+    )
+  })
 })
