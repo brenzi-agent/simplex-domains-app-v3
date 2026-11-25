@@ -1,11 +1,11 @@
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Address, Hex, TypedDataDefinition } from 'viem'
+import { Address, Hex, parseAbi, TypedDataDefinition } from 'viem'
 import { usePublicClient, useSignTypedData } from 'wagmi'
 
 import { makeCommitment, RegistrationParameters } from '@ensdomains/ensjs/utils'
 
 import { getNamePolicyAddress, getSnrcAddresses, getSponsorAddress } from '@app/constants/chains'
-import { MIN_DISPUTE_DAYS } from '@app/constants/simplex'
 import {
   Intent,
   intentDeadline,
@@ -13,13 +13,40 @@ import {
   makeApproveNameTypedData,
   makeRegisterNameTypedData,
   noncesAbi,
+  normalizeSignature,
   SignedIntent,
 } from '@app/utils/snrcIntents'
 import { Terms } from '@app/utils/snrcNameTerms'
 import { getSnrcTokenId } from '@app/utils/snrcOffers'
-import { SignedCredit } from '@app/utils/snrcSponsor'
+import { SignedCredit, SigningState } from '@app/utils/snrcSponsor'
 
 type Acceptance = { owner: Address; commitment: Hex; terms: Terms }
+
+const maxCommitmentAgeAbi = parseAbi(['function maxCommitmentAge() view returns (uint256)'])
+
+export const useSigningState = (owner?: Address) => {
+  const client = usePublicClient()
+  const chainId = client.chain.id
+
+  return useQuery({
+    queryKey: ['signingState', chainId, owner],
+    enabled: !!owner,
+    queryFn: async (): Promise<SigningState> => {
+      const readNonce = (address: Address) =>
+        client.readContract({ address, abi: noncesAbi, functionName: 'nonces', args: [owner!] })
+      const [policyNonce, sponsorNonce, maxCommitmentAge] = await Promise.all([
+        readNonce(getNamePolicyAddress(chainId)!),
+        readNonce(getSponsorAddress(chainId)!),
+        client.readContract({
+          address: getSnrcAddresses(chainId).ETHRegistrarController as Address,
+          abi: maxCommitmentAgeAbi,
+          functionName: 'maxCommitmentAge',
+        }),
+      ])
+      return { policyNonce, sponsorNonce, maxCommitmentAge }
+    },
+  }).data
+}
 
 export const useIntentSigner = () => {
   const { t } = useTranslation('common')
@@ -44,7 +71,9 @@ export const useIntentSigner = () => {
     })
     const deadline = intentDeadline()
     const definition = typedData(nonce, deadline)
-    const signature = await signTypedDataAsync({ account: signer, ...definition })
+    const signature = normalizeSignature(
+      await signTypedDataAsync({ account: signer, ...definition }),
+    )
     if (!(await client.verifyTypedData({ address: signer, signature, ...definition })))
       throw new Error(t('errors.signedByAnotherAccount', { signer }))
     return { nonce, deadline, signature }
@@ -78,14 +107,7 @@ export const useIntentSigner = () => {
       signer: owner,
       contract: sponsor,
       typedData: (nonce, deadline) =>
-        makeRegisterNameTypedData({
-          chainId,
-          sponsor,
-          registrationParams,
-          disputeDays: MIN_DISPUTE_DAYS,
-          nonce,
-          deadline,
-        }),
+        makeRegisterNameTypedData({ chainId, sponsor, registrationParams, nonce, deadline }),
     })
     return { owner, intents: { commitment, terms: acceptance, register } }
   }

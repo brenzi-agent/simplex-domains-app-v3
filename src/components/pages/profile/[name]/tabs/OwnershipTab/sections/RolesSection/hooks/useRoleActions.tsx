@@ -47,7 +47,7 @@ export const useRoleActions = ({ name, roles, details }: Props) => {
   const account = useAccountSafely()
   const nameType = useNameType(name)
   const abilities = useAbilities({ name })
-  const { isConnectedHolder } = useConnectedHolder({ name })
+  const { connectedHolder } = useConnectedHolder({ name })
   const queryClient = useQueryClient()
 
   const { usePreparedDataInput } = useTransactionFlow()
@@ -117,7 +117,7 @@ export const useRoleActions = ({ name, roles, details }: Props) => {
             onClick: () => showSendNameInput(`send-name-${name}`, { name }),
           }
         : null,
-      isConnectedHolder
+      connectedHolder
         ? {
             type: 'offer-name',
             icon: AeroplaneIcon,
@@ -143,7 +143,7 @@ export const useRoleActions = ({ name, roles, details }: Props) => {
     details.ownerData,
     details.dnsOwner,
     abilities.data,
-    isConnectedHolder,
+    connectedHolder,
     roles,
     t,
     queryClient,

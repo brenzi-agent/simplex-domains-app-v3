@@ -7,13 +7,16 @@ import { MIN_DISPUTE_DAYS } from '@app/constants/simplex'
 
 import type { Intent } from './snrcIntents'
 import type { Terms } from './snrcNameTerms'
-import { ONE_DAY } from './time'
 
 type OwnerIntents = { commitment: Hex; terms?: Terms & { intent: Intent }; register: Intent }
 
 export type Credit = { owner: Address; intents?: OwnerIntents }
 
 export type SignedCredit = Required<Credit>
+
+export type SigningState = { policyNonce: bigint; sponsorNonce: bigint; maxCommitmentAge: bigint }
+
+const COMMIT_MARGIN = 3600n
 
 export const sponsorAbi = parseAbi([
   'struct Registration { string label; address owner; uint256 duration; bytes32 secret; address resolver; bytes[] data; uint8 reverseRecord; bytes32 referrer; }',
@@ -50,10 +53,13 @@ export const getAllowanceCharge = (logs: Log[]) =>
 
 export const isSignedFor = (
   credit: Credit,
-  { commitment, terms }: { commitment: Hex; terms?: Terms },
+  { commitment, terms, onChain }: { commitment: Hex; terms?: Terms; onChain: SigningState },
 ): credit is SignedCredit =>
   !!credit.intents &&
   credit.intents.commitment === commitment &&
   credit.intents.terms?.kind === terms?.kind &&
   credit.intents.terms?.hash === terms?.hash &&
-  credit.intents.register.deadline > BigInt(Math.floor(Date.now() / 1000) + ONE_DAY)
+  (!credit.intents.terms || credit.intents.terms.intent.nonce === onChain.policyNonce) &&
+  credit.intents.register.nonce === onChain.sponsorNonce &&
+  credit.intents.register.deadline >
+    BigInt(Math.floor(Date.now() / 1000)) + onChain.maxCommitmentAge + COMMIT_MARGIN

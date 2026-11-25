@@ -15,6 +15,8 @@ import { usePrice } from '../ensjs/public/usePrice'
 import useRegistrationParams from '../useRegistrationParams'
 import { calculateTransactions } from './calculateTransactions'
 
+const RELAYED_SIGNATURES_GAS = 60_000n
+
 type UseEstimateFullRegistrationParameters = {
   registrationData: RegistrationReducerDataItem
   name: string
@@ -78,8 +80,10 @@ export const useEstimateFullRegistration = ({
     : undefined
   const totalDurationBasedFee = price?.base || 0n
 
+  const relayed = !!registrationData.credit && registrationData.credit.owner !== address
+
   return {
-    estimatedGasFee: data.gasCost,
+    estimatedGasFee: data.gasCost + (relayed && gasPrice ? RELAYED_SIGNATURES_GAS * gasPrice : 0n),
     estimatedGasLoading: isLoading || gasPriceLoading,
     yearlyFee,
     totalDurationBasedFee,

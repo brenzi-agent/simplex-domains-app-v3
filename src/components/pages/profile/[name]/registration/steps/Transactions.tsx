@@ -17,7 +17,7 @@ import { useCheckRegistered } from '@app/hooks/registration/useCheckRegistered'
 import { useExistingCommitment } from '@app/hooks/registration/useExistingCommitment'
 import { useSimulateRegistration } from '@app/hooks/registration/useSimulateRegistration'
 import { useDurationCountdown } from '@app/hooks/time/useDurationCountdown'
-import { useIntentSigner } from '@app/hooks/useIntentSigner'
+import { useIntentSigner, useSigningState } from '@app/hooks/useIntentSigner'
 import { useCommittedTerms, useNameTerms } from '@app/hooks/useNameTerms'
 import { useRegistrarAllowance } from '@app/hooks/useRegistrarAllowance'
 import useRegistrationParams from '@app/hooks/useRegistrationParams'
@@ -28,7 +28,7 @@ import { useTransactionFlow } from '@app/transaction-flow/TransactionFlowProvide
 import { sendEvent } from '@app/utils/analytics/events'
 import { SignedIntent, signingErrorMessage } from '@app/utils/snrcIntents'
 import { Terms } from '@app/utils/snrcNameTerms'
-import { isSignedFor } from '@app/utils/snrcSponsor'
+import { Credit, isSignedFor, SignedCredit } from '@app/utils/snrcSponsor'
 import { ONE_DAY } from '@app/utils/time'
 
 import { RegistrationReducerDataItem } from '../types'
@@ -210,11 +210,19 @@ type Props = {
   name: string
   registrationData: RegistrationReducerDataItem
   callback: (data: { back: boolean; resetSecret?: boolean }) => void
+  onCredit: (credit: Credit) => void
   onStart: () => void
   fromLink?: boolean
 }
 
-const Transactions = ({ registrationData, name, callback, onStart, fromLink }: Props) => {
+const Transactions = ({
+  registrationData,
+  name,
+  callback,
+  onCredit,
+  onStart,
+  fromLink,
+}: Props) => {
   const { t } = useTranslation('register')
 
   const { address } = useAccount()
@@ -303,14 +311,24 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
 
   const commitCouldBeFound =
     !commitTx?.stage || commitTx.stage === 'confirm' || commitTx.stage === 'failed'
+  const signingState = useSigningState(temporaryOwner?.owner)
+  const readsSigningState = !!temporaryOwner && commitCouldBeFound && !signingState
   const signedCredit =
-    temporaryOwner && isSignedFor(temporaryOwner, { commitment, terms: registrationData.terms })
+    temporaryOwner &&
+    signingState &&
+    isSignedFor(temporaryOwner, {
+      commitment,
+      terms: registrationData.terms,
+      onChain: signingState,
+    })
       ? temporaryOwner
       : undefined
-  const needsSignatures = !!temporaryOwner && !signedCredit && commitCouldBeFound
+  const needsSignatures =
+    !!temporaryOwner && !!signingState && !signedCredit && commitCouldBeFound
   useExistingCommitment({
     registrationParams,
     commitment,
+    acceptor: temporaryOwner?.owner,
     enabled: commitCouldBeFound,
     commitKey,
   })
@@ -386,30 +404,33 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transactionState])
 
-  const makeCommitNameFlow = useCallback(() => {
-    onStart()
-    createTransactionFlow(commitKey, {
-      transactions: [
-        createTransactionItem('commitName', {
-          ...registrationParams,
-          terms: registrationData.terms,
-          credit: signedCredit,
-        }),
-      ],
-      requiresManualCleanup: true,
-      autoClose: true,
-      resumeLink: fromLink ? undefined : `/register/${name}`,
-    })
-  }, [
-    commitKey,
-    createTransactionFlow,
-    fromLink,
-    name,
-    onStart,
-    registrationParams,
-    registrationData.terms,
-    signedCredit,
-  ])
+  const makeCommitNameFlow = useCallback(
+    (credit: SignedCredit | undefined = signedCredit) => {
+      onStart()
+      createTransactionFlow(commitKey, {
+        transactions: [
+          createTransactionItem('commitName', {
+            ...registrationParams,
+            terms: registrationData.terms,
+            credit,
+          }),
+        ],
+        requiresManualCleanup: true,
+        autoClose: true,
+        resumeLink: fromLink ? undefined : `/register/${name}`,
+      })
+    },
+    [
+      commitKey,
+      createTransactionFlow,
+      fromLink,
+      name,
+      onStart,
+      registrationParams,
+      registrationData.terms,
+      signedCredit,
+    ],
+  )
 
   const makeRegisterNameFlow = () => {
     createTransactionFlow(registerKey, {
@@ -433,8 +454,23 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
       autoClose: true,
     })
 
-  const { signAcceptTerms } = useIntentSigner()
+  const { signCredit, signAcceptTerms } = useIntentSigner()
+  const ownerSignatures = useMutation({ mutationFn: signCredit })
   const ownerAcceptance = useMutation({ mutationFn: signAcceptTerms })
+
+  const startCommit = () => {
+    if (needsSignatures)
+      ownerSignatures.mutate(
+        { registrationParams, terms: registrationData.terms },
+        {
+          onSuccess: (signed) => {
+            onCredit(signed)
+            makeCommitNameFlow(signed)
+          },
+        },
+      )
+    else makeCommitNameFlow()
+  }
 
   const makeAcceptTermsFlow = () => {
     const { acceptedTerms } = acceptance
@@ -480,10 +516,10 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
   }
 
   useEffect(() => {
-    if (!commitTx && allowanceCovers && !needsSignatures) {
+    if (!commitTx && allowanceCovers && !readsSigningState && !needsSignatures) {
       makeCommitNameFlow()
     }
-  }, [commitTx, makeCommitNameFlow, allowanceCovers, needsSignatures])
+  }, [commitTx, makeCommitNameFlow, allowanceCovers, readsSigningState, needsSignatures])
 
   useEffect(() => {
     if (registerTx?.stage === 'complete' || checkRegistered) {
@@ -657,6 +693,9 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
         </>
       )}
       {needsSignatures && <Helper alert="info">{t('steps.info.temporaryOwner', { owner })}</Helper>}
+      {ownerSignatures.error && (
+        <Helper alert="error">{signingErrorMessage(ownerSignatures.error)}</Helper>
+      )}
       <ButtonContainer>
         {match(transactionState)
           .with('registrationComplete', () => null)
@@ -721,14 +760,18 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
               </MobileFullWidth>
             </>
           ))
-          .with(
-            P.union('commitReady', 'commitFailed'),
-            () => needsSignatures,
-            () => NormalBackButton,
-          )
           .with('commitFailed', () => (
             <>
               {NormalBackButton}
+              <MobileFullWidth>
+                <Button
+                  colorStyle="accentSecondary"
+                  data-testid="retry-commit-button"
+                  onClick={retryCommit}
+                >
+                  {t('action.tryAgain', { ns: 'common' })}
+                </Button>
+              </MobileFullWidth>
               <FailedButton
                 label={t('steps.transactions.transactionFailed')}
                 onClick={showCommitTransaction}
@@ -776,8 +819,9 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
               <MobileFullWidth>
                 <Button
                   data-testid="start-timer-button"
-                  disabled={!allowanceCovers}
-                  onClick={makeCommitNameFlow}
+                  disabled={!allowanceCovers || readsSigningState || ownerSignatures.isPending}
+                  loading={ownerSignatures.isPending}
+                  onClick={startCommit}
                 >
                   {t('steps.transactions.startTimer')}
                 </Button>

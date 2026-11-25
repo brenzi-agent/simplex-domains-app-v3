@@ -2,7 +2,12 @@ import type { TFunction } from 'react-i18next'
 import { Address, zeroAddress } from 'viem'
 
 import { getSnrcAddresses } from '@app/constants/chains'
-import { Transaction, TransactionDisplayItem, TransactionFunctionParameters } from '@app/types'
+import {
+  HelperProps,
+  Transaction,
+  TransactionDisplayItem,
+  TransactionFunctionParameters,
+} from '@app/types'
 import { encodeApproveName, SignedIntent } from '@app/utils/snrcIntents'
 
 type Data = {
@@ -11,7 +16,7 @@ type Data = {
 }
 
 const displayItems = (
-  { name }: Data,
+  { name, intent }: Data,
   t: TFunction<'translation', undefined>,
 ): TransactionDisplayItem[] => [
   {
@@ -23,11 +28,21 @@ const displayItems = (
     label: 'action',
     value: t('transaction.description.withdrawOffer'),
   },
+  ...(intent ? [{ label: 'from', value: intent.signer, type: 'address' } as const] : []),
 ]
+
+const helper = (
+  { intent }: Data,
+  t: TFunction<'translation', undefined>,
+): HelperProps | undefined =>
+  intent && {
+    alert: 'info',
+    children: t('transaction.info.withdrawOfferRelayed', { holder: intent.signer }),
+  }
 
 const transaction = ({ client, data }: TransactionFunctionParameters<Data>) => ({
   to: getSnrcAddresses(client.chain.id).BaseRegistrarImplementation as Address,
   data: encodeApproveName({ name: data.name, to: zeroAddress, intent: data.intent }),
 })
 
-export default { displayItems, transaction } satisfies Transaction<Data>
+export default { displayItems, helper, transaction } satisfies Transaction<Data>

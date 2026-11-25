@@ -37,16 +37,16 @@ const transaction = async ({
   connectorClient,
   data: { terms, credit, ...data },
 }: TransactionFunctionParameters<Data>) => {
-  const accepted = credit ? credit.intents.terms : terms
-  if (!accepted) return commitName.makeFunctionData(connectorClient, data)
+  if (!terms) return commitName.makeFunctionData(connectorClient, data)
+  const intent = credit?.intents.terms?.intent
   return acceptTerms.transaction({
     client,
     connectorClient,
     data: {
       name: data.name,
       commitment: makeCommitment(data),
-      terms: accepted,
-      intent: credit?.intents.terms && { ...credit.intents.terms.intent, signer: data.owner },
+      terms,
+      intent: intent && { ...intent, signer: data.owner },
     },
   })
 }

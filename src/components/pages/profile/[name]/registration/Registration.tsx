@@ -380,6 +380,7 @@ const Registration = ({ nameDetails, isLoading, linkRecords }: Props) => {
                 registrationData={item}
                 onStart={onStart}
                 callback={transactionsCallback}
+                onCredit={(credit) => dispatch({ name: 'setCredit', payload: credit, selected })}
                 fromLink={!!linkRecords}
               />
             ))

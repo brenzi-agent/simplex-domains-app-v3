@@ -1,5 +1,6 @@
 import { QueryFunctionContext, useQuery } from '@tanstack/react-query'
 import {
+  Address,
   decodeFunctionData,
   encodeFunctionData,
   getAddress,
@@ -26,11 +27,12 @@ import { useAddRecentTransaction } from '../transactions/useAddRecentTransaction
 import { useIsSafeApp } from '../useIsSafeApp'
 import { useQueryOptions } from '../useQueryOptions'
 import { getBlockMetadataByTimestamp } from './utils/getBlockMetadataByTimestamp'
-import { isPolicyCommit } from './utils/isPolicyCommit'
+import { isPolicyCommit, isRelayedPolicyCommit } from './utils/isPolicyCommit'
 
 type UseExistingCommitmentParameters = {
   commitment?: Hex
   commitKey?: string
+  acceptor?: Address
 }
 
 type UseExistingCommitmentInternalParameters = {
@@ -131,7 +133,7 @@ const getExistingWrappedCommitmentQueryFn =
     isSafeTx,
   }: UseExistingCommitmentInternalParameters) =>
   async <TParams extends UseExistingCommitmentParameters>({
-    queryKey: [{ commitment, commitKey }, chainId, address],
+    queryKey: [{ commitment, commitKey, acceptor }, chainId, address],
   }: QueryFunctionContext<QueryKey<TParams>>): Promise<UseExistingCommitmentReturnType> => {
     if (!commitment) throw new Error('commitment is required')
     if (!commitKey) throw new Error('commitKey is required')
@@ -213,6 +215,8 @@ const getExistingWrappedCommitmentQueryFn =
         return foundTransaction
       }
       const foundTransaction = blockData.transactions.find((t) => {
+        if (acceptor && isRelayedPolicyCommit(t, { commitment, namePolicyAddress, acceptor }))
+          return true
         if (getAddress(t.from) !== checksummedAddress) return false
         if (isPolicyCommit(t, { commitment, namePolicyAddress })) return true
         if (!t.to || getAddress(t.to) !== checksummedEthRegistrarControllerAddress) return false

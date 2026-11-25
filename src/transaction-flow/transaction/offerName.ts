@@ -12,7 +12,7 @@ type Data = {
 }
 
 const displayItems = (
-  { name, recipient }: Data,
+  { name, recipient, intent }: Data,
   t: TFunction<'translation', undefined>,
 ): TransactionDisplayItem[] => [
   {
@@ -24,6 +24,7 @@ const displayItems = (
     label: 'action',
     value: t('transaction.description.offerName'),
   },
+  ...(intent ? [{ label: 'from', value: intent.signer, type: 'address' } as const] : []),
   {
     label: 'to',
     value: recipient,

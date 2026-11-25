@@ -1,6 +1,8 @@
-import { Address, encodeFunctionData, Hex, parseAbi } from 'viem'
+import { Address, concat, encodeFunctionData, Hex, parseAbi, size, slice, toHex } from 'viem'
 
 import { makeRegistrationCallData, RegistrationParameters } from '@ensdomains/ensjs/utils'
+
+import { MIN_DISPUTE_DAYS } from '@app/constants/simplex'
 
 import type { Terms } from './snrcNameTerms'
 import { getSnrcTokenId, registrarOfferAbi } from './snrcOffers'
@@ -15,6 +17,12 @@ export const noncesAbi = parseAbi(['function nonces(address signer) view returns
 export const NO_ANNOUNCEMENT = { ephemeralPubKey: '0x', viewTag: '0x00' } as const
 
 export const intentDeadline = () => BigInt(Math.floor(Date.now() / 1000) + 2 * ONE_DAY)
+
+export const normalizeSignature = (signature: Hex) => {
+  if (size(signature) !== 65) return signature
+  const v = Number(slice(signature, 64))
+  return v < 27 ? concat([slice(signature, 0, 64), toHex(v + 27, { size: 1 })]) : signature
+}
 
 export const signingErrorMessage = (error: Error) =>
   'shortMessage' in error && typeof error.shortMessage === 'string'
@@ -64,14 +72,12 @@ export const makeRegisterNameTypedData = ({
   chainId,
   sponsor,
   registrationParams,
-  disputeDays,
   nonce,
   deadline,
 }: {
   chainId: number
   sponsor: Address
   registrationParams: RegistrationParameters
-  disputeDays: number
   nonce: bigint
   deadline: bigint
 }) => {
@@ -97,7 +103,7 @@ export const makeRegisterNameTypedData = ({
       duration,
       resolver,
       data,
-      disputeDays: BigInt(disputeDays),
+      disputeDays: BigInt(MIN_DISPUTE_DAYS),
       nonce,
       deadline,
     },

@@ -28,7 +28,7 @@ export type Props = {
 
 const OfferName = ({ data: { name }, dispatch, onDismiss }: Props) => {
   const { t } = useTranslation('transactionFlow')
-  const { offer, relayedHolder } = useConnectedHolder({ name })
+  const { offer, connectedHolder } = useConnectedHolder({ name })
   const form = useForm<{ query: string }>({ defaultValues: { query: '' } })
   const [recipient, setRecipient] = useState<Address>()
   const {
@@ -65,9 +65,9 @@ const OfferName = ({ data: { name }, dispatch, onDismiss }: Props) => {
   const replaced = offer.data?.recipient
 
   const onConfirm = () => {
-    if (relayedHolder)
+    if (connectedHolder?.kind === 'relayed')
       holderSignature.mutate(
-        { name, holder: relayedHolder, recipient },
+        { name, holder: connectedHolder.account, recipient },
         { onSuccess: (intent) => offerTo(recipient, intent) },
       )
     else offerTo(recipient)
@@ -88,8 +88,10 @@ const OfferName = ({ data: { name }, dispatch, onDismiss }: Props) => {
         {!!replaced && replaced.toLowerCase() !== recipient.toLowerCase() && (
           <Helper alert="info">{t('input.offerName.replaces', { recipient: replaced })}</Helper>
         )}
-        {relayedHolder && (
-          <Helper alert="info">{t('input.offerName.relayed', { holder: relayedHolder })}</Helper>
+        {connectedHolder?.kind === 'relayed' && (
+          <Helper alert="info">
+            {t('input.offerName.relayed', { holder: connectedHolder.account })}
+          </Helper>
         )}
         {holderSignature.error && (
           <Helper alert="error">{signingErrorMessage(holderSignature.error)}</Helper>

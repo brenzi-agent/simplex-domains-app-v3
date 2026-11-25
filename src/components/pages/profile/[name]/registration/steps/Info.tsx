@@ -9,7 +9,7 @@ import MobileFullWidth from '@app/components/@atoms/MobileFullWidth'
 import { Card } from '@app/components/Card'
 import { useAccountSafely } from '@app/hooks/account/useAccountSafely'
 import { useEstimateFullRegistration } from '@app/hooks/gasEstimation/useEstimateRegistration'
-import { useIntentSigner } from '@app/hooks/useIntentSigner'
+import { useIntentSigner, useSigningState } from '@app/hooks/useIntentSigner'
 import { useRegistrarAllowance } from '@app/hooks/useRegistrarAllowance'
 import useRegistrationParams from '@app/hooks/useRegistrationParams'
 import { signingErrorMessage } from '@app/utils/snrcIntents'
@@ -136,12 +136,21 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
   })
   const { signCredit } = useIntentSigner()
   const signatures = useMutation({ mutationFn: signCredit })
+  const signingState = useSigningState(temporaryOwner?.owner)
+  const readsSigningState = !!temporaryOwner && !signingState
+  const asksSignatures =
+    !!temporaryOwner &&
+    !(
+      signingState &&
+      isSignedFor(temporaryOwner, {
+        commitment: makeCommitment(registrationParams),
+        terms,
+        onChain: signingState,
+      })
+    )
 
   const begin = () => {
-    if (
-      temporaryOwner &&
-      !isSignedFor(temporaryOwner, { commitment: makeCommitment(registrationParams), terms })
-    )
+    if (asksSignatures)
       signatures.mutate(
         { registrationParams, terms },
         { onSuccess: (signedCredit) => callback({ back: false, credit: signedCredit }) },
@@ -171,7 +180,7 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
       ) : (
         <FullInvoice {...estimate} />
       )}
-      {temporaryOwner && (
+      {temporaryOwner && asksSignatures && (
         <Helper alert="info">
           {t('steps.info.temporaryOwner', { owner: temporaryOwner.owner })}
         </Helper>
@@ -186,11 +195,7 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
       )}
       <ButtonContainer>
         <MobileFullWidth>
-          <Button
-            colorStyle="accentSecondary"
-            disabled={signatures.isPending}
-            onClick={() => callback({ back: true })}
-          >
+          <Button colorStyle="accentSecondary" onClick={() => callback({ back: true })}>
             {t('action.back', { ns: 'common' })}
           </Button>
         </MobileFullWidth>
@@ -200,8 +205,8 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
           ) : (
             <Button
               data-testid="next-button"
-              loading={readsAllowance || signatures.isPending}
-              disabled={readsAllowance || signatures.isPending}
+              loading={readsAllowance || readsSigningState || signatures.isPending}
+              disabled={readsAllowance || readsSigningState || signatures.isPending}
               onClick={begin}
             >
               {t('action.begin', { ns: 'common' })}

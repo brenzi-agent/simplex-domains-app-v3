@@ -13,7 +13,7 @@ import { SignedIntent, signingErrorMessage } from '@app/utils/snrcIntents'
 
 export const NameOfferBanner = ({ name }: { name: string }) => {
   const { t } = useTranslation('profile')
-  const { offer, relayedHolder, isConnectedHolder } = useConnectedHolder({ name })
+  const { offer, connectedHolder } = useConnectedHolder({ name })
   const { usePreparedDataInput, createTransactionFlow } = useTransactionFlow()
   const showClaimNameInput = usePreparedDataInput('ClaimName')
   const { signApproveName } = useIntentSigner()
@@ -40,7 +40,7 @@ export const NameOfferBanner = ({ name }: { name: string }) => {
       transactions: [createTransactionItem('withdrawOffer', { name, intent })],
     })
 
-  if (isConnectedHolder)
+  if (connectedHolder)
     return (
       <Banner alert="info" title={t('banner.offer.holder.title')}>
         <BannerMessageWithAction
@@ -50,9 +50,9 @@ export const NameOfferBanner = ({ name }: { name: string }) => {
             colorStyle: 'accentSecondary',
             disabled: holderSignature.isPending,
             onClick: () =>
-              relayedHolder
+              connectedHolder.kind === 'relayed'
                 ? holderSignature.mutate(
-                    { name, holder: relayedHolder, recipient: zeroAddress },
+                    { name, holder: connectedHolder.account, recipient: zeroAddress },
                     { onSuccess: withdraw },
                   )
                 : withdraw(),

@@ -9,7 +9,7 @@ import { namePolicyTermsAbi, Terms } from '@app/utils/snrcNameTerms'
 type Data = { name: string; commitment: Hex; terms: Terms; intent?: SignedIntent }
 
 const displayItems = (
-  { name }: Data,
+  { name, intent }: Data,
   t: TFunction<'translation', undefined>,
 ): TransactionDisplayItem[] => [
   {
@@ -21,6 +21,7 @@ const displayItems = (
     label: 'action',
     value: t('transaction.description.acceptTerms'),
   },
+  ...(intent ? [{ label: 'owner', value: intent.signer, type: 'address' } as const] : []),
 ]
 
 const commitUnderTerms = {

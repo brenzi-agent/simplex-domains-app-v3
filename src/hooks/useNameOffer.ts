@@ -85,6 +85,8 @@ export const useNameOffer = ({ name }: UseNameOfferParameters) => {
   return useQuery(preparedOptions)
 }
 
+export type ConnectedHolder = { kind: 'selected' } | { kind: 'relayed'; account: Address }
+
 export const getConnectedHolder = ({
   offer,
   addresses,
@@ -93,17 +95,24 @@ export const getConnectedHolder = ({
   offer?: { holder: Address; isHolder: boolean } | null
   addresses?: readonly Address[]
   allowance?: bigint
-}) => {
-  const holder = offer && !offer.isHolder && !!allowance ? offer.holder.toLowerCase() : undefined
-  const relayedHolder = holder
-    ? addresses?.find((account) => account.toLowerCase() === holder)
+}): ConnectedHolder | undefined => {
+  if (!offer) return undefined
+  if (offer.isHolder) return { kind: 'selected' }
+  const holder = offer.holder.toLowerCase()
+  const account = allowance
+    ? addresses?.find((connected) => connected.toLowerCase() === holder)
     : undefined
-  return { isConnectedHolder: !!offer?.isHolder || !!relayedHolder, relayedHolder }
+  return account && { kind: 'relayed', account }
 }
 
 export const useConnectedHolder = ({ name }: UseNameOfferParameters) => {
   const offer = useNameOffer({ name })
   const { addresses } = useAccountSafely()
   const { allowance } = useAccountAllowance()
-  return { offer, ...getConnectedHolder({ offer: offer.data, addresses, allowance: allowance.data }) }
+  const connectedHolder = getConnectedHolder({
+    offer: offer.data,
+    addresses,
+    allowance: allowance.data,
+  })
+  return { offer, connectedHolder }
 }
