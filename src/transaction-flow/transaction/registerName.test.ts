@@ -21,7 +21,7 @@ vi.mock('@ensdomains/ensjs/public')
 vi.mock('@ensdomains/ensjs/wallet')
 vi.mock('@app/constants/chains', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  getSnrcAddresses: () => ({ SimplexSponsor: SPONSOR }),
+  getSponsorAddress: () => SPONSOR,
 }))
 
 const SPONSOR = '0x5555555555555555555555555555555555555555'
@@ -61,7 +61,7 @@ it('registers the committed registration through the sponsor, paid from the allo
   const tx = await registerNameFlowTransaction.transaction({
     client: { chain: { id: 1 } } as unknown as ClientWithEns,
     connectorClient: {} as unknown as ConnectorClientWithEns,
-    data: { ...registration, credit: { disputeDays: 14 } },
+    data: { ...registration, credit: { owner: registration.owner } },
   })
 
   expect(tx).toEqual({ to: SPONSOR, data: expect.any(String) })

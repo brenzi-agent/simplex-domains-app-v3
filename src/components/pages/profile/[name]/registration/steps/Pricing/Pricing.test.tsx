@@ -27,7 +27,11 @@ vi.mock('@app/hooks/useEthPrice')
 vi.mock('@app/hooks/useNameTerms')
 vi.mock('@app/hooks/useNftGateStatus')
 vi.mock('@app/hooks/useReservedStatus')
-vi.mock('@app/components/SimplexInfoPanel', () => ({ SimplexInfoPanel: () => null }))
+vi.mock('@app/components/SimplexInfoPanel', () => ({
+  SimplexInfoPanel: ({ nftGated }: { nftGated: boolean }) => (
+    <div data-testid="simplex-info-panel">{nftGated ? 'nft gated' : 'nft not gated'}</div>
+  ),
+}))
 vi.mock('@app/components/@molecules/DateSelection/DateSelection', () => ({
   DateSelection: ({
     maxSeconds,
@@ -48,7 +52,8 @@ vi.mock('@app/components/pages/profile/ProfileButton', () => ({
 vi.mock('../../FullInvoice', () => ({ default: () => <div data-testid="full-invoice" /> }))
 vi.mock('@app/constants/chains', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  getSnrcAddresses: () => ({ SimplexSponsor: SPONSOR, ETHRegistrarController: CONTROLLER }),
+  getSnrcAddresses: () => ({ ETHRegistrarController: CONTROLLER }),
+  getSponsorAddress: () => SPONSOR,
 }))
 
 const SPONSOR = '0x5555555555555555555555555555555555555555'
@@ -353,7 +358,9 @@ describe('Pricing', () => {
       }),
     )
     expect(screen.getByText('$100.00')).toBeVisible()
-    expect(screen.getByText('$1,000.00')).toBeVisible()
+    expect(screen.getByText('invoice.estimatedNetworkFee')).toBeVisible()
+    expect(screen.getByText('invoice.allowanceLeft')).toBeVisible()
+    expect(screen.getByText('$900.00')).toBeVisible()
     expect(screen.queryByTestId('full-invoice')).not.toBeInTheDocument()
     expect(screen.getByTestId('next-button')).toBeDisabled()
     await userEvent.click(screen.getByTestId('terms-accept'))
@@ -365,9 +372,20 @@ describe('Pricing', () => {
       expect.objectContaining({
         seconds: yearsToSeconds(2),
         terms: { kind: 'general', hash: TERMS },
-        credit: { disputeDays: 14 },
+        paymentMethodChoice: '',
+        credit: { owner: '0x123' },
       }),
     )
+    expect(vi.mocked(props.callback).mock.calls[0][0]).not.toHaveProperty('estimatedTotal')
+    expect(vi.mocked(props.callback).mock.calls[0][0]).not.toHaveProperty('ethPrice')
+  })
+
+  it('should wait for the allowance of the account before saying public sales are not open', () => {
+    mockUseControllerLimits.mockReturnValue({ minCharLength: 6, publicSalesOpen: false })
+    mockUseReadContract.mockReturnValue({ data: undefined, isLoading: true } as never)
+    render(<Pricing {...makeProps()} />)
+    expect(screen.queryByTestId('public-sales-closed')).not.toBeInTheDocument()
+    expect(screen.getByTestId('next-button')).toBeDisabled()
   })
 
   it('should register with the allowance, not with ETH, while public sales are open', async () => {
@@ -377,7 +395,7 @@ describe('Pricing', () => {
     expect(screen.queryByTestId('full-invoice')).not.toBeInTheDocument()
     await userEvent.click(screen.getByTestId('next-button'))
     expect(props.callback).toHaveBeenCalledWith(
-      expect.objectContaining({ credit: { disputeDays: 14 } }),
+      expect.objectContaining({ credit: { owner: '0x123' } }),
     )
   })
 
@@ -385,6 +403,7 @@ describe('Pricing', () => {
     const props = makeProps({ linkRecords: undefined })
     render(<Pricing {...props} />)
     expect(screen.getByTestId('full-invoice')).toBeInTheDocument()
+    expect(screen.getByTestId('simplex-info-panel')).toHaveTextContent('nft gated')
     await userEvent.click(screen.getByTestId('next-button'))
     expect(vi.mocked(props.callback).mock.calls[0][0].credit).toBeUndefined()
   })
@@ -394,15 +413,26 @@ describe('Pricing', () => {
     render(<Pricing {...makeProps()} />)
     expect(screen.getByText('invoice.temporaryPremium')).toBeVisible()
     expect(screen.getByText('$50.00')).toBeVisible()
-    expect(screen.getByText('$120.00')).toBeVisible()
+    expect(screen.getByText('-$30.00')).toBeVisible()
     expect(screen.getByTestId('next-button')).toBeDisabled()
     expect(screen.getByTestId('next-button')).toHaveTextContent('steps.pricing.allowanceTooLow')
+  })
+
+  it('should not register from the allowance without the ETH for the network fee', () => {
+    readAllowance(1000n * USD, { base: 100n * USD, premium: 0n })
+    mockUseBalance.mockReturnValue({ data: { value: 0n } })
+    render(<Pricing {...makeProps()} />)
+    expect(screen.getByTestId('next-button')).toBeDisabled()
+    expect(screen.getByTestId('next-button')).toHaveTextContent(
+      'steps.pricing.insufficientBalance',
+    )
   })
 
   it('should not hold an account with an allowance at the NFT gate', () => {
     mockUseNftGateStatus.mockReturnValue({ required: true, hasNft: false, loaded: true })
     readAllowance(1000n * USD, { base: 100n * USD, premium: 0n })
     render(<Pricing {...makeProps()} />)
+    expect(screen.getByTestId('simplex-info-panel')).toHaveTextContent('nft not gated')
     expect(screen.getByTestId('next-button')).toBeEnabled()
     expect(screen.getByTestId('next-button')).toHaveTextContent(
       'steps.pricing.registerWithAllowance',
@@ -433,7 +463,7 @@ describe('Pricing', () => {
       expect(props.callback).toHaveBeenCalledWith(
         expect.objectContaining({
           seconds: yearsToSeconds(maxYears),
-          credit: { disputeDays: 14 },
+          credit: { owner: '0x123' },
         }),
       )
     },

@@ -12,7 +12,7 @@ vi.mock('wagmi')
 vi.mock('../ensjs/public/usePrice')
 vi.mock('@app/constants/chains', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  getSnrcAddresses: () => ({ SimplexSponsor: SPONSOR }),
+  getSponsorAddress: () => SPONSOR,
 }))
 
 const SPONSOR = '0x5555555555555555555555555555555555555555'
@@ -51,7 +51,7 @@ describe('useSimulateRegistration', () => {
     const { result } = renderHook(() =>
       useSimulateRegistration({
         registrationParams,
-        credit: { disputeDays: 14 },
+        credit: { owner: registrationParams.owner },
         query: { enabled: true },
       }),
     )

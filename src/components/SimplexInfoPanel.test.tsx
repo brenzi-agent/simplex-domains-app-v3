@@ -69,4 +69,19 @@ describe('SimplexInfoPanel', () => {
       expect.objectContaining({ query: { enabled: false } }),
     )
   })
+
+  it.each([
+    ['is said to need the NFT', true, true],
+    ['is not said to need the NFT when the gate does not apply to it', false, false],
+  ])('a wallet without the SimpleX NFT %s', (_, nftGated, shown) => {
+    mockUseControllerLimits.mockReturnValue({ minCharLength: 6 } as never)
+    mockUseReadContract.mockReturnValue({ data: undefined } as never)
+    mockFunction(useNftGateStatus).mockReturnValueOnce({
+      required: true,
+      hasNft: false,
+      loaded: true,
+    } as never)
+    render(<SimplexInfoPanel name="alice-name.simplex" address="0x123" nftGated={nftGated} />)
+    expect(!!screen.queryByTestId('simplex-nft-gate-helper')).toBe(shown)
+  })
 })

@@ -8,6 +8,7 @@ import { useExistingCommitment } from '@app/hooks/registration/useExistingCommit
 import { useSimulateRegistration } from '@app/hooks/registration/useSimulateRegistration'
 import { useDurationCountdown } from '@app/hooks/time/useDurationCountdown'
 import { useCommittedTerms, useNameTerms } from '@app/hooks/useNameTerms'
+import { useRegistrarAllowance } from '@app/hooks/useRegistrarAllowance'
 import { useTransactionFlow } from '@app/transaction-flow/TransactionFlowProvider'
 import { TermsKind } from '@app/utils/snrcNameTerms'
 
@@ -23,6 +24,7 @@ vi.mock('@app/hooks/registration/useExistingCommitment')
 vi.mock('@app/hooks/registration/useSimulateRegistration')
 vi.mock('@app/hooks/time/useDurationCountdown')
 vi.mock('@app/hooks/useNameTerms')
+vi.mock('@app/hooks/useRegistrarAllowance')
 vi.mock('@app/transaction-flow/TransactionFlowProvider')
 
 const OWNER = '0x2222222222222222222222222222222222222222'
@@ -86,6 +88,7 @@ describe('Transactions', () => {
     mockFunction(useCheckRegistered).mockReturnValue(false)
     mockFunction(useDurationCountdown).mockReturnValue('1 day')
     mockUseExistingCommitment.mockReturnValue({})
+    mockFunction(useRegistrarAllowance).mockReturnValue({ covers: true })
   })
 
   it.each([
@@ -147,11 +150,11 @@ describe('Transactions', () => {
     )
   })
 
-  it('waits for and sends the register from the allowance when the pricing step chose it', async () => {
+  it('a register from the allowance is simulated, then sent after the commit', async () => {
     flow('complete')
     nameTerms('general', GENERAL_TERMS)
     committed(GENERAL_TERMS)
-    const credit = { disputeDays: 14 }
+    const credit = { owner: OWNER }
     render(
       <Transactions
         name={NAME}
@@ -176,4 +179,41 @@ describe('Transactions', () => {
       }),
     )
   })
+
+  it.each([
+    ['while the commitment matures', undefined],
+    ['once the commitment matured', 'complete'],
+  ] as const)(
+    'a register from an allowance that no longer covers it is refused %s',
+    (_, commitStage) => {
+      mockUseTransactionFlow.mockReturnValue({
+        getLatestTransaction: (key: string) =>
+          key.startsWith('commit-')
+            ? { stage: 'complete', finaliseTime: Date.now() - (commitStage ? 120_000 : 10_000) }
+            : undefined,
+        createTransactionFlow,
+      } as never)
+      nameTerms('general', GENERAL_TERMS)
+      committed(GENERAL_TERMS)
+      mockFunction(useRegistrarAllowance).mockReturnValue({ covers: false })
+      render(
+        <Transactions
+          name={NAME}
+          registrationData={{ ...registrationData, credit: { owner: OWNER } }}
+          callback={vi.fn()}
+          onStart={vi.fn()}
+        />,
+      )
+      expect(mockFunction(useRegistrarAllowance)).toHaveBeenCalledWith({
+        name: NAME,
+        seconds: 63072000,
+      })
+      expect(screen.queryByTestId('finish-button')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('wait-button')).not.toBeInTheDocument()
+      expect(screen.getByTestId('allowance-too-low')).toBeDisabled()
+      expect(screen.getByTestId('allowance-too-low')).toHaveTextContent(
+        'steps.pricing.allowanceTooLow',
+      )
+    },
+  )
 })
