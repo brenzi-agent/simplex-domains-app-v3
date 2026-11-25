@@ -31,9 +31,7 @@ const registrationParams: RegistrationParameters = {
 
 describe('the sponsored registration', () => {
   it('is one call to the sponsor with the minimum dispute days, unsigned for the registrar', () => {
-    expect(
-      makeRegisterWithCreditCall({ chainId: 1, registrationParams, credit: { owner: REGISTRAR } }),
-    ).toEqual(
+    expect(makeRegisterWithCreditCall({ chainId: 1, registrationParams })).toEqual(
       expect.objectContaining({
         address: SPONSOR,
         functionName: 'registerWithCredit',

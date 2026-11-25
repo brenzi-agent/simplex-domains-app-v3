@@ -17,6 +17,7 @@ import { useExistingCommitment } from '@app/hooks/registration/useExistingCommit
 import { useSimulateRegistration } from '@app/hooks/registration/useSimulateRegistration'
 import { useDurationCountdown } from '@app/hooks/time/useDurationCountdown'
 import { useCommittedTerms, useNameTerms } from '@app/hooks/useNameTerms'
+import { useRegistrarAllowance } from '@app/hooks/useRegistrarAllowance'
 import useRegistrationParams from '@app/hooks/useRegistrationParams'
 import { useTermsAcceptance } from '@app/hooks/useTermsAcceptance'
 import { CenteredTypography } from '@app/transaction-flow/input/ProfileEditor/components/CenteredTypography'
@@ -229,9 +230,10 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
   const acceptTermsTx = getLatestTransaction(acceptTermsKey)
   const [resetOpen, setResetOpen] = useState(false)
 
+  const owner = registrationData.credit?.owner ?? address!
   const registrationParams = useRegistrationParams({
     name,
-    owner: address!,
+    owner,
     registrationData,
   })
   const commitment = makeCommitment(registrationParams)
@@ -259,10 +261,12 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
     },
   })
   const canRegisterOverride = isSimulateRegistrationSuccess
+  const { covers } = useRegistrarAllowance({ name, seconds: registrationData.seconds })
+  const allowanceTooLow = !!registrationData.credit && covers === false
 
   const checkRegistered = useCheckRegistered({
     name,
-    ownerAddress: address,
+    ownerAddress: owner,
     enabled: registerTx?.stage === 'sent',
   })
 
@@ -652,6 +656,20 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
                   {t('action.restart', { ns: 'common' })}
                 </Button>
               </div>
+            ),
+          )
+          .with(
+            P.union('registrationReady', 'registrationOverriden', 'commitComplete'),
+            () => allowanceTooLow,
+            () => (
+              <>
+                {ResetBackButton}
+                <MobileFullWidth>
+                  <Button data-testid="allowance-too-low" disabled>
+                    {t('steps.pricing.allowanceTooLow')}
+                  </Button>
+                </MobileFullWidth>
+              </>
             ),
           )
           .with('registrationReady', 'registrationOverriden', () => (

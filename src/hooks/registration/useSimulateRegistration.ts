@@ -4,8 +4,7 @@ import { usePublicClient, useSimulateContract, UseSimulateContractParameters } f
 import { ethRegistrarControllerRegisterSnippet } from '@ensdomains/ensjs/contracts'
 import { makeRegistrationCallData, RegistrationParameters } from '@ensdomains/ensjs/utils'
 
-import { getSnrcAddresses } from '@app/constants/chains'
-import { Credit, makeRegisterWithCreditArgs, sponsorAbi } from '@app/utils/snrcSponsor'
+import { Credit, makeRegisterWithCreditCall } from '@app/utils/snrcSponsor'
 import { calculateValueWithBuffer } from '@app/utils/utils'
 
 import { usePrice } from '../ensjs/public/usePrice'
@@ -69,10 +68,7 @@ export const useSimulateRegistration = ({
   })
 
   const creditSimulation = useSimulateContract({
-    abi: sponsorAbi,
-    address: getSnrcAddresses(client.chain.id).SimplexSponsor as Address,
-    functionName: 'registerWithCredit',
-    args: credit && makeRegisterWithCreditArgs(registrationParams, credit),
+    ...makeRegisterWithCreditCall({ chainId: client.chain.id, registrationParams }),
     query: { ...query, enabled: enabled && !!credit },
   })
 

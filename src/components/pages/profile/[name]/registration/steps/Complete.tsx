@@ -17,6 +17,7 @@ import useWindowSize from '@app/hooks/useWindowSize'
 import { useTransactionFlow } from '@app/transaction-flow/TransactionFlowProvider'
 import { dateFromDateDiff } from '@app/utils/date'
 import { isMobileDevice } from '@app/utils/device'
+import { getAllowanceCharge } from '@app/utils/snrcSponsor'
 import { secondsToDays } from '@app/utils/time'
 import { formatDurationOfDates } from '@app/utils/utils'
 
@@ -146,6 +147,7 @@ const useEthInvoice = (
   name: string,
   seconds: number,
   isMoonpayFlow: boolean,
+  credited: boolean,
 ): { InvoiceFilled?: React.ReactNode; avatarSrc?: string } => {
   const { t } = useTranslation('register')
   const { address } = useAccount()
@@ -209,13 +211,15 @@ const useEthInvoice = (
                 t,
               }),
             }),
-            value,
+            ...(credited
+              ? { usd: registerReceipt && getAllowanceCharge(registerReceipt.logs) }
+              : { value }),
           },
           { label: t('invoice.transactionFees'), value: totalNetFee },
         ]}
       />
     )
-  }, [isLoading, registrationValue, commitReceipt, registerReceipt, t, name, seconds])
+  }, [isLoading, registrationValue, commitReceipt, registerReceipt, t, name, seconds, credited])
 
   if (isMoonpayFlow) return { InvoiceFilled: null, avatarSrc }
 
@@ -233,7 +237,12 @@ type Props = {
 const Complete = ({ name, beautifiedName, callback, isMoonpayFlow, registrationData }: Props) => {
   const { t } = useTranslation('register')
   const { width, height } = useWindowSize()
-  const { InvoiceFilled, avatarSrc } = useEthInvoice(name, registrationData.seconds, isMoonpayFlow)
+  const { InvoiceFilled, avatarSrc } = useEthInvoice(
+    name,
+    registrationData.seconds,
+    isMoonpayFlow,
+    !!registrationData.credit,
+  )
   const { image: onchainNftImage } = useOnchainNftImage(name)
 
   const nameWithColourEmojis = useMemo(() => {

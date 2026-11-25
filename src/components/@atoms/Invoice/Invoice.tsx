@@ -6,7 +6,7 @@ import { CurrencyDisplay } from '@app/types'
 
 import { CurrencyText } from '../CurrencyText/CurrencyText'
 
-const Container = styled.div(
+export const Container = styled.div(
   ({ theme }) => css`
     padding: ${theme.space['4']};
     background: ${theme.colors.backgroundSecondary};
@@ -18,7 +18,7 @@ const Container = styled.div(
   `,
 )
 
-const LineItem = styled.div<{ $color?: Colors }>(
+export const LineItem = styled.div<{ $color?: Colors }>(
   ({ theme, $color }) => css`
     display: flex;
     justify-content: space-between;
