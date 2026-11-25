@@ -61,4 +61,16 @@ describe('acceptTerms', () => {
       args: [COMMITMENT, TERMS, intent.signer, intent.nonce, intent.deadline, intent.signature],
     })
   })
+
+  it('shows the owner in the confirmation of an acceptance relayed for it', () => {
+    const t = ((key: string) => key) as never
+    const data = {
+      name: 'alice.testing',
+      commitment: COMMITMENT,
+      terms: { kind: 'general', hash: TERMS },
+    } as const
+    const owner = { label: 'owner', value: intent.signer, type: 'address' }
+    expect(acceptTerms.displayItems(data, t)).not.toContainEqual(owner)
+    expect(acceptTerms.displayItems({ ...data, intent }, t)).toContainEqual(owner)
+  })
 })

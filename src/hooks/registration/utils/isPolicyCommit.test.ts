@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { namePolicyTermsAbi } from '@app/utils/snrcNameTerms'
 
-import { isPolicyCommit } from './isPolicyCommit'
+import { isPolicyCommit, isRelayedPolicyCommit } from './isPolicyCommit'
 
 const NAME_POLICY = '0x4444444444444444444444444444444444444444'
 const OTHER = '0x5555555555555555555555555555555555555555'
@@ -65,6 +65,33 @@ describe('isPolicyCommit', () => {
         { to: NAME_POLICY, input: policyCommit(COMMITMENT) },
         { commitment: COMMITMENT },
       ),
+    ).toBe(false)
+  })
+})
+
+describe('isRelayedPolicyCommit', () => {
+  const relayedFor = (acceptor: `0x${string}`) =>
+    encodeFunctionData({
+      abi: parseAbi([
+        'function commitUnderCommunityTermsWithSig(bytes32 commitment, bytes32 acceptedTermsHash, address acceptor, uint256 nonce, uint256 deadline, bytes sig)',
+      ]),
+      functionName: 'commitUnderCommunityTermsWithSig',
+      args: [COMMITMENT, TERMS, acceptor, 0n, 1_900_000_000n, '0x'],
+    })
+  const forOther = { ...expected, acceptor: OTHER } as const
+
+  it('matches a commitment relayed for its acceptor, whoever sent it', () => {
+    expect(isRelayedPolicyCommit({ to: NAME_POLICY, input: relayedFor(OTHER) }, forOther)).toBe(
+      true,
+    )
+  })
+
+  it('returns false for another acceptor and for a commit by the acceptor itself', () => {
+    expect(
+      isRelayedPolicyCommit({ to: NAME_POLICY, input: relayedFor(NAME_POLICY) }, forOther),
+    ).toBe(false)
+    expect(
+      isRelayedPolicyCommit({ to: NAME_POLICY, input: policyCommit(COMMITMENT) }, forOther),
     ).toBe(false)
   })
 })

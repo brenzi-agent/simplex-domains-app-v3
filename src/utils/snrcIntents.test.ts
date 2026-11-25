@@ -17,6 +17,7 @@ import {
   makeAcceptTermsTypedData,
   makeApproveNameTypedData,
   makeRegisterNameTypedData,
+  normalizeSignature,
   signingErrorMessage,
 } from './snrcIntents'
 
@@ -103,7 +104,6 @@ describe('the typed data the temporary owner signs, hashed as the contracts at 6
       chainId: 1,
       sponsor: MAINNET_SPONSOR,
       registrationParams,
-      disputeDays: 14,
       nonce: 0n,
       deadline: DEADLINE,
     })
@@ -179,5 +179,12 @@ describe('a signature', () => {
     })
     expect(signingErrorMessage(wagmiError)).toBe('Account not found.')
     expect(signingErrorMessage(new Error('Rejected.'))).toBe('Rejected.')
+  })
+
+  it('is kept with v as 27 or 28, which the ECDSA of the contracts requires', () => {
+    const rs = 'aa'.repeat(64)
+    expect(normalizeSignature(`0x${rs}00`)).toBe(`0x${rs}1b`)
+    expect(normalizeSignature(`0x${rs}01`)).toBe(`0x${rs}1c`)
+    expect(normalizeSignature(`0x${rs}1c`)).toBe(`0x${rs}1c`)
   })
 })

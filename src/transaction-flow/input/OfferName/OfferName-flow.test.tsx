@@ -53,8 +53,9 @@ const connectedHolder = (
 ) =>
   mockUseConnectedHolder.mockReturnValue({
     offer,
-    relayedHolder,
-    isConnectedHolder: true,
+    connectedHolder: relayedHolder
+      ? { kind: 'relayed', account: relayedHolder }
+      : { kind: 'selected' },
   } as unknown as ReturnType<typeof useConnectedHolder>)
 
 const offerTo = (recipient?: string) =>

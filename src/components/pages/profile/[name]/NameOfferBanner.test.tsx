@@ -37,8 +37,11 @@ const offer = (
 ) =>
   mockUseConnectedHolder.mockReturnValue({
     offer: { data: data && { holder: HOLDER, isHolder: false, isRecipient: false, ...data } },
-    relayedHolder,
-    isConnectedHolder: !!data?.isHolder || !!relayedHolder,
+    connectedHolder: relayedHolder
+      ? { kind: 'relayed', account: relayedHolder }
+      : data?.isHolder
+        ? { kind: 'selected' }
+        : undefined,
   } as unknown as ReturnType<typeof useConnectedHolder>)
 
 describe('NameOfferBanner', () => {

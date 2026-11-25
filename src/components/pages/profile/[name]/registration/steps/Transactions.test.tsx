@@ -52,19 +52,22 @@ const TEMPORARY_OWNER_COMMITMENT = makeCommitment({
   reverseRecord: 0,
   referrer: zeroHash,
 })
-const signed = (deadline: number) =>
-  ({ nonce: 0n, deadline: BigInt(deadline), signature: `0x${'bb'.repeat(65)}` }) as const
+const NONCE = 4n
+const signed = (deadline: number, nonce = NONCE) =>
+  ({ nonce, deadline: BigInt(deadline), signature: `0x${'bb'.repeat(65)}` }) as const
 const signedCredit = ({
   commitment = TEMPORARY_OWNER_COMMITMENT,
   deadline = Math.floor(Date.now() / 1000) + 2 * 86400,
-}: { commitment?: `0x${string}`; deadline?: number } = {}) => ({
+  termsNonce = NONCE,
+}: { commitment?: `0x${string}`; deadline?: number; termsNonce?: bigint } = {}) => ({
   owner: TEMPORARY_OWNER,
   intents: {
     commitment,
-    terms: { kind: 'general', hash: GENERAL_TERMS, intent: signed(deadline) },
+    terms: { kind: 'general', hash: GENERAL_TERMS, intent: signed(deadline, termsNonce) },
     register: signed(deadline),
   },
 })
+const cleanupFlow = vi.fn()
 
 const mockUseTransactionFlow = mockFunction(useTransactionFlow)
 const mockUseNameTerms = mockFunction(useNameTerms)
@@ -85,13 +88,14 @@ const registrationData = {
   terms: { kind: 'general', hash: GENERAL_TERMS },
 } as unknown as RegistrationReducerDataItem
 
-const flow = (commitStage?: 'complete') =>
+const flow = (commitStage?: 'complete' | 'failed') =>
   mockUseTransactionFlow.mockReturnValue({
     getLatestTransaction: (key: string) =>
       commitStage && key.startsWith('commit-')
         ? { stage: commitStage, finaliseTime: Date.now() - 120_000 }
         : undefined,
     createTransactionFlow,
+    cleanupFlow,
   } as never)
 const nameTerms = (kind: TermsKind, hash: `0x${string}`) =>
   mockUseNameTerms.mockReturnValue({
@@ -218,16 +222,18 @@ describe('Transactions', () => {
   const forTemporaryOwner = (
     credit: RegistrationReducerDataItem['credit'],
     callback = vi.fn(),
+    onCredit = vi.fn(),
   ) => (
     <Transactions
       name={NAME}
       registrationData={{ ...registrationData, credit }}
       callback={callback}
+      onCredit={onCredit}
       onStart={vi.fn()}
     />
   )
 
-  it('the commit for a temporary owner accepts the terms with its signature', () => {
+  it('the commit for a temporary owner accepts the terms with its signature', async () => {
     flow()
     nameTerms('general', GENERAL_TERMS)
     committed()
@@ -242,16 +248,21 @@ describe('Transactions', () => {
     expect(useCheckRegistered).toHaveBeenCalledWith(
       expect.objectContaining({ ownerAddress: TEMPORARY_OWNER }),
     )
-    expect(createTransactionFlow).toHaveBeenCalledWith(
-      `commit-${NAME}-${OWNER}`,
-      expect.objectContaining({
-        transactions: [
-          {
-            name: 'commitName',
-            data: expect.objectContaining({ owner: TEMPORARY_OWNER, credit }),
-          },
-        ],
-      }),
+    expect(mockUseExistingCommitment).toHaveBeenCalledWith(
+      expect.objectContaining({ acceptor: TEMPORARY_OWNER }),
+    )
+    await waitFor(() =>
+      expect(createTransactionFlow).toHaveBeenCalledWith(
+        `commit-${NAME}-${OWNER}`,
+        expect.objectContaining({
+          transactions: [
+            {
+              name: 'commitName',
+              data: expect.objectContaining({ owner: TEMPORARY_OWNER, credit }),
+            },
+          ],
+        }),
+      ),
     )
   })
 
@@ -279,25 +290,51 @@ describe('Transactions', () => {
     ['missing', { owner: TEMPORARY_OWNER }],
     ['for another commitment', signedCredit({ commitment: `0x${'dd'.repeat(32)}` })],
     [
-      'ending within the 24 hours of the commit',
+      'ending within the commitment window and an hour',
       signedCredit({ deadline: Math.floor(Date.now() / 1000) + 3600 }),
     ],
+    ['at a nonce used since', signedCredit({ termsNonce: NONCE - 1n })],
   ])(
-    'without the signatures of the temporary owner, %s, the commit waits and Back returns to sign them',
+    'without valid signatures of the temporary owner, %s, the timer starts once it signs again',
     async (_, credit) => {
       flow()
       nameTerms('general', GENERAL_TERMS)
       committed()
       const callback = vi.fn()
-      render(forTemporaryOwner(credit, callback))
+      const onCredit = vi.fn()
+      render(forTemporaryOwner(credit, callback, onCredit))
+      await waitFor(() => expect(screen.getByTestId('start-timer-button')).toBeEnabled())
       expect(createTransactionFlow).not.toHaveBeenCalled()
       expect(callback).not.toHaveBeenCalled()
       expect(screen.getByText('steps.info.temporaryOwner')).toBeVisible()
-      expect(screen.queryByTestId('start-timer-button')).not.toBeInTheDocument()
-      await userEvent.click(screen.getByText('action.back'))
-      expect(callback).toHaveBeenCalledWith({ back: true })
+
+      await userEvent.click(screen.getByTestId('start-timer-button'))
+      await waitFor(() => expect(onCredit).toHaveBeenCalled())
+      expect(signTypedDataAsync).toHaveBeenCalledTimes(2)
+      const signedAgain = onCredit.mock.calls[0][0]
+      expect(signedAgain.intents.commitment).toBe(TEMPORARY_OWNER_COMMITMENT)
+      expect(createTransactionFlow).toHaveBeenCalledWith(
+        `commit-${NAME}-${OWNER}`,
+        expect.objectContaining({
+          transactions: [
+            {
+              name: 'commitName',
+              data: expect.objectContaining({ owner: TEMPORARY_OWNER, credit: signedAgain }),
+            },
+          ],
+        }),
+      )
     },
   )
+
+  it('a failed commit is sent again from a new transaction', async () => {
+    flow('failed')
+    nameTerms('general', GENERAL_TERMS)
+    committed()
+    render(transactions())
+    await userEvent.click(screen.getByTestId('retry-commit-button'))
+    expect(cleanupFlow).toHaveBeenCalledWith(`commit-${NAME}-${OWNER}`)
+  })
 
   it('a temporary owner signs the changed terms again, and the acceptance is relayed', async () => {
     flow('complete')

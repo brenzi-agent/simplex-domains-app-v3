@@ -31,6 +31,22 @@ describe('useRegistrationReducer - pricing data', () => {
     reducer(state, { name: 'setPricingData', selected, payload: pricing })
     expect(state.items[0].credit).toBeUndefined()
   })
+
+  it('the signatures of a temporary owner replace the stored credit', () => {
+    const owner = '0x7777777777777777777777777777777777777777'
+    const intent = { nonce: 0n, deadline: 1n, signature: '0x' } as const
+    const credit = {
+      owner,
+      intents: { commitment: `0x${'cc'.repeat(32)}`, register: intent },
+    } as const
+    const state = reducer({ items: [] }, {
+      name: 'setPricingData',
+      selected,
+      payload: { ...pricing, credit: { owner } },
+    })
+    reducer(state, { name: 'setCredit', selected, payload: credit })
+    expect(state.items[0]).toEqual(expect.objectContaining({ seconds: 63072000, credit }))
+  })
 })
 
 // Test the getReferrerHex function behavior

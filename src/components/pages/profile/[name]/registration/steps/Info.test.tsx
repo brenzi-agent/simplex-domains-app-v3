@@ -74,17 +74,25 @@ const temporaryOwnerCommitment = makeCommitment({
 
 const now = () => Math.floor(Date.now() / 1000)
 
+const POLICY_NONCE = 3n
+const SPONSOR_NONCE = 5n
+
 const signedCredit = ({
   commitment = temporaryOwnerCommitment,
   deadline = BigInt(now() + 2 * ONE_DAY - 60),
-} = {}) => {
-  const intent = { nonce: 0n, deadline, signature: `0x${'aa'.repeat(65)}` } as const
+  registerNonce = SPONSOR_NONCE,
+}: { commitment?: `0x${string}`; deadline?: bigint; registerNonce?: bigint } = {}) => {
+  const signature = `0x${'aa'.repeat(65)}` as const
   return {
     owner: TEMPORARY_OWNER,
     intents: {
       commitment,
-      terms: { kind: 'general', hash: TERMS, intent },
-      register: intent,
+      terms: {
+        kind: 'general',
+        hash: TERMS,
+        intent: { nonce: POLICY_NONCE, deadline, signature },
+      },
+      register: { nonce: registerNonce, deadline, signature },
     },
   } as const
 }
@@ -97,6 +105,11 @@ const readAllowance = (allowance: bigint) =>
         : { base: 100n * USD, premium: 0n },
     isLoading: false,
   })) as never)
+
+const begin = async () => {
+  await waitFor(() => expect(screen.getByTestId('next-button')).toBeEnabled())
+  await userEvent.click(screen.getByTestId('next-button'))
+}
 
 describe('Info', () => {
   beforeEach(() => {
@@ -152,7 +165,7 @@ describe('Info', () => {
     const callback = vi.fn()
     render(info(temporaryOwnerData, callback))
     expect(screen.getByText('steps.info.temporaryOwner')).toBeVisible()
-    await userEvent.click(screen.getByTestId('next-button'))
+    await begin()
 
     await waitFor(() => expect(callback).toHaveBeenCalled())
     expect(signTypedDataAsync).toHaveBeenCalledWith(
@@ -198,7 +211,7 @@ describe('Info', () => {
   it('a temporary owner signs the registration for the duration the registrar chose', async () => {
     const callback = vi.fn()
     render(info({ ...temporaryOwnerData, seconds: yearsToSeconds(11) }, callback))
-    await userEvent.click(screen.getByTestId('next-button'))
+    await begin()
     await waitFor(() => expect(callback).toHaveBeenCalled())
     expect(signTypedDataAsync).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -211,28 +224,45 @@ describe('Info', () => {
   it('the registration begins without new signatures while those of the temporary owner hold for the commit', async () => {
     const callback = vi.fn()
     render(info({ ...temporaryOwnerData, credit: signedCredit() }, callback))
-    await userEvent.click(screen.getByTestId('next-button'))
+    await begin()
     expect(signTypedDataAsync).not.toHaveBeenCalled()
+    expect(screen.queryByText('steps.info.temporaryOwner')).not.toBeInTheDocument()
     expect(callback).toHaveBeenCalledWith({ back: false })
   })
 
   it.each([
     ['another commitment', signedCredit({ commitment: `0x${'dd'.repeat(32)}` })],
     ['a deadline within the 24 hours of the commit', signedCredit({ deadline: BigInt(now()) })],
+    [
+      'a deadline within the commitment window and an hour',
+      signedCredit({ deadline: BigInt(now() + 5 + 1800) }),
+    ],
+    ['a nonce used since', signedCredit({ registerNonce: SPONSOR_NONCE - 1n })],
   ])('a temporary owner signs again what it signed for %s', async (_, credit) => {
     const callback = vi.fn()
     render(info({ ...temporaryOwnerData, credit }, callback))
-    await userEvent.click(screen.getByTestId('next-button'))
+    await begin()
     await waitFor(() => expect(callback).toHaveBeenCalled())
     expect(signTypedDataAsync).toHaveBeenCalledTimes(2)
     expect(callback.mock.calls[0][0].credit.intents.commitment).toBe(temporaryOwnerCommitment)
+  })
+
+  it('a signature with v as 0 or 1 is kept with v as 27 or 28', async () => {
+    signTypedDataAsync.mockResolvedValue(`0x${'aa'.repeat(64)}01`)
+    const callback = vi.fn()
+    render(info(temporaryOwnerData, callback))
+    await begin()
+    await waitFor(() => expect(callback).toHaveBeenCalled())
+    expect(callback.mock.calls[0][0].credit.intents.register.signature).toBe(
+      `0x${'aa'.repeat(64)}1c`,
+    )
   })
 
   it('the reason why the temporary owner did not sign is shown, and the registration stays', async () => {
     signTypedDataAsync.mockRejectedValue(new BaseError('User rejected the request.'))
     const callback = vi.fn()
     render(info(temporaryOwnerData, callback))
-    await userEvent.click(screen.getByTestId('next-button'))
+    await begin()
     expect(await screen.findByText('User rejected the request.')).toBeVisible()
     expect(callback).not.toHaveBeenCalled()
   })
@@ -241,7 +271,7 @@ describe('Info', () => {
     verifyTypedData.mockResolvedValue(false)
     const callback = vi.fn()
     render(info(temporaryOwnerData, callback))
-    await userEvent.click(screen.getByTestId('next-button'))
+    await begin()
     expect(await screen.findByText('errors.signedByAnotherAccount')).toBeVisible()
     expect(verifyTypedData).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -253,7 +283,7 @@ describe('Info', () => {
     expect(callback).not.toHaveBeenCalled()
   })
 
-  it('Back waits for the signatures, and the registration does not begin once the step is left', async () => {
+  it('Back stays available while the wallet signs, and the registration does not begin once the step is left', async () => {
     let sign: (signature: string) => void = () => {}
     signTypedDataAsync.mockImplementation(
       () =>
@@ -263,8 +293,8 @@ describe('Info', () => {
     )
     const callback = vi.fn()
     const { unmount } = render(info(temporaryOwnerData, callback))
-    await userEvent.click(screen.getByTestId('next-button'))
-    expect(screen.getByText('action.back').closest('button')).toBeDisabled()
+    await begin()
+    expect(screen.getByText('action.back').closest('button')).toBeEnabled()
 
     unmount()
     sign(`0x${'aa'.repeat(65)}`)

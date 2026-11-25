@@ -1,4 +1,4 @@
-import { mockFunction } from '@app/test-utils'
+import { mockFunction, renderHook } from '@app/test-utils'
 
 import {
   Address,
@@ -11,12 +11,21 @@ import {
 } from 'viem'
 import { readContract } from 'viem/actions'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { useReadContract } from 'wagmi'
 
 import { ConfigWithEns } from '@app/types'
+import { useQuery } from '@app/utils/query/useQuery'
 
-import { getConnectedHolder, getNameOfferQueryFn } from './useNameOffer'
+import { useAccountSafely } from './account/useAccountSafely'
+import { getConnectedHolder, getNameOfferQueryFn, useConnectedHolder } from './useNameOffer'
 
 vi.mock('viem/actions')
+vi.mock('wagmi')
+vi.mock('./account/useAccountSafely')
+vi.mock('@app/utils/query/useQuery')
+vi.mock('./useQueryOptions', () => ({
+  useQueryOptions: () => ({ queryKey: [], queryFn: () => async () => null }),
+}))
 vi.mock('@app/constants/chains', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   getSnrcAddresses: () => ({ BaseRegistrarImplementation: REGISTRAR }),
@@ -110,7 +119,7 @@ describe('getConnectedHolder', () => {
   it('is the selected account that holds the name, without a relay', () => {
     expect(
       getConnectedHolder({ offer: heldBy(true), addresses: [HOLDER], allowance: 0n }),
-    ).toEqual({ isConnectedHolder: true, relayedHolder: undefined })
+    ).toEqual({ kind: 'selected' })
   })
 
   it('is another connected account that holds the name, relayed by a selected account with an allowance', () => {
@@ -120,7 +129,7 @@ describe('getConnectedHolder', () => {
         addresses: [SELECTED, HOLDER.toUpperCase() as Address],
         allowance: 1n,
       }),
-    ).toEqual({ isConnectedHolder: true, relayedHolder: HOLDER.toUpperCase() })
+    ).toEqual({ kind: 'relayed', account: HOLDER.toUpperCase() })
   })
 
   it.each([
@@ -128,16 +137,25 @@ describe('getConnectedHolder', () => {
     ['the allowance is not read yet', [SELECTED, HOLDER], undefined],
     ['no connected account holds the name', [SELECTED], 1n],
   ] as const)('is none when %s', (_, addresses, allowance) => {
-    expect(getConnectedHolder({ offer: heldBy(false), addresses, allowance })).toEqual({
-      isConnectedHolder: false,
-      relayedHolder: undefined,
-    })
+    expect(getConnectedHolder({ offer: heldBy(false), addresses, allowance })).toBeUndefined()
   })
 
   it('is none for a name without a holder', () => {
-    expect(getConnectedHolder({ offer: null, addresses: [SELECTED], allowance: 1n })).toEqual({
-      isConnectedHolder: false,
-      relayedHolder: undefined,
-    })
+    expect(
+      getConnectedHolder({ offer: null, addresses: [SELECTED], allowance: 1n }),
+    ).toBeUndefined()
+  })
+})
+
+describe('useConnectedHolder', () => {
+  it('reads the offer, the connected accounts and the allowance of the selected account', () => {
+    vi.mocked(useAccountSafely).mockReturnValue({
+      address: '0x4444444444444444444444444444444444444444',
+      addresses: ['0x4444444444444444444444444444444444444444', HOLDER],
+    } as never)
+    vi.mocked(useReadContract).mockReturnValue({ data: 5n, isError: false } as never)
+    vi.mocked(useQuery).mockReturnValue({ data: { holder: HOLDER, isHolder: false } } as never)
+    const { result } = renderHook(() => useConnectedHolder({ name: 'alice.testing' }))
+    expect(result.current.connectedHolder).toEqual({ kind: 'relayed', account: HOLDER })
   })
 })

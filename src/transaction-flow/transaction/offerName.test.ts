@@ -66,6 +66,19 @@ describe('offerName', () => {
     })
   })
 
+  it('shows the holder in the confirmation of an offer relayed for it', () => {
+    const t = ((key: string) => key) as never
+    const intent = {
+      signer: '0x2222222222222222222222222222222222222222',
+      nonce: 1n,
+      deadline: 1_900_000_000n,
+      signature: `0x${'ab'.repeat(65)}`,
+    } as const
+    expect(
+      offerName.displayItems({ name: 'alice.testing', recipient: RECIPIENT, intent }, t),
+    ).toContainEqual({ label: 'from', value: intent.signer, type: 'address' })
+  })
+
   it('displays the name, the action, the recipient and a note', () => {
     const t = ((key: string) => key) as never
     expect(offerName.displayItems({ name: 'alice.testing', recipient: RECIPIENT }, t)).toEqual([

@@ -1,13 +1,18 @@
-import { decodeFunctionData, zeroAddress, zeroHash } from 'viem'
+import { decodeFunctionData, parseAbi, zeroAddress, zeroHash } from 'viem'
 import { describe, expect, it, vi } from 'vitest'
 
 import { makeCommitment } from '@ensdomains/ensjs/utils'
 import { commitName as ensCommitName } from '@ensdomains/ensjs/wallet'
 
 import { ClientWithEns, ConnectorClientWithEns } from '@app/types'
-import { namePolicyTermsAbi } from '@app/utils/snrcNameTerms'
 
 import commitName from './commitName'
+
+const namePolicyTermsAbi = parseAbi([
+  'function commitUnderGeneralTerms(bytes32 commitment, bytes32 acceptedTermsHash)',
+  'function commitUnderCommunityTerms(bytes32 commitment, bytes32 acceptedTermsHash)',
+  'function commitUnderGeneralTermsWithSig(bytes32 commitment, bytes32 acceptedTermsHash, address acceptor, uint256 nonce, uint256 deadline, bytes sig)',
+])
 
 const NAME_POLICY = '0x4444444444444444444444444444444444444444'
 const TERMS = `0x${'77'.repeat(32)}` as const

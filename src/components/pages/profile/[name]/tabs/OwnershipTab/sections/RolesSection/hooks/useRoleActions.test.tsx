@@ -37,7 +37,7 @@ vi.mock('@app/hooks/ownership/useRoles/utils/getAvailableRoles', () => ({
   getAvailableRoles: () => mockGetAvailableRoles(),
 }))
 
-const mockUseConnectedHolder = vi.fn().mockReturnValue({ isConnectedHolder: false })
+const mockUseConnectedHolder = vi.fn().mockReturnValue({ connectedHolder: undefined })
 vi.mock('@app/hooks/useNameOffer', () => ({
   useConnectedHolder: () => mockUseConnectedHolder(),
 }))
@@ -219,7 +219,7 @@ describe('useRoleActions', () => {
   })
 
   it('should include the ability to offer the name if a connected account holds it', async () => {
-    mockUseConnectedHolder.mockReturnValueOnce({ isConnectedHolder: true })
+    mockUseConnectedHolder.mockReturnValueOnce({ connectedHolder: { kind: 'selected' } })
     const { result } = renderHook(() =>
       useRoleActions({
         name: 'test.testing',
@@ -235,7 +235,7 @@ describe('useRoleActions', () => {
   })
 
   it('should not include the ability to offer the name if no connected account holds it', async () => {
-    mockUseConnectedHolder.mockReturnValueOnce({ isConnectedHolder: false })
+    mockUseConnectedHolder.mockReturnValueOnce({ connectedHolder: undefined })
     const { result } = renderHook(() =>
       useRoleActions({
         name: 'test.testing',

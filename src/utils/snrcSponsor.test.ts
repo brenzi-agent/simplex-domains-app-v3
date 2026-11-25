@@ -115,17 +115,49 @@ describe('the signatures of a temporary owner', () => {
   })
 
   const TWO_DAYS = NOW + 2 * 86400
+  const onChain = { policyNonce: 0n, sponsorNonce: 0n, maxCommitmentAge: 86400n }
 
-  it('hold for a commit when they cover its commitment and terms beyond its 24 hours', () => {
-    expect(isSignedFor(signed(TWO_DAYS), { commitment: COMMITMENT, terms: TERMS })).toBe(true)
+  it('hold for a commit when they cover its commitment, terms, nonces and window', () => {
+    expect(
+      isSignedFor(signed(TWO_DAYS), { commitment: COMMITMENT, terms: TERMS, onChain }),
+    ).toBe(true)
   })
 
   it.each([
-    ['are missing', { owner: REGISTRAR }, COMMITMENT, TERMS],
-    ['are for another commitment', signed(TWO_DAYS), `0x${'dd'.repeat(32)}`, TERMS],
-    ['accept other terms', signed(TWO_DAYS), COMMITMENT, { kind: 'community', hash: TERMS.hash }],
-    ['end within the 24 hours of a commit', signed(NOW + 86400), COMMITMENT, TERMS],
-  ] as const)('do not hold for a commit when they %s', (_, credit, commitment, terms) => {
-    expect(isSignedFor(credit, { commitment, terms })).toBe(false)
-  })
+    ['are missing', { owner: REGISTRAR }, COMMITMENT, TERMS, onChain],
+    ['are for another commitment', signed(TWO_DAYS), `0x${'dd'.repeat(32)}`, TERMS, onChain],
+    [
+      'accept other terms',
+      signed(TWO_DAYS),
+      COMMITMENT,
+      { kind: 'community', hash: TERMS.hash },
+      onChain,
+    ],
+    [
+      'end within the commitment window and an hour',
+      signed(NOW + 86400 + 1800),
+      COMMITMENT,
+      TERMS,
+      onChain,
+    ],
+    [
+      'accept the terms at a used nonce',
+      signed(TWO_DAYS),
+      COMMITMENT,
+      TERMS,
+      { ...onChain, policyNonce: 1n },
+    ],
+    [
+      'register at a used nonce',
+      signed(TWO_DAYS),
+      COMMITMENT,
+      TERMS,
+      { ...onChain, sponsorNonce: 1n },
+    ],
+  ] as const)(
+    'do not hold for a commit when they %s',
+    (_, credit, commitment, terms, chain) => {
+      expect(isSignedFor(credit, { commitment, terms, onChain: chain })).toBe(false)
+    },
+  )
 })
