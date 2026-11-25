@@ -1,7 +1,6 @@
 import { mockFunction, render, screen, userEvent, waitFor } from '@app/test-utils'
 
 import { BaseError, labelhash } from 'viem'
-import { readContract } from 'viem/actions'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useBytecode, usePublicClient, useSignTypedData } from 'wagmi'
 
@@ -15,12 +14,9 @@ const RECIPIENT = '0x3333333333333333333333333333333333333333'
 const EARLIER_RECIPIENT = '0x4444444444444444444444444444444444444444'
 const REGISTRAR = '0x1111111111111111111111111111111111111111'
 const signTypedDataAsync = vi.fn()
+const readContract = vi.fn(async () => 2n)
 
 vi.mock('wagmi')
-vi.mock('viem/actions', async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  readContract: vi.fn(async () => 2n),
-}))
 vi.mock('@app/constants/chains', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   getSnrcAddresses: () => ({ BaseRegistrarImplementation: REGISTRAR }),
@@ -68,7 +64,7 @@ describe('OfferName', () => {
     vi.clearAllMocks()
     offerTo(undefined)
     mockUseBytecode.mockReturnValue({ data: undefined, isSuccess: true } as never)
-    mockFunction(usePublicClient).mockReturnValue({ chain: { id: 1 } } as never)
+    mockFunction(usePublicClient).mockReturnValue({ chain: { id: 1 }, readContract } as never)
     mockFunction(useSignTypedData).mockReturnValue({ signTypedDataAsync } as never)
     signTypedDataAsync.mockResolvedValue(`0x${'aa'.repeat(65)}`)
   })
@@ -172,7 +168,6 @@ describe('OfferName', () => {
       }),
     )
     expect(readContract).toHaveBeenCalledWith(
-      expect.anything(),
       expect.objectContaining({ address: REGISTRAR, functionName: 'nonces', args: [HOLDER] }),
     )
     expect(signTypedDataAsync).toHaveBeenCalledWith(

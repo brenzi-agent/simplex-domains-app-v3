@@ -1,5 +1,4 @@
 import { Address, Hex } from 'viem'
-import { readContract } from 'viem/actions'
 import { usePublicClient, useSignTypedData } from 'wagmi'
 
 import { RegistrationParameters } from '@ensdomains/ensjs/utils'
@@ -22,7 +21,7 @@ export const useIntentSigner = () => {
   const chainId = client.chain.id
 
   const readNonce = (contract: Address, signer: Address) =>
-    readContract(client, {
+    client.readContract({
       address: contract,
       abi: noncesAbi,
       functionName: 'nonces',

@@ -1,7 +1,6 @@
 import { mockFunction, render, screen, userEvent, waitFor } from '@app/test-utils'
 
 import { BaseError, zeroHash } from 'viem'
-import { readContract } from 'viem/actions'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { usePublicClient, useReadContract, useSignTypedData } from 'wagmi'
 
@@ -14,10 +13,6 @@ import { RegistrationReducerDataItem } from '../types'
 import Info from './Info'
 
 vi.mock('wagmi')
-vi.mock('viem/actions', async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  readContract: vi.fn(),
-}))
 vi.mock('@app/hooks/account/useAccountSafely')
 vi.mock('@app/hooks/gasEstimation/useEstimateRegistration')
 vi.mock('../FullInvoice', () => ({ default: () => <div data-testid="full-invoice" /> }))
@@ -76,12 +71,12 @@ const partnerCommitment = makeCommitment({
 describe('Info', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockFunction(usePublicClient).mockReturnValue({ chain: { id: 1 } } as never)
+    mockFunction(usePublicClient).mockReturnValue({
+      chain: { id: 1 },
+      readContract: async ({ address }: { address: string }) =>
+        address === NAME_POLICY ? 3n : 5n,
+    } as never)
     mockFunction(useSignTypedData).mockReturnValue({ signTypedDataAsync } as never)
-    vi.mocked(readContract).mockImplementation((async (
-      _client: unknown,
-      parameters: { address: string },
-    ) => (parameters.address === NAME_POLICY ? 3n : 5n)) as unknown as typeof readContract)
     signTypedDataAsync.mockImplementation(async ({ primaryType }: { primaryType: string }) =>
       primaryType === 'RegisterName' ? `0x${'bb'.repeat(65)}` : `0x${'aa'.repeat(65)}`,
     )

@@ -31,5 +31,6 @@ export const makeRegisterWithCreditArgs = (
 }
 
 export const isSignedFor = ({ intents }: Partner, commitment: Hex) =>
-  intents?.commitment === commitment &&
+  !!intents &&
+  intents.commitment === commitment &&
   intents.register.deadline > BigInt(Math.floor(Date.now() / 1000))

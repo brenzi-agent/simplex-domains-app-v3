@@ -1,7 +1,6 @@
 import { mockFunction, render, screen, userEvent, waitFor } from '@app/test-utils'
 
 import { zeroAddress, zeroHash } from 'viem'
-import { readContract } from 'viem/actions'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { makeCommitment } from '@ensdomains/ensjs/utils'
@@ -20,12 +19,8 @@ import Transactions from './Transactions'
 vi.mock('wagmi', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   useAccount: () => ({ address: OWNER }),
-  usePublicClient: () => ({ chain: { id: 1 } }),
+  usePublicClient: () => ({ chain: { id: 1 }, readContract }),
   useSignTypedData: () => ({ signTypedDataAsync }),
-}))
-vi.mock('viem/actions', async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  readContract: vi.fn(async () => 4n),
 }))
 vi.mock('@app/constants/chains', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -68,6 +63,7 @@ const mockUseCommittedTerms = mockFunction(useCommittedTerms)
 const mockUseExistingCommitment = mockFunction(useExistingCommitment)
 const createTransactionFlow = vi.fn()
 const signTypedDataAsync = vi.fn(async () => `0x${'aa'.repeat(65)}`)
+const readContract = vi.fn(async () => 4n)
 
 const registrationData = {
   seconds: 63072000,
@@ -288,7 +284,6 @@ describe('Transactions', () => {
 
     await waitFor(() => expect(createTransactionFlow).toHaveBeenCalled())
     expect(readContract).toHaveBeenCalledWith(
-      expect.anything(),
       expect.objectContaining({ functionName: 'nonces', args: [PARTNER] }),
     )
     expect(signTypedDataAsync).toHaveBeenCalledWith(
