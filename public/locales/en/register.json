@@ -9,7 +9,8 @@
     "temporaryPremium": "Temporary premium",
     "total": "Estimated total",
     "totalPaid": "Total paid",
-    "expiry": "Name expires"
+    "expiry": "Name expires",
+    "allowanceLeft": "Allowance left"
   },
   "error": {
     "nameTooLong": "The name you want to register is too long. Please choose a shorter name."
@@ -21,6 +22,8 @@
   "steps": {
     "pricing": {
       "insufficientBalance": "Insufficient Balance",
+      "registerWithAllowance": "Register with allowance",
+      "allowanceTooLow": "Allowance too low",
       "multipleYearsMessage": "Extending for multiple years will save money on network costs by avoiding yearly transactions.",
       "primaryName": "Use as primary name",
       "primaryNameMessage": "This links your address to this name, allowing dApps to display it as your profile when connected to them. You can only have one primary name per address.",

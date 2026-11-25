@@ -251,6 +251,7 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
   const simulateRegistrationEnabled = commitTx?.stage === 'sent' || commitTx?.stage === 'complete'
   const { isSuccess: isSimulateRegistrationSuccess } = useSimulateRegistration({
     registrationParams,
+    credit: registrationData.credit,
     query: {
       enabled: simulateRegistrationEnabled,
       retry: simulateRegistrationEnabled,
@@ -390,7 +391,12 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
 
   const makeRegisterNameFlow = () => {
     createTransactionFlow(registerKey, {
-      transactions: [createTransactionItem('registerName', registrationParams)],
+      transactions: [
+        createTransactionItem('registerName', {
+          ...registrationParams,
+          credit: registrationData.credit,
+        }),
+      ],
       requiresManualCleanup: true,
       autoClose: true,
       resumeLink: `/register/${name}`,

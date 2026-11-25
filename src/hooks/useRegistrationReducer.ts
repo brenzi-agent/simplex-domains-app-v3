@@ -133,6 +133,7 @@ const reducer = (state: RegistrationReducerData, action: RegistrationReducerActi
       item.reverseRecord = action.payload.reverseRecord
       item.durationType = action.payload.durationType
       item.terms = action.payload.terms
+      item.credit = action.payload.credit
       break
     }
     case 'setTransactionsData': {

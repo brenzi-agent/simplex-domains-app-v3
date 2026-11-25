@@ -2,6 +2,7 @@ import { Address, Hex } from 'viem'
 
 import { ProfileRecord } from '@app/constants/profileRecordOptions'
 import { Terms } from '@app/utils/snrcNameTerms'
+import { Credit } from '@app/utils/snrcSponsor'
 
 export type RegistrationStep = 'pricing' | 'profile' | 'info' | 'transactions' | 'complete'
 
@@ -27,6 +28,7 @@ export type RegistrationStepData = {
     ethPrice?: bigint
     durationType: 'date' | 'years'
     terms?: Terms
+    credit?: Credit
   }
   profile: {
     records: ProfileRecord[]

@@ -7,6 +7,7 @@ import MobileFullWidth from '@app/components/@atoms/MobileFullWidth'
 import { Card } from '@app/components/Card'
 import { useEstimateFullRegistration } from '@app/hooks/gasEstimation/useEstimateRegistration'
 
+import AllowanceInvoice from '../AllowanceInvoice'
 import FullInvoice from '../FullInvoice'
 import { RegistrationReducerDataItem } from '../types'
 
@@ -123,7 +124,11 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
           </InfoItem>
         ))}
       </InfoItems>
-      <FullInvoice {...estimate} />
+      {registrationData.credit ? (
+        <AllowanceInvoice name={name} seconds={registrationData.seconds} />
+      ) : (
+        <FullInvoice {...estimate} />
+      )}
       {!registrationData.queue.includes('profile') && (
         <ProfileButton data-testid="setup-profile-button" onClick={onProfileClick}>
           <Typography weight="bold" color="accent">

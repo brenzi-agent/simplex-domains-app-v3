@@ -30,7 +30,7 @@ import { NameTerms } from '@app/components/NameTerms'
 import { SocialProfileButton } from '@app/components/pages/profile/ProfileButton'
 import { SimplexInfoPanel } from '@app/components/SimplexInfoPanel'
 import { ProfileRecord } from '@app/constants/profileRecordOptions'
-import { MIN_REGISTRATION_DURATION } from '@app/constants/simplex'
+import { MIN_DISPUTE_DAYS, MIN_REGISTRATION_DURATION } from '@app/constants/simplex'
 import { useAccountSafely } from '@app/hooks/account/useAccountSafely'
 import { useContractAddress } from '@app/hooks/chain/useContractAddress'
 import { useEstimateFullRegistration } from '@app/hooks/gasEstimation/useEstimateRegistration'
@@ -38,11 +38,13 @@ import { useControllerLimits } from '@app/hooks/useControllerLimits'
 import { useEthPrice } from '@app/hooks/useEthPrice'
 import { useNameTerms } from '@app/hooks/useNameTerms'
 import { useNftGateStatus } from '@app/hooks/useNftGateStatus'
+import { useRegistrarAllowance } from '@app/hooks/useRegistrarAllowance'
 import { useReservedStatus } from '@app/hooks/useReservedStatus'
 import { useTermsAcceptance } from '@app/hooks/useTermsAcceptance'
 import { useBreakpoint } from '@app/utils/BreakpointProvider'
 import { Terms } from '@app/utils/snrcNameTerms'
 
+import AllowanceInvoice from '../../AllowanceInvoice'
 import FullInvoice from '../../FullInvoice'
 import {
   MoonpayTransactionStatus,
@@ -511,6 +513,39 @@ export const ActionButton = (props: ActionButtonProps) => {
     )
 }
 
+type Registrar = {
+  allowance: bigint
+  price?: { base: bigint; premium: bigint }
+}
+
+const AllowanceButton = ({
+  registrar: { allowance, price },
+  onClick,
+}: {
+  registrar: Registrar
+  onClick: () => void
+}) => {
+  const { t } = useTranslation('register')
+
+  if (!price)
+    return (
+      <Button data-testid="next-button" disabled loading>
+        {t('steps.pricing.registerWithAllowance')}
+      </Button>
+    )
+  if (price.base + price.premium > allowance)
+    return (
+      <Button data-testid="next-button" disabled>
+        {t('steps.pricing.allowanceTooLow')}
+      </Button>
+    )
+  return (
+    <Button data-testid="next-button" onClick={onClick}>
+      {t('steps.pricing.registerWithAllowance')}
+    </Button>
+  )
+}
+
 export type PricingProps = {
   name: string
   gracePeriodEndDate: Date | undefined
@@ -566,6 +601,12 @@ const Pricing = ({
 
   const [seconds, setSeconds] = useState(minSeconds)
   const durationType = 'years'
+  const {
+    allowance,
+    price: allowancePrice,
+    loaded: allowanceLoaded,
+  } = useRegistrarAllowance({ name, seconds })
+  const registrar = allowance ? { allowance, price: allowancePrice } : undefined
 
   const [reverseRecord, setReverseRecord] = useState(() =>
     registrationData.started ? registrationData.reverseRecord : !hasPrimaryName,
@@ -646,7 +687,7 @@ const Pricing = ({
   const unsafeDisplayEstimatedGasFee =
     estimatedGasFee === 0n ? previousEstimatedGasFee : estimatedGasFee
 
-  if (publicSalesOpen === false)
+  if (publicSalesOpen === false && !registrar)
     return (
       <StyledCard>
         <StyledHeading>{t('heading', { name: beautifiedName })}</StyledHeading>
@@ -671,7 +712,11 @@ const Pricing = ({
         {...{ seconds, setSeconds, minSeconds, durationType }}
         maxSeconds={minSeconds}
       />
-      <FullInvoice {...fullEstimate} />
+      {registrar ? (
+        <AllowanceInvoice name={name} seconds={seconds} />
+      ) : (
+        <FullInvoice {...fullEstimate} />
+      )}
       {hasPremium && gracePeriodEndDate ? (
         <TemporaryPremium startDate={gracePeriodEndDate} name={name} />
       ) : (
@@ -711,7 +756,7 @@ const Pricing = ({
           <Button data-testid="next-button" disabled>
             Name too short
           </Button>
-        ) : blockedByNftGate ? (
+        ) : blockedByNftGate && !registrar ? (
           <Button data-testid="next-button" disabled>
             SimpleX NFT required
           </Button>
@@ -723,6 +768,22 @@ const Pricing = ({
           <Button data-testid="next-button" disabled>
             {terms.text !== undefined ? 'Accept the terms to continue' : 'Terms unavailable'}
           </Button>
+        ) : registrar ? (
+          <AllowanceButton
+            registrar={registrar}
+            onClick={() =>
+              callback({
+                reverseRecord,
+                seconds,
+                paymentMethodChoice,
+                estimatedTotal,
+                ethPrice,
+                durationType,
+                terms: acceptance.acceptedTerms,
+                credit: { disputeDays: MIN_DISPUTE_DAYS },
+              })
+            }
+          />
         ) : (
           <ActionButton
             {...{
@@ -746,6 +807,7 @@ const Pricing = ({
                 hasConnected &&
                 reservedLoaded &&
                 nftLoaded &&
+                allowanceLoaded &&
                 minCharLength !== undefined &&
                 !fullEstimate.priceLoading,
             }}
