@@ -154,6 +154,26 @@ describe('Info', () => {
     })
   })
 
+  it('has the partner sign the registration for the duration the registrar chose', async () => {
+    const callback = vi.fn()
+    render(
+      <Info
+        name="alicebob.simplex"
+        registrationData={{ ...partnerData, seconds: yearsToSeconds(11) }}
+        callback={callback}
+        onProfileClick={vi.fn()}
+      />,
+    )
+    await userEvent.click(screen.getByTestId('next-button'))
+    await waitFor(() => expect(callback).toHaveBeenCalled())
+    expect(signTypedDataAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        primaryType: 'RegisterName',
+        message: expect.objectContaining({ duration: BigInt(yearsToSeconds(11)) }),
+      }),
+    )
+  })
+
   it('begins without new signatures while the partner signatures for the commitment hold', async () => {
     const callback = vi.fn()
     const signed = {
