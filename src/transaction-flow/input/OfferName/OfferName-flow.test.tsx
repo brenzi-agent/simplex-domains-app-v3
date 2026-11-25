@@ -1,7 +1,9 @@
-import { mockFunction, render, screen, userEvent } from '@app/test-utils'
+import { mockFunction, render, screen, userEvent, waitFor } from '@app/test-utils'
 
+import { BaseError, labelhash } from 'viem'
+import { readContract } from 'viem/actions'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useBytecode } from 'wagmi'
+import { useBytecode, usePublicClient, useSignTypedData } from 'wagmi'
 
 import { useNameOffer } from '@app/hooks/useNameOffer'
 
@@ -11,8 +13,18 @@ import OfferName from './OfferName-flow'
 const HOLDER = '0x2222222222222222222222222222222222222222'
 const RECIPIENT = '0x3333333333333333333333333333333333333333'
 const EARLIER_RECIPIENT = '0x4444444444444444444444444444444444444444'
+const REGISTRAR = '0x1111111111111111111111111111111111111111'
+const signTypedDataAsync = vi.fn()
 
 vi.mock('wagmi')
+vi.mock('viem/actions', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  readContract: vi.fn(async () => 2n),
+}))
+vi.mock('@app/constants/chains', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getSnrcAddresses: () => ({ BaseRegistrarImplementation: REGISTRAR }),
+}))
 vi.mock('@app/hooks/useNameOffer')
 vi.mock('../SendName/views/SearchView/SearchView', () => ({
   SearchView: ({
@@ -56,6 +68,9 @@ describe('OfferName', () => {
     vi.clearAllMocks()
     offerTo(undefined)
     mockUseBytecode.mockReturnValue({ data: undefined, isSuccess: true } as never)
+    mockFunction(usePublicClient).mockReturnValue({ chain: { id: 1 } } as never)
+    mockFunction(useSignTypedData).mockReturnValue({ signTypedDataAsync } as never)
+    signTypedDataAsync.mockResolvedValue(`0x${'aa'.repeat(65)}`)
   })
 
   it('asks for the recipient under the offer title', () => {
@@ -123,5 +138,64 @@ describe('OfferName', () => {
     await userEvent.click(screen.getByText('action.back'))
     await userEvent.click(screen.getByTestId('select-recipient'))
     expect(screen.queryByText('input.offerName.replaces')).not.toBeInTheDocument()
+  })
+
+  const heldByAnotherConnectedAccount = () =>
+    mockUseNameOffer.mockReturnValue({
+      data: { holder: HOLDER, isHolder: false, isRecipient: false },
+    } as unknown as ReturnType<typeof useNameOffer>)
+
+  it('has the holder, another connected account, sign the offer for the connected one to send', async () => {
+    heldByAnotherConnectedAccount()
+    await renderAndSelect()
+    expect(screen.getByText('input.offerName.relayed')).toBeVisible()
+    await userEvent.click(screen.getByTestId('offer-name-confirm'))
+
+    await waitFor(() =>
+      expect(mockDispatch).toHaveBeenCalledWith({
+        name: 'setTransactions',
+        payload: [
+          {
+            name: 'offerName',
+            data: {
+              name: 'alice.testing',
+              recipient: RECIPIENT,
+              intent: {
+                signer: HOLDER,
+                nonce: 2n,
+                deadline: expect.any(BigInt),
+                signature: `0x${'aa'.repeat(65)}`,
+              },
+            },
+          },
+        ],
+      }),
+    )
+    expect(readContract).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ address: REGISTRAR, functionName: 'nonces', args: [HOLDER] }),
+    )
+    expect(signTypedDataAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        account: HOLDER,
+        primaryType: 'ApproveName',
+        domain: expect.objectContaining({ verifyingContract: REGISTRAR }),
+        message: expect.objectContaining({
+          from: HOLDER,
+          to: RECIPIENT,
+          tokenId: BigInt(labelhash('alice')),
+          nonce: 2n,
+        }),
+      }),
+    )
+  })
+
+  it('says why the holder did not sign the offer, and offers nothing', async () => {
+    heldByAnotherConnectedAccount()
+    signTypedDataAsync.mockRejectedValue(new BaseError('User rejected the request.'))
+    await renderAndSelect()
+    await userEvent.click(screen.getByTestId('offer-name-confirm'))
+    expect(await screen.findByText('User rejected the request.')).toBeVisible()
+    expect(mockDispatch).not.toHaveBeenCalled()
   })
 })

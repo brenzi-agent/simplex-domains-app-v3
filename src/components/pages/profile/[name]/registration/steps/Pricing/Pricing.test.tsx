@@ -398,6 +398,30 @@ describe('Pricing', () => {
     )
   })
 
+  it('should register from the allowance for a partner, another connected account', async () => {
+    const partner = '0x7777777777777777777777777777777777777777'
+    mockUseAccountSafely.mockReturnValue({ address: '0x123', addresses: ['0x123', partner] })
+    readAllowance(1000n * USD, { base: 100n * USD, premium: 0n })
+    const props = makeProps({ linkRecords: undefined })
+    render(<Pricing {...props} />)
+    expect(screen.queryByText('steps.pricing.partnerHint')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByTestId(`owner-${partner}`))
+    await userEvent.click(screen.getByTestId('next-button'))
+    expect(props.callback).toHaveBeenCalledWith(
+      expect.objectContaining({ credit: { disputeDays: 14, partner: { owner: partner } } }),
+    )
+  })
+
+  it('should register from the allowance for this account until a partner is chosen', async () => {
+    mockUseAccountSafely.mockReturnValue({ address: '0x123', addresses: ['0x123'] })
+    readAllowance(1000n * USD, { base: 100n * USD, premium: 0n })
+    const props = makeProps({ linkRecords: undefined })
+    render(<Pricing {...props} />)
+    expect(screen.getByText('steps.pricing.partnerHint')).toBeVisible()
+    await userEvent.click(screen.getByTestId('next-button'))
+    expect(vi.mocked(props.callback).mock.calls[0][0].credit).toEqual({ disputeDays: 14 })
+  })
+
   it.each([
     [
       'the reserved status',

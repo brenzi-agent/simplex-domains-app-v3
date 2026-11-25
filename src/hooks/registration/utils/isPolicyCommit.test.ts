@@ -1,4 +1,4 @@
-import { encodeFunctionData } from 'viem'
+import { encodeFunctionData, parseAbi } from 'viem'
 import { describe, expect, it } from 'vitest'
 
 import { namePolicyTermsAbi } from '@app/utils/snrcNameTerms'
@@ -36,6 +36,21 @@ describe('isPolicyCommit', () => {
           expected,
         ),
       ).toBe(true)
+    },
+  )
+
+  it.each(['commitUnderGeneralTermsWithSig', 'commitUnderCommunityTermsWithSig'] as const)(
+    'matches the commitment relayed for its owner through the name policy by %s',
+    (functionName) => {
+      const input = encodeFunctionData({
+        abi: parseAbi([
+          'function commitUnderGeneralTermsWithSig(bytes32 commitment, bytes32 acceptedTermsHash, address acceptor, uint256 nonce, uint256 deadline, bytes sig)',
+          'function commitUnderCommunityTermsWithSig(bytes32 commitment, bytes32 acceptedTermsHash, address acceptor, uint256 nonce, uint256 deadline, bytes sig)',
+        ]),
+        functionName,
+        args: [COMMITMENT, TERMS, OTHER, 0n, 1_900_000_000n, '0x'],
+      })
+      expect(isPolicyCommit({ to: NAME_POLICY, input }, expected)).toBe(true)
     },
   )
 

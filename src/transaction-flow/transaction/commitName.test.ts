@@ -53,6 +53,32 @@ describe('commitName', () => {
     })
   })
 
+  it('commits through the name policy with the terms the owner accepted by signing', async () => {
+    const termsIntent = {
+      signer: registration.owner,
+      nonce: 0n,
+      deadline: 1_900_000_000n,
+      signature: `0x${'ab'.repeat(65)}`,
+    } as const
+    const tx = await commitName.transaction({
+      client,
+      connectorClient,
+      data: { ...registration, terms: { kind: 'general', hash: TERMS }, termsIntent },
+    })
+    expect(tx.to).toBe(NAME_POLICY)
+    expect(decodeFunctionData({ abi: namePolicyTermsAbi, data: tx.data })).toEqual({
+      functionName: 'commitUnderGeneralTermsWithSig',
+      args: [
+        makeCommitment(registration),
+        TERMS,
+        registration.owner,
+        0n,
+        1_900_000_000n,
+        termsIntent.signature,
+      ],
+    })
+  })
+
   it('shows the terms acceptance in the confirmation of a commit through the name policy', () => {
     const t = ((key: string) => key) as never
     expect(commitName.displayItems(registration, t)).not.toContainEqual(

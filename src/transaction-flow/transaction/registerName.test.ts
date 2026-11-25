@@ -72,3 +72,40 @@ it('registers the committed registration through the sponsor, paid from the allo
   )
   expect(args.slice(1)).toEqual([14n, 0n, 0n, '0x'])
 })
+
+it('registers to the partner with the registration it signed, paid from the allowance', async () => {
+  const partner = '0x7777777777777777777777777777777777777777'
+  const registration: RegistrationParameters = {
+    name: 'alicebob.simplex',
+    owner: partner,
+    duration: 63072000,
+    secret: `0x${'33'.repeat(32)}` as const,
+  }
+  const signed = {
+    signer: partner,
+    deadline: 1_900_000_000n,
+    signature: `0x${'ab'.repeat(65)}` as const,
+  }
+  const tx = await registerNameFlowTransaction.transaction({
+    client: { chain: { id: 1 } } as unknown as ClientWithEns,
+    connectorClient: {} as unknown as ConnectorClientWithEns,
+    data: {
+      ...registration,
+      credit: {
+        disputeDays: 14,
+        partner: {
+          owner: partner,
+          intents: {
+            commitment: makeCommitment(registration),
+            terms: { ...signed, nonce: 0n },
+            register: { ...signed, nonce: 2n },
+          },
+        },
+      },
+    },
+  })
+
+  const { args } = decodeFunctionData({ abi: sponsorAbi, data: tx.data })
+  expect(args[0].owner).toBe(partner)
+  expect(args.slice(1)).toEqual([14n, 2n, 1_900_000_000n, signed.signature])
+})

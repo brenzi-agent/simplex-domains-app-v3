@@ -17,8 +17,9 @@ vi.mock('@app/hooks/abilities/useAbilities', () => ({
   }),
 }))
 
+const mockUseAccountSafely = vi.fn().mockReturnValue({ address: '0xaccount' })
 vi.mock('@app/hooks/account/useAccountSafely', () => ({
-  useAccountSafely: () => ({ address: '0xaccount' }),
+  useAccountSafely: () => mockUseAccountSafely(),
 }))
 
 const mockCheckCanSend = vi.fn()
@@ -219,6 +220,26 @@ describe('useRoleActions', () => {
 
   it('should include the ability to offer the name if the account holds it', async () => {
     mockUseNameOffer.mockReturnValueOnce({ data: { isHolder: true } })
+    const { result } = renderHook(() =>
+      useRoleActions({
+        name: 'test.testing',
+        roles: [],
+        details: {
+          isLoading: false,
+        } as any,
+      }),
+    )
+    expect(result.current.data).toEqual(
+      expect.arrayContaining([expect.objectContaining({ type: 'offer-name' })]),
+    )
+  })
+
+  it('should include the ability to offer the name if another connected account holds it', async () => {
+    mockUseAccountSafely.mockReturnValueOnce({
+      address: '0xaccount',
+      addresses: ['0xaccount', '0xPartner'],
+    })
+    mockUseNameOffer.mockReturnValueOnce({ data: { holder: '0xpartner', isHolder: false } })
     const { result } = renderHook(() =>
       useRoleActions({
         name: 'test.testing',
