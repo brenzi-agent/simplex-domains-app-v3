@@ -3,9 +3,10 @@ import { encodeFunctionData, Hex } from 'viem'
 
 import { getNamePolicyAddress } from '@app/constants/chains'
 import { Transaction, TransactionDisplayItem, TransactionFunctionParameters } from '@app/types'
+import { SignedIntent } from '@app/utils/snrcIntents'
 import { namePolicyTermsAbi, Terms } from '@app/utils/snrcNameTerms'
 
-type Data = { name: string; commitment: Hex; terms: Terms }
+type Data = { name: string; commitment: Hex; terms: Terms; intent?: SignedIntent }
 
 const displayItems = (
   { name }: Data,
@@ -24,12 +25,30 @@ const displayItems = (
 
 const transaction = ({ client, data }: TransactionFunctionParameters<Data>) => ({
   to: getNamePolicyAddress(client.chain.id)!,
-  data: encodeFunctionData({
-    abi: namePolicyTermsAbi,
-    functionName:
-      data.terms.kind === 'community' ? 'commitUnderCommunityTerms' : 'commitUnderGeneralTerms',
-    args: [data.commitment, data.terms.hash],
-  }),
+  data: data.intent
+    ? encodeFunctionData({
+        abi: namePolicyTermsAbi,
+        functionName:
+          data.terms.kind === 'community'
+            ? 'commitUnderCommunityTermsWithSig'
+            : 'commitUnderGeneralTermsWithSig',
+        args: [
+          data.commitment,
+          data.terms.hash,
+          data.intent.signer,
+          data.intent.nonce,
+          data.intent.deadline,
+          data.intent.signature,
+        ],
+      })
+    : encodeFunctionData({
+        abi: namePolicyTermsAbi,
+        functionName:
+          data.terms.kind === 'community'
+            ? 'commitUnderCommunityTerms'
+            : 'commitUnderGeneralTerms',
+        args: [data.commitment, data.terms.hash],
+      }),
 })
 
 export default { displayItems, transaction } satisfies Transaction<Data>

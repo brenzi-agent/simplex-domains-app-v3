@@ -4,11 +4,12 @@ import { makeCommitment, RegistrationParameters } from '@ensdomains/ensjs/utils'
 import { commitName } from '@ensdomains/ensjs/wallet'
 
 import { Transaction, TransactionDisplayItem, TransactionFunctionParameters } from '@app/types'
+import { SignedIntent } from '@app/utils/snrcIntents'
 import { Terms } from '@app/utils/snrcNameTerms'
 
 import acceptTerms from './acceptTerms'
 
-type Data = RegistrationParameters & { name: string; terms?: Terms }
+type Data = RegistrationParameters & { name: string; terms?: Terms; termsIntent?: SignedIntent }
 
 const displayItems = (
   { name, terms }: Data,
@@ -33,13 +34,13 @@ const displayItems = (
 const transaction = async ({
   client,
   connectorClient,
-  data: { terms, ...data },
+  data: { terms, termsIntent, ...data },
 }: TransactionFunctionParameters<Data>) => {
   if (!terms) return commitName.makeFunctionData(connectorClient, data)
   return acceptTerms.transaction({
     client,
     connectorClient,
-    data: { name: data.name, commitment: makeCommitment(data), terms },
+    data: { name: data.name, commitment: makeCommitment(data), terms, intent: termsIntent },
   })
 }
 

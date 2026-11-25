@@ -128,5 +128,10 @@ export type RegistrationReducerAction =
       selected: SelectedItemProperties
       payload: Hex
     }
+  | {
+      name: 'setCredit'
+      selected: SelectedItemProperties
+      payload: Credit
+    }
 
 export type MoonpayTransactionStatus = 'pending' | 'completed' | 'failed' | 'waitingAuthorization'

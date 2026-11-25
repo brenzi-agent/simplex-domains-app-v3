@@ -78,6 +78,11 @@ export const useRoleActions = ({ name, roles, details }: Props) => {
     })
     const availableRoles = getAvailableRoles({ roles, abilities: abilities.data })
     const canEditRoles = availableRoles.length > 0
+    const holdsName =
+      offer.data?.isHolder ||
+      !!account.addresses?.some(
+        (connected) => connected.toLowerCase() === offer.data?.holder.toLowerCase(),
+      )
     return [
       showSendDNS
         ? {
@@ -117,7 +122,7 @@ export const useRoleActions = ({ name, roles, details }: Props) => {
             onClick: () => showSendNameInput(`send-name-${name}`, { name }),
           }
         : null,
-      offer.data?.isHolder
+      holdsName
         ? {
             type: 'offer-name',
             icon: AeroplaneIcon,
@@ -140,6 +145,7 @@ export const useRoleActions = ({ name, roles, details }: Props) => {
     name,
     nameType.data,
     account.address,
+    account.addresses,
     details.ownerData,
     details.dnsOwner,
     abilities.data,

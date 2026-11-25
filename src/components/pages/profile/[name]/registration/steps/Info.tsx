@@ -1,11 +1,18 @@
+import { useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 
-import { Button, Heading, Typography } from '@ensdomains/thorin'
+import { makeCommitment } from '@ensdomains/ensjs/utils'
+import { Button, Heading, Helper, Typography } from '@ensdomains/thorin'
 
 import MobileFullWidth from '@app/components/@atoms/MobileFullWidth'
 import { Card } from '@app/components/Card'
+import { useAccountSafely } from '@app/hooks/account/useAccountSafely'
 import { useEstimateFullRegistration } from '@app/hooks/gasEstimation/useEstimateRegistration'
+import { useIntentSigner } from '@app/hooks/useIntentSigner'
+import useRegistrationParams from '@app/hooks/useRegistrationParams'
+import { signingErrorMessage } from '@app/utils/snrcIntents'
+import { Credit, isSignedFor, Partner } from '@app/utils/snrcSponsor'
 
 import AllowanceInvoice from '../AllowanceInvoice'
 import FullInvoice from '../FullInvoice'
@@ -100,7 +107,7 @@ const infoItemArr = Array.from({ length: 3 }, (_, i) => `steps.info.ethItems.${i
 type Props = {
   registrationData: RegistrationReducerDataItem
   name: string
-  callback: (data: { back: boolean }) => void
+  callback: (data: { back: boolean; credit?: Credit }) => void
   onProfileClick: () => void
 }
 
@@ -111,6 +118,39 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
     name,
     registrationData,
   })
+
+  const { address } = useAccountSafely()
+  const { credit } = registrationData
+  const partner = credit?.partner
+  const registrationParams = useRegistrationParams({
+    name,
+    owner: partner?.owner ?? address!,
+    registrationData,
+  })
+  const { signAcceptTerms, signRegisterName } = useIntentSigner()
+  const partnerSignatures = useMutation({
+    mutationFn: async (signing: Credit & { partner: Partner }) => {
+      const commitment = makeCommitment(registrationParams)
+      const { terms } = registrationData
+      const intents = {
+        commitment,
+        terms:
+          terms && (await signAcceptTerms({ owner: signing.partner.owner, commitment, terms })),
+        register: await signRegisterName({
+          registrationParams,
+          disputeDays: signing.disputeDays,
+        }),
+      }
+      return { ...signing, partner: { ...signing.partner, intents } }
+    },
+    onSuccess: (signedCredit) => callback({ back: false, credit: signedCredit }),
+  })
+
+  const begin = () => {
+    if (credit?.partner && !isSignedFor(credit.partner, makeCommitment(registrationParams)))
+      partnerSignatures.mutate({ ...credit, partner: credit.partner })
+    else callback({ back: false })
+  }
 
   return (
     <StyledCard>
@@ -129,6 +169,12 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
       ) : (
         <FullInvoice {...estimate} />
       )}
+      {partner && (
+        <Helper alert="info">{t('steps.info.partner', { owner: partner.owner })}</Helper>
+      )}
+      {partnerSignatures.error && (
+        <Helper alert="error">{signingErrorMessage(partnerSignatures.error)}</Helper>
+      )}
       {!registrationData.queue.includes('profile') && (
         <ProfileButton data-testid="setup-profile-button" onClick={onProfileClick}>
           <Typography weight="bold" color="accent">
@@ -143,7 +189,12 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
           </Button>
         </MobileFullWidth>
         <MobileFullWidth>
-          <Button data-testid="next-button" onClick={() => callback({ back: false })}>
+          <Button
+            data-testid="next-button"
+            loading={partnerSignatures.isPending}
+            disabled={partnerSignatures.isPending}
+            onClick={begin}
+          >
             {t('action.begin', { ns: 'common' })}
           </Button>
         </MobileFullWidth>

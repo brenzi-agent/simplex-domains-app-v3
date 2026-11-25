@@ -3,7 +3,12 @@ import { Address, decodeFunctionData, getAbiItem, getAddress, Hex, toFunctionSel
 import { namePolicyTermsAbi } from '@app/utils/snrcNameTerms'
 
 const policyCommitSelectors = (
-  ['commitUnderGeneralTerms', 'commitUnderCommunityTerms'] as const
+  [
+    'commitUnderGeneralTerms',
+    'commitUnderCommunityTerms',
+    'commitUnderGeneralTermsWithSig',
+    'commitUnderCommunityTermsWithSig',
+  ] as const
 ).map((name) => toFunctionSelector(getAbiItem({ abi: namePolicyTermsAbi, name })))
 
 export const isPolicyCommit = (

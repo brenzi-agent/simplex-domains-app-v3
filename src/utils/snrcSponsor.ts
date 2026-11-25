@@ -1,8 +1,14 @@
-import { parseAbi } from 'viem'
+import { Address, Hex, parseAbi } from 'viem'
 
 import { makeRegistrationCallData, RegistrationParameters } from '@ensdomains/ensjs/utils'
 
-export type Credit = { disputeDays: number }
+import type { SignedIntent } from './snrcIntents'
+
+export type PartnerIntents = { commitment: Hex; terms?: SignedIntent; register: SignedIntent }
+
+export type Partner = { owner: Address; intents?: PartnerIntents }
+
+export type Credit = { disputeDays: number; partner?: Partner }
 
 export const sponsorAbi = parseAbi([
   'struct Registration { string label; address owner; uint256 duration; bytes32 secret; address resolver; bytes[] data; uint8 reverseRecord; bytes32 referrer; }',
@@ -12,6 +18,18 @@ export const sponsorAbi = parseAbi([
 
 export const makeRegisterWithCreditArgs = (
   registrationParams: RegistrationParameters,
-  { disputeDays }: Credit,
-) =>
-  [makeRegistrationCallData(registrationParams), BigInt(disputeDays), 0n, 0n, '0x'] as const
+  { disputeDays, partner }: Credit,
+) => {
+  const intent = partner?.intents?.register
+  return [
+    makeRegistrationCallData(registrationParams),
+    BigInt(disputeDays),
+    intent?.nonce ?? 0n,
+    intent?.deadline ?? 0n,
+    intent?.signature ?? '0x',
+  ] as const
+}
+
+export const isSignedFor = ({ intents }: Partner, commitment: Hex) =>
+  intents?.commitment === commitment &&
+  intents.register.deadline > BigInt(Math.floor(Date.now() / 1000))

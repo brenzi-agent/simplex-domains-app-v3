@@ -231,6 +231,7 @@
       "contract": "This is a contract. Once it takes the name, it can pass the name on only by offering it; otherwise the name stays with it until it lapses.",
       "failed": "The current offer or the recipient's account could not be read, so the name cannot be offered now.",
       "replaces": "This replaces your offer to {{recipient}}.",
+      "relayed": "Your wallet asks {{holder}} to sign this offer. The selected account then sends it and pays its network fee.",
       "recipient": "Who should receive this name? Enter their SNRC name or Ethereum address."
     },
     "claimName": {

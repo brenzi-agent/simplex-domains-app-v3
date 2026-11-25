@@ -11,6 +11,7 @@ export const registrarOfferAbi = parseAbi([
   'function offers(uint256 tokenId) view returns (uint256)',
   'function approve(address to, uint256 tokenId)',
   'function transferFrom(address from, address to, uint256 tokenId)',
+  'function approveWithSig(address from, address to, uint256 tokenId, uint256 nonce, uint256 deadline, bytes sig, bytes ephemeralPubKey, bytes1 viewTag)',
 ])
 
 export const getSnrcTokenId = (name: string) => {

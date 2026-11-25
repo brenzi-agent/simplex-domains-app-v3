@@ -518,6 +518,45 @@ type Registrar = {
   price?: { base: bigint; premium: bigint }
 }
 
+const OwnerChoice = ({
+  partners,
+  partnerOwner,
+  setPartnerOwner,
+}: {
+  partners: readonly Address[]
+  partnerOwner?: Address
+  setPartnerOwner: (owner?: Address) => void
+}) => {
+  const { t } = useTranslation('register')
+
+  if (!partners.length)
+    return <Typography color="grey">{t('steps.pricing.partnerHint')}</Typography>
+  return (
+    <Box width="full">
+      <StyledTitle color="grey" weight="bold">
+        {t('steps.pricing.owner')}
+      </StyledTitle>
+      <Spacer $height="2" />
+      <RadioButtonGroup
+        value={partnerOwner ?? 'self'}
+        onChange={(e) => setPartnerOwner(partners.find((partner) => partner === e.target.value))}
+      >
+        {['self', ...partners].map((account) => (
+          <RadioButton
+            key={account}
+            data-testid={`owner-${account}`}
+            label={
+              <RadioLabel>{account === 'self' ? t('steps.pricing.thisAccount') : account}</RadioLabel>
+            }
+            name="owner"
+            value={account}
+          />
+        ))}
+      </RadioButtonGroup>
+    </Box>
+  )
+}
+
 const AllowanceButton = ({
   registrar: { allowance, price },
   onClick,
@@ -581,7 +620,7 @@ const Pricing = ({
 }: PricingProps) => {
   const { t } = useTranslation('register')
 
-  const { address } = useAccountSafely()
+  const { address, addresses } = useAccountSafely()
   const [hasConnected, setHasConnected] = useState(false)
   useAccountEffect({ onConnect: ({ isReconnected }) => setHasConnected(!isReconnected) })
   const { data: balance } = useBalance({ address })
@@ -607,6 +646,9 @@ const Pricing = ({
     loaded: allowanceLoaded,
   } = useRegistrarAllowance({ name, seconds })
   const registrar = allowance ? { allowance, price: allowancePrice } : undefined
+  const partners = addresses?.filter((connected) => connected !== address) ?? []
+  const [chosenOwner, setChosenOwner] = useState<Address>()
+  const partnerOwner = partners.find((partner) => partner === chosenOwner)
 
   const [reverseRecord, setReverseRecord] = useState(() =>
     registrationData.started ? registrationData.reverseRecord : !hasPrimaryName,
@@ -717,6 +759,13 @@ const Pricing = ({
       ) : (
         <FullInvoice {...fullEstimate} />
       )}
+      {registrar && (
+        <OwnerChoice
+          partners={partners}
+          partnerOwner={partnerOwner}
+          setPartnerOwner={setChosenOwner}
+        />
+      )}
       {hasPremium && gracePeriodEndDate ? (
         <TemporaryPremium startDate={gracePeriodEndDate} name={name} />
       ) : (
@@ -780,7 +829,10 @@ const Pricing = ({
                 ethPrice,
                 durationType,
                 terms: acceptance.acceptedTerms,
-                credit: { disputeDays: MIN_DISPUTE_DAYS },
+                credit: {
+                  disputeDays: MIN_DISPUTE_DAYS,
+                  partner: partnerOwner && { owner: partnerOwner },
+                },
               })
             }
           />

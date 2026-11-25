@@ -1,3 +1,4 @@
+import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
 import { FormProvider, useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -7,9 +8,11 @@ import { useBytecode } from 'wagmi'
 import { Button, Dialog, Helper, Typography } from '@ensdomains/thorin'
 
 import { AvatarWithIdentifier } from '@app/components/@molecules/AvatarWithIdentifier/AvatarWithIdentifier'
+import { useIntentSigner } from '@app/hooks/useIntentSigner'
 import { useNameOffer } from '@app/hooks/useNameOffer'
 import { createTransactionItem } from '@app/transaction-flow/transaction'
 import { TransactionDialogPassthrough } from '@app/transaction-flow/types'
+import { SignedIntent, signingErrorMessage } from '@app/utils/snrcIntents'
 
 import { SearchView } from '../SendName/views/SearchView/SearchView'
 
@@ -33,6 +36,21 @@ const OfferName = ({ data: { name }, dispatch, onDismiss }: Props) => {
     isSuccess: isCodeRead,
     isError: isCodeError,
   } = useBytecode({ address: recipient })
+  const { signApproveName } = useIntentSigner()
+
+  const offerTo = (to: Address, intent?: SignedIntent) => {
+    dispatch({
+      name: 'setTransactions',
+      payload: [createTransactionItem('offerName', { name, recipient: to, intent })],
+    })
+    dispatch({ name: 'setFlowStage', payload: 'transaction' })
+  }
+
+  const holderSignature = useMutation({
+    mutationFn: ({ holder, to }: { holder: Address; to: Address }) =>
+      signApproveName({ name, holder, recipient: to }),
+    onSuccess: (intent, { to }) => offerTo(to, intent),
+  })
 
   if (!recipient)
     return (
@@ -49,13 +67,11 @@ const OfferName = ({ data: { name }, dispatch, onDismiss }: Props) => {
     )
 
   const replaced = offer.data?.recipient
+  const relayedHolder = offer.data && !offer.data.isHolder ? offer.data.holder : undefined
 
   const onConfirm = () => {
-    dispatch({
-      name: 'setTransactions',
-      payload: [createTransactionItem('offerName', { name, recipient })],
-    })
-    dispatch({ name: 'setFlowStage', payload: 'transaction' })
+    if (relayedHolder) holderSignature.mutate({ holder: relayedHolder, to: recipient })
+    else offerTo(recipient)
   }
 
   return (
@@ -73,6 +89,12 @@ const OfferName = ({ data: { name }, dispatch, onDismiss }: Props) => {
         {!!replaced && replaced.toLowerCase() !== recipient.toLowerCase() && (
           <Helper alert="info">{t('input.offerName.replaces', { recipient: replaced })}</Helper>
         )}
+        {relayedHolder && (
+          <Helper alert="info">{t('input.offerName.relayed', { holder: relayedHolder })}</Helper>
+        )}
+        {holderSignature.error && (
+          <Helper alert="error">{signingErrorMessage(holderSignature.error)}</Helper>
+        )}
       </Dialog.Content>
       <Dialog.Footer
         leading={
@@ -83,7 +105,8 @@ const OfferName = ({ data: { name }, dispatch, onDismiss }: Props) => {
         trailing={
           <Button
             data-testid="offer-name-confirm"
-            disabled={!offer.data || offer.isError || !isCodeRead}
+            disabled={!offer.data || offer.isError || !isCodeRead || holderSignature.isPending}
+            loading={holderSignature.isPending}
             onClick={onConfirm}
           >
             {t('action.next', { ns: 'common' })}

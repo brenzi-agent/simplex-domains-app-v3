@@ -1,3 +1,4 @@
+import { useMutation } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
@@ -5,7 +6,7 @@ import { match, P } from 'ts-pattern'
 import { useAccount } from 'wagmi'
 
 import { makeCommitment } from '@ensdomains/ensjs/utils'
-import { Button, CountdownCircle, Dialog, Heading, Spinner } from '@ensdomains/thorin'
+import { Button, CountdownCircle, Dialog, Heading, Helper, Spinner } from '@ensdomains/thorin'
 
 import MobileFullWidth from '@app/components/@atoms/MobileFullWidth'
 import { StatusDots } from '@app/components/@atoms/StatusDots/StatusDots'
@@ -16,6 +17,7 @@ import { useCheckRegistered } from '@app/hooks/registration/useCheckRegistered'
 import { useExistingCommitment } from '@app/hooks/registration/useExistingCommitment'
 import { useSimulateRegistration } from '@app/hooks/registration/useSimulateRegistration'
 import { useDurationCountdown } from '@app/hooks/time/useDurationCountdown'
+import { useIntentSigner } from '@app/hooks/useIntentSigner'
 import { useCommittedTerms, useNameTerms } from '@app/hooks/useNameTerms'
 import useRegistrationParams from '@app/hooks/useRegistrationParams'
 import { useTermsAcceptance } from '@app/hooks/useTermsAcceptance'
@@ -23,6 +25,9 @@ import { CenteredTypography } from '@app/transaction-flow/input/ProfileEditor/co
 import { createTransactionItem } from '@app/transaction-flow/transaction'
 import { useTransactionFlow } from '@app/transaction-flow/TransactionFlowProvider'
 import { sendEvent } from '@app/utils/analytics/events'
+import { SignedIntent, signingErrorMessage } from '@app/utils/snrcIntents'
+import { Terms } from '@app/utils/snrcNameTerms'
+import { isSignedFor } from '@app/utils/snrcSponsor'
 import { ONE_DAY } from '@app/utils/time'
 
 import { RegistrationReducerDataItem } from '../types'
@@ -229,16 +234,23 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
   const acceptTermsTx = getLatestTransaction(acceptTermsKey)
   const [resetOpen, setResetOpen] = useState(false)
 
+  const partner = registrationData.credit?.partner
+  const owner = partner?.owner ?? address!
   const registrationParams = useRegistrationParams({
     name,
-    owner: address!,
+    owner,
     registrationData,
   })
   const commitment = makeCommitment(registrationParams)
+  const signedForCommitment = !partner || isSignedFor(partner, commitment)
 
   const terms = useNameTerms({ name })
   const awaitsRegister = terms.required && commitTx?.stage === 'complete' && !registerTx?.stage
-  const committedTerms = useCommittedTerms({ commitment, enabled: awaitsRegister })
+  const committedTerms = useCommittedTerms({
+    commitment,
+    acceptor: owner,
+    enabled: awaitsRegister,
+  })
   const needsTermsAcceptance =
     awaitsRegister && committedTerms.data != null && committedTerms.data !== terms.hash
   const acceptance = useTermsAcceptance(terms)
@@ -262,7 +274,7 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
 
   const checkRegistered = useCheckRegistered({
     name,
-    ownerAddress: address,
+    ownerAddress: owner,
     enabled: registerTx?.stage === 'sent',
   })
 
@@ -373,6 +385,7 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
         createTransactionItem('commitName', {
           ...registrationParams,
           terms: registrationData.terms,
+          termsIntent: partner?.intents?.terms,
         }),
       ],
       requiresManualCleanup: true,
@@ -387,6 +400,7 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
     onStart,
     registrationParams,
     registrationData.terms,
+    partner?.intents?.terms,
   ])
 
   const makeRegisterNameFlow = () => {
@@ -403,15 +417,26 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
     })
   }
 
-  const makeAcceptTermsFlow = () => {
-    const { acceptedTerms } = acceptance
-    if (!acceptedTerms) return
+  const createAcceptTermsFlow = (acceptedTerms: Terms, intent?: SignedIntent) =>
     createTransactionFlow(acceptTermsKey, {
       transactions: [
-        createTransactionItem('acceptTerms', { name, commitment, terms: acceptedTerms }),
+        createTransactionItem('acceptTerms', { name, commitment, terms: acceptedTerms, intent }),
       ],
       autoClose: true,
     })
+
+  const { signAcceptTerms } = useIntentSigner()
+  const partnerAcceptance = useMutation({
+    mutationFn: (acceptedTerms: Terms) =>
+      signAcceptTerms({ owner, commitment, terms: acceptedTerms }),
+    onSuccess: (intent, acceptedTerms) => createAcceptTermsFlow(acceptedTerms, intent),
+  })
+
+  const makeAcceptTermsFlow = () => {
+    const { acceptedTerms } = acceptance
+    if (!acceptedTerms) return
+    if (partner) partnerAcceptance.mutate(acceptedTerms)
+    else createAcceptTermsFlow(acceptedTerms)
   }
 
   const showCommitTransaction = () => {
@@ -447,10 +472,10 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
   }
 
   useEffect(() => {
-    if (!commitTx) {
-      makeCommitNameFlow()
-    }
-  }, [commitTx, makeCommitNameFlow])
+    if (commitTx) return
+    if (signedForCommitment) makeCommitNameFlow()
+    else callback({ back: true })
+  }, [commitTx, makeCommitNameFlow, signedForCommitment, callback])
 
   useEffect(() => {
     if (registerTx?.stage === 'complete' || checkRegistered) {
@@ -605,13 +630,17 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
               disabled={
                 !acceptance.acceptedTerms ||
                 acceptTermsTx?.stage === 'sent' ||
-                committedTerms.isFetching
+                committedTerms.isFetching ||
+                partnerAcceptance.isPending
               }
               onClick={makeAcceptTermsFlow}
             >
               {t('steps.transactions.acceptTerms')}
             </Button>
           </MobileFullWidth>
+          {partnerAcceptance.error && (
+            <Helper alert="error">{signingErrorMessage(partnerAcceptance.error)}</Helper>
+          )}
         </>
       )}
       <ButtonContainer>
