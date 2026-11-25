@@ -3,8 +3,7 @@ import { Address } from 'viem'
 
 import { getSnrcAddresses } from '@app/constants/chains'
 import { Transaction, TransactionDisplayItem, TransactionFunctionParameters } from '@app/types'
-import { SignedIntent } from '@app/utils/snrcIntents'
-import { encodeApproveName } from '@app/utils/snrcOffers'
+import { encodeApproveName, SignedIntent } from '@app/utils/snrcIntents'
 
 type Data = {
   name: string

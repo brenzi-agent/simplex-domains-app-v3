@@ -1,8 +1,9 @@
-import { Address, Hex, parseAbi } from 'viem'
+import { Address, encodeFunctionData, Hex, parseAbi } from 'viem'
 
 import { makeRegistrationCallData, RegistrationParameters } from '@ensdomains/ensjs/utils'
 
 import type { Terms } from './snrcNameTerms'
+import { getSnrcTokenId, registrarOfferAbi } from './snrcOffers'
 import { ONE_DAY } from './time'
 
 export type Intent = { nonce: bigint; deadline: bigint; signature: Hex }
@@ -141,3 +142,31 @@ export const makeApproveNameTypedData = ({
     primaryType: 'ApproveName',
     message: { from, to, tokenId, ...NO_ANNOUNCEMENT, nonce, deadline },
   }) as const
+
+export const encodeApproveName = ({
+  name,
+  to,
+  intent,
+}: {
+  name: string
+  to: Address
+  intent?: SignedIntent
+}) => {
+  const tokenId = getSnrcTokenId(name)!
+  return intent
+    ? encodeFunctionData({
+        abi: registrarOfferAbi,
+        functionName: 'approveWithSig',
+        args: [
+          intent.signer,
+          to,
+          tokenId,
+          intent.nonce,
+          intent.deadline,
+          intent.signature,
+          NO_ANNOUNCEMENT.ephemeralPubKey,
+          NO_ANNOUNCEMENT.viewTag,
+        ],
+      })
+    : encodeFunctionData({ abi: registrarOfferAbi, functionName: 'approve', args: [to, tokenId] })
+}
