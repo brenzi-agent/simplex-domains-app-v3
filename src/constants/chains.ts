@@ -49,6 +49,11 @@ export const getNamePolicyAddress = (chainId: number | undefined) => {
   return namePolicyAddress && namePolicyAddress !== zeroAddress ? namePolicyAddress : undefined
 }
 
+export const getSponsorAddress = (chainId: number | undefined) => {
+  const sponsorAddress = getSnrcAddresses(chainId).SimplexSponsor as Address | undefined
+  return sponsorAddress && sponsorAddress !== zeroAddress ? sponsorAddress : undefined
+}
+
 export const chainsWithEns = [mainnetWithEns, sepoliaWithEns, localhostWithEns] as const
 
 export const getSupportedChainById = (chainId: number | undefined) =>

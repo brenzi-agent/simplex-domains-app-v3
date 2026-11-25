@@ -5,6 +5,7 @@ import { CalendarSVG, Colors, Dropdown, Skeleton, Typography } from '@ensdomains
 
 import { CurrencyText } from '@app/components/@atoms/CurrencyText/CurrencyText'
 import { useCalendarOptions } from '@app/hooks/useCalendarOptions'
+import { makeDisplay } from '@app/utils/currency'
 import { formatExpiry } from '@app/utils/utils'
 
 const ReminderContainer = styled(Typography)(
@@ -73,6 +74,7 @@ export type InvoiceItem = {
   value?: bigint
   /* Percentage buffer to multiply value by when displaying in ETH, defaults to 100 */
   bufferPercentage?: bigint
+  usd?: bigint
 }
 
 type Props = {
@@ -88,23 +90,37 @@ export const Invoice = ({ name, expiryTitle, expiryDate, items }: Props) => {
 
   return (
     <Container>
-      {items.map(({ label, value, bufferPercentage }, inx) => (
+      {items.map(({ label, value, bufferPercentage, usd }, inx) => (
         <LineItem data-testid={`invoice-item-${inx}`} key={label}>
           <Typography fontVariant="small" color="grey">
             {label}
           </Typography>
-          <Skeleton loading={!value}>
-            <Typography color="textPrimary" data-testid={`invoice-item-${inx}-amount`}>
-              <CurrencyText bufferPercentage={bufferPercentage} eth={value || 0n} currency="eth" />
+          {usd !== undefined ? (
+            <Typography color="textPrimary" data-testid={`invoice-item-${inx}-amount-usd`}>
+              {makeDisplay({ value: usd, symbol: 'usd' })}
             </Typography>
-            <Typography
-              fontVariant="small"
-              color="grey"
-              data-testid={`invoice-item-${inx}-amount-usd`}
-            >
-              <CurrencyText bufferPercentage={bufferPercentage} eth={value || 0n} currency="usd" />
-            </Typography>
-          </Skeleton>
+          ) : (
+            <Skeleton loading={!value}>
+              <Typography color="textPrimary" data-testid={`invoice-item-${inx}-amount`}>
+                <CurrencyText
+                  bufferPercentage={bufferPercentage}
+                  eth={value || 0n}
+                  currency="eth"
+                />
+              </Typography>
+              <Typography
+                fontVariant="small"
+                color="grey"
+                data-testid={`invoice-item-${inx}-amount-usd`}
+              >
+                <CurrencyText
+                  bufferPercentage={bufferPercentage}
+                  eth={value || 0n}
+                  currency="usd"
+                />
+              </Typography>
+            </Skeleton>
+          )}
         </LineItem>
       ))}
 

@@ -7,6 +7,7 @@ import { usePublicClient, useReadContract, useSignTypedData } from 'wagmi'
 import { makeCommitment } from '@ensdomains/ensjs/utils'
 
 import { useAccountSafely } from '@app/hooks/account/useAccountSafely'
+import { useEstimateFullRegistration } from '@app/hooks/gasEstimation/useEstimateRegistration'
 import { yearsToSeconds } from '@app/utils/utils'
 
 import { RegistrationReducerDataItem } from '../types'
@@ -18,7 +19,8 @@ vi.mock('@app/hooks/gasEstimation/useEstimateRegistration')
 vi.mock('../FullInvoice', () => ({ default: () => <div data-testid="full-invoice" /> }))
 vi.mock('@app/constants/chains', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  getSnrcAddresses: () => ({ SimplexSponsor: SPONSOR, ETHRegistrarController: CONTROLLER }),
+  getSnrcAddresses: () => ({ ETHRegistrarController: CONTROLLER }),
+  getSponsorAddress: () => SPONSOR,
   getNamePolicyAddress: () => NAME_POLICY,
 }))
 
@@ -54,7 +56,7 @@ const partnerData: RegistrationReducerDataItem = {
   reverseRecord: false,
   referrer: zeroHash,
   terms: { kind: 'general', hash: TERMS },
-  credit: { disputeDays: 14, partner: { owner: PARTNER } },
+  credit: { owner: PARTNER },
 }
 
 const partnerCommitment = makeCommitment({
@@ -67,6 +69,15 @@ const partnerCommitment = makeCommitment({
   reverseRecord: 0,
   referrer: zeroHash,
 })
+
+const readAllowance = (allowance: bigint) =>
+  mockFunction(useReadContract).mockImplementation(((parameters: { functionName: string }) => ({
+    data:
+      parameters.functionName === 'registrarAllowance'
+        ? allowance
+        : { base: 100n * USD, premium: 0n },
+    isLoading: false,
+  })) as never)
 
 describe('Info', () => {
   beforeEach(() => {
@@ -81,24 +92,31 @@ describe('Info', () => {
       primaryType === 'RegisterName' ? `0x${'bb'.repeat(65)}` : `0x${'aa'.repeat(65)}`,
     )
     mockFunction(useAccountSafely).mockReturnValue({ address: '0x123' } as never)
-    mockFunction(useReadContract).mockImplementation(((parameters: { functionName: string }) => ({
-      data:
-        parameters.functionName === 'registrarAllowance'
-          ? 1000n * USD
-          : { base: 100n * USD, premium: 0n },
-      isLoading: false,
-    })) as never)
+    mockFunction(useEstimateFullRegistration).mockReturnValue({
+      estimatedGasFee: 1n,
+      estimatedGasLoading: false,
+    } as never)
+    readAllowance(1000n * USD)
   })
 
-  it('shows what a registration from the allowance costs it, and what it leaves', () => {
-    render(info({ ...registrationData, credit: { disputeDays: 14 } }))
+  it('the charge of a registration from the allowance, and the allowance left after it, are shown', () => {
+    render(info({ ...registrationData, credit: { owner: '0x123' } }))
     expect(screen.queryByTestId('full-invoice')).not.toBeInTheDocument()
     expect(screen.getByText('$100.00')).toBeVisible()
+    expect(screen.getByText('invoice.estimatedNetworkFee')).toBeVisible()
     expect(screen.getByText('invoice.allowanceLeft')).toBeVisible()
-    expect(screen.getByText('$1,000.00')).toBeVisible()
+    expect(screen.getByText('$900.00')).toBeVisible()
+    expect(screen.getByTestId('next-button')).toBeEnabled()
   })
 
-  it('shows the ETH invoice for a paid registration', () => {
+  it('a registration from an allowance that no longer covers it cannot begin', () => {
+    readAllowance(50n * USD)
+    render(info({ ...registrationData, credit: { owner: '0x123' } }))
+    expect(screen.getByTestId('next-button')).toBeDisabled()
+    expect(screen.getByTestId('next-button')).toHaveTextContent('steps.pricing.allowanceTooLow')
+  })
+
+  it('a paid registration shows the ETH invoice', () => {
     render(info(registrationData))
     expect(screen.getByTestId('full-invoice')).toBeInTheDocument()
   })
@@ -141,14 +159,11 @@ describe('Info', () => {
     expect(callback).toHaveBeenCalledWith({
       back: false,
       credit: {
-        disputeDays: 14,
-        partner: {
-          owner: PARTNER,
-          intents: {
-            commitment: partnerCommitment,
-            terms: { ...intent, nonce: 3n, signature: `0x${'aa'.repeat(65)}` },
-            register: { ...intent, nonce: 5n, signature: `0x${'bb'.repeat(65)}` },
-          },
+        owner: PARTNER,
+        intents: {
+          commitment: partnerCommitment,
+          terms: { ...intent, nonce: 3n, signature: `0x${'aa'.repeat(65)}` },
+          register: { ...intent, nonce: 5n, signature: `0x${'bb'.repeat(65)}` },
         },
       },
     })
@@ -188,11 +203,8 @@ describe('Info', () => {
         registrationData={{
           ...partnerData,
           credit: {
-            disputeDays: 14,
-            partner: {
-              owner: PARTNER,
-              intents: { commitment: partnerCommitment, terms: signed, register: signed },
-            },
+            owner: PARTNER,
+            intents: { commitment: partnerCommitment, terms: signed, register: signed },
           },
         }}
         callback={callback}

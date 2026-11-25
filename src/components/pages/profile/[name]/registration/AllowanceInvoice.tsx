@@ -1,39 +1,22 @@
 import { useTranslation } from 'react-i18next'
-import styled, { css } from 'styled-components'
 
 import { Skeleton } from '@ensdomains/thorin'
 
+import {
+  Container as InvoiceContainer,
+  LineItem as InvoiceLineItem,
+} from '@app/components/@atoms/Invoice/Invoice'
 import { useRegistrarAllowance } from '@app/hooks/useRegistrarAllowance'
 import { makeDisplay } from '@app/utils/currency'
 import { formatDurationOfDates } from '@app/utils/utils'
 
-const Container = styled.div(
-  ({ theme }) => css`
-    padding: ${theme.space['4']};
-    background: ${theme.colors.backgroundSecondary};
-    display: flex;
-    flex-direction: column;
-    gap: ${theme.space['2']};
-    width: 100%;
-    border-radius: ${theme.space['2']};
-  `,
-)
-
-const LineItem = styled.div(
-  ({ theme }) => css`
-    display: flex;
-    justify-content: space-between;
-    line-height: ${theme.space['5']};
-    color: ${theme.colors.grey};
-  `,
-)
-
 type Props = {
   name: string
   seconds: number
+  estimatedGasFee?: bigint
 }
 
-const AllowanceInvoice = ({ name, seconds }: Props) => {
+const AllowanceInvoice = ({ name, seconds, estimatedGasFee }: Props) => {
   const { t } = useTranslation(['register', 'common'])
   const { allowance, price } = useRegistrarAllowance({ name, seconds })
 
@@ -47,22 +30,31 @@ const AllowanceInvoice = ({ name, seconds }: Props) => {
         }),
       }),
       value: price?.base,
+      symbol: 'usd',
     },
-    ...(price?.premium ? [{ label: t('invoice.temporaryPremium'), value: price.premium }] : []),
-    { label: t('invoice.allowanceLeft'), value: allowance },
+    ...(price?.premium
+      ? [{ label: t('invoice.temporaryPremium'), value: price.premium, symbol: 'usd' }]
+      : []),
+    { label: t('invoice.estimatedNetworkFee'), value: estimatedGasFee, symbol: 'eth' },
+    {
+      label: t('invoice.allowanceLeft'),
+      value:
+        allowance === undefined || !price ? undefined : allowance - price.base - price.premium,
+      symbol: 'usd',
+    },
   ]
 
   return (
-    <Container>
-      {items.map(({ label, value }) => (
-        <LineItem key={label}>
+    <InvoiceContainer>
+      {items.map(({ label, value, symbol }) => (
+        <InvoiceLineItem key={label}>
           <div>{label}</div>
           <Skeleton loading={value === undefined}>
-            <div>{makeDisplay({ value: value ?? 0n, symbol: 'usd' })}</div>
+            <div>{makeDisplay({ value: value ?? 0n, symbol })}</div>
           </Skeleton>
-        </LineItem>
+        </InvoiceLineItem>
       ))}
-    </Container>
+    </InvoiceContainer>
   )
 }
 

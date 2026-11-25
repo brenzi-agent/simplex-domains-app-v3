@@ -62,6 +62,7 @@ const simplexControllerErrors = parseAbi([
   'error PublicSalesClosed()',
   'error OwnerMustBeCaller()',
   'error NotSponsor()',
+  'error DisputeDaysOutOfRange(uint256 disputeDays)',
   'error ReentrantCall()',
 ])
 
@@ -71,6 +72,7 @@ const snrcErrors = parseAbi([
   'error SignatureExpired()',
   'error InvalidNonce()',
   'error InvalidSignature()',
+  'error InsufficientAllowance(uint256 required, uint256 available)',
   'error NotNameOwner()',
   'error RecipientMustBeCaller()',
   'error NotOffered()',

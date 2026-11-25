@@ -64,6 +64,7 @@ export const useEstimateFullRegistration = ({
     namePolicyAddress: getNamePolicyAddress(chainId),
     fiveMinutesAgoInSeconds,
     price,
+    credit: registrationData.credit,
   })
   const { data, isLoading } = useEstimateGasWithStateOverride({
     transactions: transactions!,

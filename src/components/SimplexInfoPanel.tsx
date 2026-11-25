@@ -109,7 +109,7 @@ const TierPrice = styled(Typography)(
   `,
 )
 
-type Props = { name?: string; address?: `0x${string}` }
+type Props = { name?: string; address?: `0x${string}`; nftGated?: boolean }
 
 /**
  * Highlights the pricing tier matching `name`'s label length and renders the
@@ -117,7 +117,7 @@ type Props = { name?: string; address?: `0x${string}` }
  * The tier cards show the controller's price oracle curve for the lengths the
  * controller currently accepts.
  */
-export const SimplexInfoPanel = ({ name, address }: Props) => {
+export const SimplexInfoPanel = ({ name, address, nftGated = true }: Props) => {
   const { minCharLength, priceOracle } = useControllerLimits()
   const { required: nftRequired, hasNft, loaded: nftLoaded, nftAddress } = useNftGateStatus({ address })
   const { isReserved } = useReservedStatus({ name })
@@ -176,7 +176,7 @@ export const SimplexInfoPanel = ({ name, address }: Props) => {
           </div>
         </Helper>
       )}
-      {nftRequired && nftLoaded && hasNft === false && (
+      {nftGated && nftRequired && nftLoaded && hasNft === false && (
         <Helper type="error" alignment="horizontal" data-testid="simplex-nft-gate-helper">
           <div>
             <Typography weight="bold">SimpleX NFT required</Typography>

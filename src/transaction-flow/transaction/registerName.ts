@@ -1,13 +1,12 @@
 import type { TFunction } from 'react-i18next'
-import { Address, encodeFunctionData } from 'viem'
+import { encodeFunctionData } from 'viem'
 
 import { getPrice } from '@ensdomains/ensjs/public'
 import { RegistrationParameters } from '@ensdomains/ensjs/utils'
 import { registerName } from '@ensdomains/ensjs/wallet'
 
-import { getSnrcAddresses } from '@app/constants/chains'
 import { Transaction, TransactionDisplayItem, TransactionFunctionParameters } from '@app/types'
-import { Credit, makeRegisterWithCreditArgs, sponsorAbi } from '@app/utils/snrcSponsor'
+import { Credit, makeRegisterWithCreditCall } from '@app/utils/snrcSponsor'
 import { calculateValueWithBuffer, formatDurationOfDates } from '@app/utils/utils'
 
 type Data = RegistrationParameters & { credit?: Credit }
@@ -40,15 +39,14 @@ const transaction = async ({
   connectorClient,
   data: { credit, ...data },
 }: TransactionFunctionParameters<Data>) => {
-  if (credit)
-    return {
-      to: getSnrcAddresses(client.chain.id).SimplexSponsor as Address,
-      data: encodeFunctionData({
-        abi: sponsorAbi,
-        functionName: 'registerWithCredit',
-        args: makeRegisterWithCreditArgs(data, credit),
-      }),
-    }
+  if (credit) {
+    const { address, ...call } = makeRegisterWithCreditCall({
+      chainId: client.chain.id,
+      registrationParams: data,
+      intent: credit.intents?.register,
+    })
+    return { to: address, data: encodeFunctionData(call) }
+  }
   const price = await getPrice(client, { nameOrNames: data.name, duration: data.duration })
   const value = price.base + price.premium
   const valueWithBuffer = calculateValueWithBuffer(value)

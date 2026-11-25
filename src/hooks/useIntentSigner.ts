@@ -3,7 +3,7 @@ import { usePublicClient, useSignTypedData } from 'wagmi'
 
 import { RegistrationParameters } from '@ensdomains/ensjs/utils'
 
-import { getNamePolicyAddress, getSnrcAddresses } from '@app/constants/chains'
+import { getNamePolicyAddress, getSnrcAddresses, getSponsorAddress } from '@app/constants/chains'
 import {
   intentDeadline,
   makeAcceptTermsTypedData,
@@ -55,7 +55,7 @@ export const useIntentSigner = () => {
     disputeDays: number
   }): Promise<SignedIntent> => {
     const { owner } = registrationParams
-    const sponsor = getSnrcAddresses(chainId).SimplexSponsor as Address
+    const sponsor = getSponsorAddress(chainId)!
     const nonce = await readNonce(sponsor, owner)
     const deadline = intentDeadline()
     const signature = await signTypedDataAsync({
