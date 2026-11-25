@@ -1,10 +1,13 @@
-import { Address, Hex } from 'viem'
+import { useTranslation } from 'react-i18next'
+import { Address, Hex, TypedDataDefinition } from 'viem'
 import { usePublicClient, useSignTypedData } from 'wagmi'
 
-import { RegistrationParameters } from '@ensdomains/ensjs/utils'
+import { makeCommitment, RegistrationParameters } from '@ensdomains/ensjs/utils'
 
 import { getNamePolicyAddress, getSnrcAddresses, getSponsorAddress } from '@app/constants/chains'
+import { MIN_DISPUTE_DAYS } from '@app/constants/simplex'
 import {
+  Intent,
   intentDeadline,
   makeAcceptTermsTypedData,
   makeApproveNameTypedData,
@@ -14,63 +17,83 @@ import {
 } from '@app/utils/snrcIntents'
 import { Terms } from '@app/utils/snrcNameTerms'
 import { getSnrcTokenId } from '@app/utils/snrcOffers'
+import { SignedCredit } from '@app/utils/snrcSponsor'
+
+type Acceptance = { owner: Address; commitment: Hex; terms: Terms }
 
 export const useIntentSigner = () => {
+  const { t } = useTranslation('common')
   const client = usePublicClient()
   const { signTypedDataAsync } = useSignTypedData()
   const chainId = client.chain.id
 
-  const readNonce = (contract: Address, signer: Address) =>
-    client.readContract({
+  const signIntent = async ({
+    signer,
+    contract,
+    typedData,
+  }: {
+    signer: Address
+    contract: Address
+    typedData: (nonce: bigint, deadline: bigint) => TypedDataDefinition
+  }): Promise<Intent> => {
+    const nonce = await client.readContract({
       address: contract,
       abi: noncesAbi,
       functionName: 'nonces',
       args: [signer],
     })
+    const deadline = intentDeadline()
+    const definition = typedData(nonce, deadline)
+    const signature = await signTypedDataAsync({ account: signer, ...definition })
+    if (!(await client.verifyTypedData({ address: signer, signature, ...definition })))
+      throw new Error(t('errors.signedByAnotherAccount', { signer }))
+    return { nonce, deadline, signature }
+  }
 
-  const signAcceptTerms = async ({
-    owner,
-    commitment,
+  const signTermsIntent = ({ owner, commitment, terms }: Acceptance) => {
+    const namePolicy = getNamePolicyAddress(chainId)!
+    return signIntent({
+      signer: owner,
+      contract: namePolicy,
+      typedData: (nonce, deadline) =>
+        makeAcceptTermsTypedData({ chainId, namePolicy, commitment, terms, nonce, deadline }),
+    })
+  }
+
+  const signCredit = async ({
+    registrationParams,
     terms,
   }: {
-    owner: Address
-    commitment: Hex
-    terms: Terms
-  }): Promise<SignedIntent> => {
-    const namePolicy = getNamePolicyAddress(chainId)!
-    const nonce = await readNonce(namePolicy, owner)
-    const deadline = intentDeadline()
-    const signature = await signTypedDataAsync({
-      account: owner,
-      ...makeAcceptTermsTypedData({ chainId, namePolicy, commitment, terms, nonce, deadline }),
+    registrationParams: RegistrationParameters
+    terms?: Terms
+  }): Promise<SignedCredit> => {
+    const { owner } = registrationParams
+    const commitment = makeCommitment(registrationParams)
+    const sponsor = getSponsorAddress(chainId)!
+    const acceptance = terms && {
+      ...terms,
+      intent: await signTermsIntent({ owner, commitment, terms }),
+    }
+    const register = await signIntent({
+      signer: owner,
+      contract: sponsor,
+      typedData: (nonce, deadline) =>
+        makeRegisterNameTypedData({
+          chainId,
+          sponsor,
+          registrationParams,
+          disputeDays: MIN_DISPUTE_DAYS,
+          nonce,
+          deadline,
+        }),
     })
-    return { signer: owner, nonce, deadline, signature }
+    return { owner, intents: { commitment, terms: acceptance, register } }
   }
 
-  const signRegisterName = async ({
-    registrationParams,
-    disputeDays,
-  }: {
-    registrationParams: RegistrationParameters
-    disputeDays: number
-  }): Promise<SignedIntent> => {
-    const { owner } = registrationParams
-    const sponsor = getSponsorAddress(chainId)!
-    const nonce = await readNonce(sponsor, owner)
-    const deadline = intentDeadline()
-    const signature = await signTypedDataAsync({
-      account: owner,
-      ...makeRegisterNameTypedData({
-        chainId,
-        sponsor,
-        registrationParams,
-        disputeDays,
-        nonce,
-        deadline,
-      }),
-    })
-    return { signer: owner, nonce, deadline, signature }
-  }
+  const signAcceptTerms = async (acceptance: Acceptance): Promise<SignedIntent> => ({
+    ...(await signTermsIntent(acceptance)),
+    signer: acceptance.owner,
+  })
 
   const signApproveName = async ({
     name,
@@ -82,22 +105,22 @@ export const useIntentSigner = () => {
     recipient: Address
   }): Promise<SignedIntent> => {
     const registrar = getSnrcAddresses(chainId).BaseRegistrarImplementation as Address
-    const nonce = await readNonce(registrar, holder)
-    const deadline = intentDeadline()
-    const signature = await signTypedDataAsync({
-      account: holder,
-      ...makeApproveNameTypedData({
-        chainId,
-        registrar,
-        from: holder,
-        to: recipient,
-        tokenId: getSnrcTokenId(name)!,
-        nonce,
-        deadline,
-      }),
+    const intent = await signIntent({
+      signer: holder,
+      contract: registrar,
+      typedData: (nonce, deadline) =>
+        makeApproveNameTypedData({
+          chainId,
+          registrar,
+          from: holder,
+          to: recipient,
+          tokenId: getSnrcTokenId(name)!,
+          nonce,
+          deadline,
+        }),
     })
-    return { signer: holder, nonce, deadline, signature }
+    return { ...intent, signer: holder }
   }
 
-  return { signAcceptTerms, signRegisterName, signApproveName }
+  return { signCredit, signAcceptTerms, signApproveName }
 }

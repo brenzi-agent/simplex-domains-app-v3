@@ -23,7 +23,6 @@ import { Content } from '@app/layouts/Content'
 import { useTransactionFlow } from '@app/transaction-flow/TransactionFlowProvider'
 import { sendEvent } from '@app/utils/analytics/events'
 import { getReferrerHex } from '@app/utils/referrer'
-import { Credit } from '@app/utils/snrcSponsor'
 import { isLabelTooLong, secondsToYears } from '@app/utils/utils'
 
 import RegistrationDisabledBanner from './RegistrationDisabledBanner'
@@ -240,7 +239,7 @@ const Registration = ({ nameDetails, isLoading, linkRecords }: Props) => {
     dispatch({ name: back ? 'decreaseStep' : 'increaseStep', selected })
   }
 
-  const infoCallback = ({ back, credit }: BackObj & { credit?: Credit }) => {
+  const infoCallback = ({ back, credit }: RegistrationStepData['info'] & BackObj) => {
     if (!back) {
       sendEvent('register:info', {
         // eslint-disable-next-line @typescript-eslint/naming-convention

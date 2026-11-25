@@ -35,7 +35,7 @@ export type RegistrationStepData = {
     clearRecords?: boolean
     resolverAddress?: Address
   }
-  info: {}
+  info: { credit?: Credit }
   transactions: {
     secret: Hex
     started: boolean

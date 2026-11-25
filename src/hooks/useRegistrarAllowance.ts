@@ -17,20 +17,24 @@ const coversPrice = (allowance?: bigint, price?: { base: bigint; premium: bigint
   return price.base + price.premium <= allowance
 }
 
-export const useRegistrarAllowance = ({ name, seconds }: { name: string; seconds: number }) => {
+export const useAccountAllowance = () => {
   const chainId = useChainId()
   const { address } = useAccountSafely()
-  const { ETHRegistrarController } = getSnrcAddresses(chainId)
   const sponsor = getSponsorAddress(chainId)
-  const enabled = !!sponsor && !!address
 
-  const allowance = useReadContract({
+  return useReadContract({
     address: sponsor,
     abi: sponsorAbi,
     functionName: 'registrarAllowance',
     args: address ? [address] : undefined,
-    query: { enabled },
+    query: { enabled: !!sponsor && !!address },
   })
+}
+
+export const useRegistrarAllowance = ({ name, seconds }: { name: string; seconds: number }) => {
+  const chainId = useChainId()
+  const { ETHRegistrarController } = getSnrcAddresses(chainId)
+  const allowance = useAccountAllowance()
 
   const price = useReadContract({
     address: ETHRegistrarController as Address | undefined,
@@ -44,6 +48,6 @@ export const useRegistrarAllowance = ({ name, seconds }: { name: string; seconds
     allowance: allowance.data,
     price: price.data,
     covers: coversPrice(allowance.data, price.data),
-    loaded: !enabled || !allowance.isLoading,
+    loaded: !allowance.isLoading,
   }
 }

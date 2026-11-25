@@ -14,7 +14,9 @@ import { ConfigWithEns, CreateQueryKey } from '@app/types'
 import { useQuery } from '@app/utils/query/useQuery'
 import { getSnrcTokenId, registrarOfferAbi } from '@app/utils/snrcOffers'
 
+import { useAccountSafely } from './account/useAccountSafely'
 import { useQueryOptions } from './useQueryOptions'
+import { useAccountAllowance } from './useRegistrarAllowance'
 
 type UseNameOfferParameters = {
   name: string
@@ -81,4 +83,27 @@ export const useNameOffer = ({ name }: UseNameOfferParameters) => {
   })
 
   return useQuery(preparedOptions)
+}
+
+export const getConnectedHolder = ({
+  offer,
+  addresses,
+  allowance,
+}: {
+  offer?: { holder: Address; isHolder: boolean } | null
+  addresses?: readonly Address[]
+  allowance?: bigint
+}) => {
+  const holder = offer && !offer.isHolder && !!allowance ? offer.holder.toLowerCase() : undefined
+  const relayedHolder = holder
+    ? addresses?.find((account) => account.toLowerCase() === holder)
+    : undefined
+  return { isConnectedHolder: !!offer?.isHolder || !!relayedHolder, relayedHolder }
+}
+
+export const useConnectedHolder = ({ name }: UseNameOfferParameters) => {
+  const offer = useNameOffer({ name })
+  const { addresses } = useAccountSafely()
+  const { data: allowance } = useAccountAllowance()
+  return { offer, ...getConnectedHolder({ offer: offer.data, addresses, allowance }) }
 }

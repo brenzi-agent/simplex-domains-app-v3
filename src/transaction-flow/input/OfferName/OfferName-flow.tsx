@@ -9,7 +9,7 @@ import { Button, Dialog, Helper, Typography } from '@ensdomains/thorin'
 
 import { AvatarWithIdentifier } from '@app/components/@molecules/AvatarWithIdentifier/AvatarWithIdentifier'
 import { useIntentSigner } from '@app/hooks/useIntentSigner'
-import { useNameOffer } from '@app/hooks/useNameOffer'
+import { useConnectedHolder } from '@app/hooks/useNameOffer'
 import { createTransactionItem } from '@app/transaction-flow/transaction'
 import { TransactionDialogPassthrough } from '@app/transaction-flow/types'
 import { SignedIntent, signingErrorMessage } from '@app/utils/snrcIntents'
@@ -28,7 +28,7 @@ export type Props = {
 
 const OfferName = ({ data: { name }, dispatch, onDismiss }: Props) => {
   const { t } = useTranslation('transactionFlow')
-  const offer = useNameOffer({ name })
+  const { offer, relayedHolder } = useConnectedHolder({ name })
   const form = useForm<{ query: string }>({ defaultValues: { query: '' } })
   const [recipient, setRecipient] = useState<Address>()
   const {
@@ -46,11 +46,7 @@ const OfferName = ({ data: { name }, dispatch, onDismiss }: Props) => {
     dispatch({ name: 'setFlowStage', payload: 'transaction' })
   }
 
-  const holderSignature = useMutation({
-    mutationFn: ({ holder, to }: { holder: Address; to: Address }) =>
-      signApproveName({ name, holder, recipient: to }),
-    onSuccess: (intent, { to }) => offerTo(to, intent),
-  })
+  const holderSignature = useMutation({ mutationFn: signApproveName })
 
   if (!recipient)
     return (
@@ -67,10 +63,13 @@ const OfferName = ({ data: { name }, dispatch, onDismiss }: Props) => {
     )
 
   const replaced = offer.data?.recipient
-  const relayedHolder = offer.data && !offer.data.isHolder ? offer.data.holder : undefined
 
   const onConfirm = () => {
-    if (relayedHolder) holderSignature.mutate({ holder: relayedHolder, to: recipient })
+    if (relayedHolder)
+      holderSignature.mutate(
+        { name, holder: relayedHolder, recipient },
+        { onSuccess: (intent) => offerTo(recipient, intent) },
+      )
     else offerTo(recipient)
   }
 

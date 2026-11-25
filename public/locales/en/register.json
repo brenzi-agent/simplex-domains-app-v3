@@ -26,7 +26,7 @@
       "allowanceTooLow": "Allowance too low",
       "owner": "Owner",
       "thisAccount": "This account",
-      "partnerHint": "To register this name for a partner, connect the partner's account in your wallet as well.",
+      "temporaryOwnerHint": "To register this name to another account of this wallet, connect that account as well.",
       "multipleYearsMessage": "Extending for multiple years will save money on network costs by avoiding yearly transactions.",
       "primaryName": "Use as primary name",
       "primaryNameMessage": "This links your address to this name, allowing dApps to display it as your profile when connected to them. You can only have one primary name per address.",
@@ -189,6 +189,7 @@
     "complete": {
       "heading": "Congratulations!",
       "subheading": "You are now the owner of ",
+      "registeredTo": "{{name}} is registered to {{owner}}.",
       "registerAnother": "Register another",
       "viewName": "View name"
     },
@@ -205,7 +206,7 @@
         "Use your credit or debit card to complete a single transaction"
       ],
       "setupProfile": "I'd like to set up my profile first",
-      "partner": "Your wallet first asks {{owner}} to sign the terms and the registration of this name. This account then sends both transactions and pays their network fees.",
+      "temporaryOwner": "Your wallet first asks {{owner}} to sign the terms and the registration of this name, then sends both transactions from this account, which pays their network fees.",
       "paymentMethod": "Payment method",
       "notEnoughEth": "Not enough ETH in wallet",
       "creditOrDebit": "Credit or debit card",

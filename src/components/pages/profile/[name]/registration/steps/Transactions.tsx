@@ -236,7 +236,7 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
   const [resetOpen, setResetOpen] = useState(false)
 
   const { credit } = registrationData
-  const partner = credit && credit.owner !== address ? credit : undefined
+  const temporaryOwner = credit && credit.owner !== address ? credit : undefined
   const owner = credit?.owner ?? address!
   const registrationParams = useRegistrationParams({
     name,
@@ -244,7 +244,6 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
     registrationData,
   })
   const commitment = makeCommitment(registrationParams)
-  const signedForCommitment = !partner || isSignedFor(partner, commitment)
 
   const terms = useNameTerms({ name })
   const awaitsRegister = terms.required && commitTx?.stage === 'complete' && !registerTx?.stage
@@ -304,6 +303,11 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
 
   const commitCouldBeFound =
     !commitTx?.stage || commitTx.stage === 'confirm' || commitTx.stage === 'failed'
+  const signedCredit =
+    temporaryOwner && isSignedFor(temporaryOwner, { commitment, terms: registrationData.terms })
+      ? temporaryOwner
+      : undefined
+  const needsSignatures = !!temporaryOwner && !signedCredit && commitCouldBeFound
   useExistingCommitment({
     registrationParams,
     commitment,
@@ -389,7 +393,7 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
         createTransactionItem('commitName', {
           ...registrationParams,
           terms: registrationData.terms,
-          termsIntent: partner?.intents?.terms,
+          credit: signedCredit,
         }),
       ],
       requiresManualCleanup: true,
@@ -404,7 +408,7 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
     onStart,
     registrationParams,
     registrationData.terms,
-    partner?.intents?.terms,
+    signedCredit,
   ])
 
   const makeRegisterNameFlow = () => {
@@ -430,16 +434,16 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
     })
 
   const { signAcceptTerms } = useIntentSigner()
-  const partnerAcceptance = useMutation({
-    mutationFn: (acceptedTerms: Terms) =>
-      signAcceptTerms({ owner, commitment, terms: acceptedTerms }),
-    onSuccess: (intent, acceptedTerms) => createAcceptTermsFlow(acceptedTerms, intent),
-  })
+  const ownerAcceptance = useMutation({ mutationFn: signAcceptTerms })
 
   const makeAcceptTermsFlow = () => {
     const { acceptedTerms } = acceptance
     if (!acceptedTerms) return
-    if (partner) partnerAcceptance.mutate(acceptedTerms)
+    if (temporaryOwner)
+      ownerAcceptance.mutate(
+        { owner, commitment, terms: acceptedTerms },
+        { onSuccess: (intent) => createAcceptTermsFlow(acceptedTerms, intent) },
+      )
     else createAcceptTermsFlow(acceptedTerms)
   }
 
@@ -476,10 +480,10 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
   }
 
   useEffect(() => {
-    if (commitTx) return
-    if (signedForCommitment) makeCommitNameFlow()
-    else callback({ back: true })
-  }, [commitTx, makeCommitNameFlow, signedForCommitment, callback])
+    if (!commitTx && !needsSignatures) {
+      makeCommitNameFlow()
+    }
+  }, [commitTx, makeCommitNameFlow, needsSignatures])
 
   useEffect(() => {
     if (registerTx?.stage === 'complete' || checkRegistered) {
@@ -635,18 +639,19 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
                 !acceptance.acceptedTerms ||
                 acceptTermsTx?.stage === 'sent' ||
                 committedTerms.isFetching ||
-                partnerAcceptance.isPending
+                ownerAcceptance.isPending
               }
               onClick={makeAcceptTermsFlow}
             >
               {t('steps.transactions.acceptTerms')}
             </Button>
           </MobileFullWidth>
-          {partnerAcceptance.error && (
-            <Helper alert="error">{signingErrorMessage(partnerAcceptance.error)}</Helper>
+          {ownerAcceptance.error && (
+            <Helper alert="error">{signingErrorMessage(ownerAcceptance.error)}</Helper>
           )}
         </>
       )}
+      {needsSignatures && <Helper alert="info">{t('steps.info.temporaryOwner', { owner })}</Helper>}
       <ButtonContainer>
         {match(transactionState)
           .with('registrationComplete', () => null)
@@ -715,6 +720,11 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
               </MobileFullWidth>
             </>
           ))
+          .with(
+            P.union('commitReady', 'commitFailed'),
+            () => needsSignatures,
+            () => NormalBackButton,
+          )
           .with('commitFailed', () => (
             <>
               {NormalBackButton}

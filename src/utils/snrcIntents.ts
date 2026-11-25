@@ -1,20 +1,24 @@
-import { Address, BaseError, Hex, parseAbi } from 'viem'
+import { Address, Hex, parseAbi } from 'viem'
 
 import { makeRegistrationCallData, RegistrationParameters } from '@ensdomains/ensjs/utils'
 
 import type { Terms } from './snrcNameTerms'
 import { ONE_DAY } from './time'
 
-export type SignedIntent = { signer: Address; nonce: bigint; deadline: bigint; signature: Hex }
+export type Intent = { nonce: bigint; deadline: bigint; signature: Hex }
+
+export type SignedIntent = Intent & { signer: Address }
 
 export const noncesAbi = parseAbi(['function nonces(address signer) view returns (uint256)'])
 
 export const NO_ANNOUNCEMENT = { ephemeralPubKey: '0x', viewTag: '0x00' } as const
 
-export const intentDeadline = () => BigInt(Math.floor(Date.now() / 1000) + ONE_DAY)
+export const intentDeadline = () => BigInt(Math.floor(Date.now() / 1000) + 2 * ONE_DAY)
 
 export const signingErrorMessage = (error: Error) =>
-  error instanceof BaseError ? error.shortMessage : error.message
+  'shortMessage' in error && typeof error.shortMessage === 'string'
+    ? error.shortMessage
+    : error.message
 
 const acceptTermsFields = [
   { name: 'commitment', type: 'bytes32' },
@@ -22,11 +26,6 @@ const acceptTermsFields = [
   { name: 'nonce', type: 'uint256' },
   { name: 'deadline', type: 'uint256' },
 ] as const
-
-const acceptTermsPrimaryType = {
-  general: 'AcceptGeneralTerms',
-  community: 'AcceptCommunityTerms',
-} as const
 
 export const makeAcceptTermsTypedData = ({
   chainId,
@@ -42,13 +41,28 @@ export const makeAcceptTermsTypedData = ({
   terms: Terms
   nonce: bigint
   deadline: bigint
-}) =>
-  ({
-    domain: { name: 'SimplexNamePolicy', version: '1', chainId, verifyingContract: namePolicy },
-    types: { AcceptGeneralTerms: acceptTermsFields, AcceptCommunityTerms: acceptTermsFields },
-    primaryType: acceptTermsPrimaryType[terms.kind],
-    message: { commitment, termsHash: terms.hash, nonce, deadline },
-  }) as const
+}) => {
+  const domain = {
+    name: 'SimplexNamePolicy',
+    version: '1',
+    chainId,
+    verifyingContract: namePolicy,
+  } as const
+  const message = { commitment, termsHash: terms.hash, nonce, deadline }
+  return terms.kind === 'community'
+    ? ({
+        domain,
+        types: { AcceptCommunityTerms: acceptTermsFields },
+        primaryType: 'AcceptCommunityTerms',
+        message,
+      } as const)
+    : ({
+        domain,
+        types: { AcceptGeneralTerms: acceptTermsFields },
+        primaryType: 'AcceptGeneralTerms',
+        message,
+      } as const)
+}
 
 export const makeRegisterNameTypedData = ({
   chainId,

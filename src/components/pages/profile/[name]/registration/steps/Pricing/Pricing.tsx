@@ -518,18 +518,18 @@ export const ActionButton = (props: ActionButtonProps) => {
 }
 
 const OwnerChoice = ({
-  partners,
-  partnerOwner,
-  setPartnerOwner,
+  temporaryOwners,
+  temporaryOwner,
+  setTemporaryOwner,
 }: {
-  partners: readonly Address[]
-  partnerOwner?: Address
-  setPartnerOwner: (owner?: Address) => void
+  temporaryOwners: readonly Address[]
+  temporaryOwner?: Address
+  setTemporaryOwner: (owner?: Address) => void
 }) => {
   const { t } = useTranslation('register')
 
-  if (!partners.length)
-    return <Typography color="grey">{t('steps.pricing.partnerHint')}</Typography>
+  if (!temporaryOwners.length)
+    return <Typography color="grey">{t('steps.pricing.temporaryOwnerHint')}</Typography>
   return (
     <Box width="full">
       <StyledTitle color="grey" weight="bold">
@@ -537,15 +537,19 @@ const OwnerChoice = ({
       </StyledTitle>
       <Spacer $height="2" />
       <RadioButtonGroup
-        value={partnerOwner ?? 'self'}
-        onChange={(e) => setPartnerOwner(partners.find((partner) => partner === e.target.value))}
+        value={temporaryOwner ?? 'self'}
+        onChange={(e) =>
+          setTemporaryOwner(temporaryOwners.find((account) => account === e.target.value))
+        }
       >
-        {['self', ...partners].map((account) => (
+        {['self', ...temporaryOwners].map((account) => (
           <RadioButton
             key={account}
             data-testid={`owner-${account}`}
             label={
-              <RadioLabel>{account === 'self' ? t('steps.pricing.thisAccount') : account}</RadioLabel>
+              <RadioLabel>
+                {account === 'self' ? t('steps.pricing.thisAccount') : account}
+              </RadioLabel>
             }
             name="owner"
             value={account}
@@ -648,10 +652,13 @@ const Pricing = ({
   const [seconds, setSeconds] = useState(minSeconds)
   const [durationType, setDurationType] = useState<'date' | 'years'>('years')
   const { allowance, covers, loaded: allowanceLoaded } = useRegistrarAllowance({ name, seconds })
-  const partners = addresses?.filter((connected) => connected !== address) ?? []
-  const [chosenOwner, setChosenOwner] = useState<Address>()
-  const partnerOwner = partners.find((partner) => partner === chosenOwner)
-  const credit = allowance && address ? { owner: partnerOwner ?? address } : undefined
+  const { credit: storedCredit } = registrationData
+  const temporaryOwners = addresses?.filter((connected) => connected !== address) ?? []
+  const [chosenOwner, setChosenOwner] = useState(storedCredit?.owner)
+  const temporaryOwner = temporaryOwners.find((account) => account === chosenOwner)
+  const owner = temporaryOwner ?? address
+  const credit =
+    allowance && owner ? (storedCredit?.owner === owner ? storedCredit : { owner }) : undefined
   const sponsoredHorizon =
     terms.kind === 'community' ? MAX_REGISTRATION_DURATION : MAX_SPONSORED_REGISTRATION_DURATION
 
@@ -768,20 +775,20 @@ const Pricing = ({
         onChangeDurationType={setDurationType}
       />
       {credit ? (
-        <AllowanceInvoice
-          name={name}
-          seconds={seconds}
-          estimatedGasFee={fullEstimate.estimatedGasLoading ? undefined : estimatedGasFee}
-        />
+        <>
+          <AllowanceInvoice
+            name={name}
+            seconds={seconds}
+            estimatedGasFee={fullEstimate.estimatedGasLoading ? undefined : estimatedGasFee}
+          />
+          <OwnerChoice
+            temporaryOwners={temporaryOwners}
+            temporaryOwner={temporaryOwner}
+            setTemporaryOwner={setChosenOwner}
+          />
+        </>
       ) : (
         <FullInvoice {...fullEstimate} />
-      )}
-      {credit && (
-        <OwnerChoice
-          partners={partners}
-          partnerOwner={partnerOwner}
-          setPartnerOwner={setChosenOwner}
-        />
       )}
       {hasPremium && gracePeriodEndDate ? (
         <TemporaryPremium startDate={gracePeriodEndDate} name={name} />

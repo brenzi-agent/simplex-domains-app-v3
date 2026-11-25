@@ -1,10 +1,10 @@
 import type { TFunction } from 'react-i18next'
-import { Address, encodeFunctionData } from 'viem'
+import { Address } from 'viem'
 
 import { getSnrcAddresses } from '@app/constants/chains'
 import { Transaction, TransactionDisplayItem, TransactionFunctionParameters } from '@app/types'
-import { NO_ANNOUNCEMENT, SignedIntent } from '@app/utils/snrcIntents'
-import { getSnrcTokenId, registrarOfferAbi } from '@app/utils/snrcOffers'
+import { SignedIntent } from '@app/utils/snrcIntents'
+import { encodeApproveName } from '@app/utils/snrcOffers'
 
 type Data = {
   name: string
@@ -38,26 +38,7 @@ const displayItems = (
 
 const transaction = ({ client, data }: TransactionFunctionParameters<Data>) => ({
   to: getSnrcAddresses(client.chain.id).BaseRegistrarImplementation as Address,
-  data: data.intent
-    ? encodeFunctionData({
-        abi: registrarOfferAbi,
-        functionName: 'approveWithSig',
-        args: [
-          data.intent.signer,
-          data.recipient,
-          getSnrcTokenId(data.name)!,
-          data.intent.nonce,
-          data.intent.deadline,
-          data.intent.signature,
-          NO_ANNOUNCEMENT.ephemeralPubKey,
-          NO_ANNOUNCEMENT.viewTag,
-        ],
-      })
-    : encodeFunctionData({
-        abi: registrarOfferAbi,
-        functionName: 'approve',
-        args: [data.recipient, getSnrcTokenId(data.name)!],
-      }),
+  data: encodeApproveName({ name: data.name, to: data.recipient, intent: data.intent }),
 })
 
 export default { displayItems, transaction, backToInput: true } satisfies Transaction<Data>

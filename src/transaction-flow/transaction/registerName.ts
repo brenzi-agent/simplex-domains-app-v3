@@ -12,7 +12,7 @@ import { calculateValueWithBuffer, formatDurationOfDates } from '@app/utils/util
 type Data = RegistrationParameters & { credit?: Credit }
 const now = Math.floor(Date.now())
 const displayItems = (
-  { name, duration }: Data,
+  { name, owner, duration, credit }: Data,
   t: TFunction<'translation', undefined>,
 ): TransactionDisplayItem[] => [
   {
@@ -24,6 +24,7 @@ const displayItems = (
     label: 'action',
     value: t('transaction.description.registerName'),
   },
+  ...(credit?.intents ? [{ label: 'owner', value: owner, type: 'address' } as const] : []),
   {
     label: 'duration',
     value: formatDurationOfDates({

@@ -23,32 +23,37 @@ const displayItems = (
   },
 ]
 
-const transaction = ({ client, data }: TransactionFunctionParameters<Data>) => ({
-  to: getNamePolicyAddress(client.chain.id)!,
-  data: data.intent
-    ? encodeFunctionData({
-        abi: namePolicyTermsAbi,
-        functionName:
-          data.terms.kind === 'community'
-            ? 'commitUnderCommunityTermsWithSig'
-            : 'commitUnderGeneralTermsWithSig',
-        args: [
-          data.commitment,
-          data.terms.hash,
-          data.intent.signer,
-          data.intent.nonce,
-          data.intent.deadline,
-          data.intent.signature,
-        ],
-      })
-    : encodeFunctionData({
-        abi: namePolicyTermsAbi,
-        functionName:
-          data.terms.kind === 'community'
-            ? 'commitUnderCommunityTerms'
-            : 'commitUnderGeneralTerms',
-        args: [data.commitment, data.terms.hash],
-      }),
-})
+const commitUnderTerms = {
+  general: { direct: 'commitUnderGeneralTerms', withSig: 'commitUnderGeneralTermsWithSig' },
+  community: { direct: 'commitUnderCommunityTerms', withSig: 'commitUnderCommunityTermsWithSig' },
+} as const
+
+const transaction = ({
+  client,
+  data: { commitment, terms, intent },
+}: TransactionFunctionParameters<Data>) => {
+  const functionNames = commitUnderTerms[terms.kind]
+  return {
+    to: getNamePolicyAddress(client.chain.id)!,
+    data: intent
+      ? encodeFunctionData({
+          abi: namePolicyTermsAbi,
+          functionName: functionNames.withSig,
+          args: [
+            commitment,
+            terms.hash,
+            intent.signer,
+            intent.nonce,
+            intent.deadline,
+            intent.signature,
+          ],
+        })
+      : encodeFunctionData({
+          abi: namePolicyTermsAbi,
+          functionName: functionNames.direct,
+          args: [commitment, terms.hash],
+        }),
+  }
+}
 
 export default { displayItems, transaction } satisfies Transaction<Data>

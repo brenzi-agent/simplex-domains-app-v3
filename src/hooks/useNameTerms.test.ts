@@ -313,7 +313,13 @@ describe('getTermsTextQueryFn', () => {
 describe('getCommittedTermsQueryFn', () => {
   const getCommittedTerms = (acceptor?: `0x${string}`) =>
     getCommittedTermsQueryFn(config)({
-      queryKey: [{ commitment: COMMITMENT, acceptor }, 1337, HOLDER, undefined, 'getCommittedTerms'],
+      queryKey: [
+        { commitment: COMMITMENT, acceptor },
+        1337,
+        HOLDER,
+        undefined,
+        'getCommittedTerms',
+      ],
     } as never)
 
   it("reads the owner's acceptance for the commitment, not the connected account's", async () => {

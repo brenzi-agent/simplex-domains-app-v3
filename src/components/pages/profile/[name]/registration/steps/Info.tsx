@@ -1,25 +1,23 @@
 import { useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
-import { Address } from 'viem'
 
 import { makeCommitment } from '@ensdomains/ensjs/utils'
 import { Button, Heading, Helper, Typography } from '@ensdomains/thorin'
 
 import MobileFullWidth from '@app/components/@atoms/MobileFullWidth'
 import { Card } from '@app/components/Card'
-import { MIN_DISPUTE_DAYS } from '@app/constants/simplex'
 import { useAccountSafely } from '@app/hooks/account/useAccountSafely'
 import { useEstimateFullRegistration } from '@app/hooks/gasEstimation/useEstimateRegistration'
 import { useIntentSigner } from '@app/hooks/useIntentSigner'
 import { useRegistrarAllowance } from '@app/hooks/useRegistrarAllowance'
 import useRegistrationParams from '@app/hooks/useRegistrationParams'
 import { signingErrorMessage } from '@app/utils/snrcIntents'
-import { Credit, isSignedFor } from '@app/utils/snrcSponsor'
+import { isSignedFor } from '@app/utils/snrcSponsor'
 
 import AllowanceInvoice from '../AllowanceInvoice'
 import FullInvoice from '../FullInvoice'
-import { RegistrationReducerDataItem } from '../types'
+import { BackObj, RegistrationReducerDataItem, RegistrationStepData } from '../types'
 
 const StyledCard = styled(Card)(
   ({ theme }) => css`
@@ -110,7 +108,7 @@ const infoItemArr = Array.from({ length: 3 }, (_, i) => `steps.info.ethItems.${i
 type Props = {
   registrationData: RegistrationReducerDataItem
   name: string
-  callback: (data: { back: boolean; credit?: Credit }) => void
+  callback: (data: BackObj & RegistrationStepData['info']) => void
   onProfileClick: () => void
 }
 
@@ -124,34 +122,25 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
   const { covers } = useRegistrarAllowance({ name, seconds: registrationData.seconds })
 
   const { address } = useAccountSafely()
-  const { credit } = registrationData
-  const partner = credit && credit.owner !== address ? credit.owner : undefined
+  const { credit, terms } = registrationData
+  const temporaryOwner = credit && credit.owner !== address ? credit : undefined
   const registrationParams = useRegistrationParams({
     name,
     owner: credit?.owner ?? address!,
     registrationData,
   })
-  const { signAcceptTerms, signRegisterName } = useIntentSigner()
-  const partnerSignatures = useMutation({
-    mutationFn: async (owner: Address): Promise<Credit> => {
-      const commitment = makeCommitment(registrationParams)
-      const { terms } = registrationData
-      const intents = {
-        commitment,
-        terms: terms && (await signAcceptTerms({ owner, commitment, terms })),
-        register: await signRegisterName({
-          registrationParams,
-          disputeDays: MIN_DISPUTE_DAYS,
-        }),
-      }
-      return { owner, intents }
-    },
-    onSuccess: (signedCredit) => callback({ back: false, credit: signedCredit }),
-  })
+  const { signCredit } = useIntentSigner()
+  const signatures = useMutation({ mutationFn: signCredit })
 
   const begin = () => {
-    if (credit && partner && !isSignedFor(credit, makeCommitment(registrationParams)))
-      partnerSignatures.mutate(partner)
+    if (
+      temporaryOwner &&
+      !isSignedFor(temporaryOwner, { commitment: makeCommitment(registrationParams), terms })
+    )
+      signatures.mutate(
+        { registrationParams, terms },
+        { onSuccess: (signedCredit) => callback({ back: false, credit: signedCredit }) },
+      )
     else callback({ back: false })
   }
 
@@ -176,10 +165,12 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
       ) : (
         <FullInvoice {...estimate} />
       )}
-      {partner && <Helper alert="info">{t('steps.info.partner', { owner: partner })}</Helper>}
-      {partnerSignatures.error && (
-        <Helper alert="error">{signingErrorMessage(partnerSignatures.error)}</Helper>
+      {temporaryOwner && (
+        <Helper alert="info">
+          {t('steps.info.temporaryOwner', { owner: temporaryOwner.owner })}
+        </Helper>
       )}
+      {signatures.error && <Helper alert="error">{signingErrorMessage(signatures.error)}</Helper>}
       {!registrationData.queue.includes('profile') && (
         <ProfileButton data-testid="setup-profile-button" onClick={onProfileClick}>
           <Typography weight="bold" color="accent">
@@ -189,7 +180,11 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
       )}
       <ButtonContainer>
         <MobileFullWidth>
-          <Button colorStyle="accentSecondary" onClick={() => callback({ back: true })}>
+          <Button
+            colorStyle="accentSecondary"
+            disabled={signatures.isPending}
+            onClick={() => callback({ back: true })}
+          >
             {t('action.back', { ns: 'common' })}
           </Button>
         </MobileFullWidth>
@@ -201,8 +196,8 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
           ) : (
             <Button
               data-testid="next-button"
-              loading={partnerSignatures.isPending}
-              disabled={partnerSignatures.isPending}
+              loading={signatures.isPending}
+              disabled={signatures.isPending}
               onClick={begin}
             >
               {t('action.begin', { ns: 'common' })}

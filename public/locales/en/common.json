@@ -181,6 +181,7 @@
     "emailInvalid": "Invalid email address",
     "invalidAddress": "Invalid address",
     "addressRequired": "Address required",
+    "signedByAnotherAccount": "The wallet signed with an account other than {{signer}}.",
     "indexingErrors": {
       "title": "Error syncing data",
       "message": "This data may be out of date. Please use caution.",
@@ -294,7 +295,8 @@
       "update": "Update",
       "resolver": "Resolver",
       "records": "Records",
-      "record": "Record"
+      "record": "Record",
+      "owner": "Owner"
     },
     "itemValue": {
       "records_one": "{{count}} record",
