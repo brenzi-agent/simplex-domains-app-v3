@@ -60,7 +60,6 @@ describe('the typed data the partner signs, hashed as the contracts at 6e035ada 
       nonce: 3n,
       deadline: DEADLINE,
     })
-    expect(Object.keys(typedData.types)).toEqual([typedData.primaryType])
     expect(hashTypedData(typedData)).toBe(
       contractDigest(
         MAINNET_NAME_POLICY_DOMAIN_SEPARATOR,

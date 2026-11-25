@@ -1,4 +1,4 @@
-import { Address, BaseError, Hex, parseAbi, TypedDataDefinition } from 'viem'
+import { Address, BaseError, Hex, parseAbi } from 'viem'
 
 import { makeRegistrationCallData, RegistrationParameters } from '@ensdomains/ensjs/utils'
 
@@ -15,6 +15,13 @@ export const intentDeadline = () => BigInt(Math.floor(Date.now() / 1000) + ONE_D
 
 export const signingErrorMessage = (error: Error) =>
   error instanceof BaseError ? error.shortMessage : error.message
+
+const acceptTermsFields = [
+  { name: 'commitment', type: 'bytes32' },
+  { name: 'termsHash', type: 'bytes32' },
+  { name: 'nonce', type: 'uint256' },
+  { name: 'deadline', type: 'uint256' },
+] as const
 
 const acceptTermsPrimaryType = {
   general: 'AcceptGeneralTerms',
@@ -35,19 +42,13 @@ export const makeAcceptTermsTypedData = ({
   terms: Terms
   nonce: bigint
   deadline: bigint
-}): TypedDataDefinition => ({
-  domain: { name: 'SimplexNamePolicy', version: '1', chainId, verifyingContract: namePolicy },
-  types: {
-    [acceptTermsPrimaryType[terms.kind]]: [
-      { name: 'commitment', type: 'bytes32' },
-      { name: 'termsHash', type: 'bytes32' },
-      { name: 'nonce', type: 'uint256' },
-      { name: 'deadline', type: 'uint256' },
-    ],
-  },
-  primaryType: acceptTermsPrimaryType[terms.kind],
-  message: { commitment, termsHash: terms.hash, nonce, deadline },
-})
+}) =>
+  ({
+    domain: { name: 'SimplexNamePolicy', version: '1', chainId, verifyingContract: namePolicy },
+    types: { AcceptGeneralTerms: acceptTermsFields, AcceptCommunityTerms: acceptTermsFields },
+    primaryType: acceptTermsPrimaryType[terms.kind],
+    message: { commitment, termsHash: terms.hash, nonce, deadline },
+  }) as const
 
 export const makeRegisterNameTypedData = ({
   chainId,
