@@ -28,6 +28,16 @@ const acceptTermsFields = [
   { name: 'deadline', type: 'uint256' },
 ] as const
 
+const acceptTermsTypes = {
+  general: { AcceptGeneralTerms: acceptTermsFields },
+  community: { AcceptCommunityTerms: acceptTermsFields },
+} as const
+
+const acceptTermsPrimaryType = {
+  general: 'AcceptGeneralTerms',
+  community: 'AcceptCommunityTerms',
+} as const
+
 export const makeAcceptTermsTypedData = ({
   chainId,
   namePolicy,
@@ -42,28 +52,13 @@ export const makeAcceptTermsTypedData = ({
   terms: Terms
   nonce: bigint
   deadline: bigint
-}) => {
-  const domain = {
-    name: 'SimplexNamePolicy',
-    version: '1',
-    chainId,
-    verifyingContract: namePolicy,
-  } as const
-  const message = { commitment, termsHash: terms.hash, nonce, deadline }
-  return terms.kind === 'community'
-    ? ({
-        domain,
-        types: { AcceptCommunityTerms: acceptTermsFields },
-        primaryType: 'AcceptCommunityTerms',
-        message,
-      } as const)
-    : ({
-        domain,
-        types: { AcceptGeneralTerms: acceptTermsFields },
-        primaryType: 'AcceptGeneralTerms',
-        message,
-      } as const)
-}
+}) =>
+  ({
+    domain: { name: 'SimplexNamePolicy', version: '1', chainId, verifyingContract: namePolicy },
+    types: acceptTermsTypes[terms.kind],
+    primaryType: acceptTermsPrimaryType[terms.kind],
+    message: { commitment, termsHash: terms.hash, nonce, deadline },
+  }) as const
 
 export const makeRegisterNameTypedData = ({
   chainId,
