@@ -29,7 +29,18 @@ vi.mock('@app/hooks/useNftGateStatus')
 vi.mock('@app/hooks/useReservedStatus')
 vi.mock('@app/components/SimplexInfoPanel', () => ({ SimplexInfoPanel: () => null }))
 vi.mock('@app/components/@molecules/DateSelection/DateSelection', () => ({
-  DateSelection: ({ maxSeconds }: { maxSeconds: number }) => <div>{maxSeconds}</div>,
+  DateSelection: ({
+    maxSeconds,
+    setSeconds,
+  }: {
+    maxSeconds: number
+    setSeconds: (seconds: number) => void
+  }) => (
+    <>
+      <div>{maxSeconds}</div>
+      <button type="button" data-testid="choose-longest" onClick={() => setSeconds(maxSeconds)} />
+    </>
+  ),
 }))
 vi.mock('@app/components/pages/profile/ProfileButton', () => ({
   SocialProfileButton: ({ value }: { value: string }) => <div>{value}</div>,
@@ -421,6 +432,36 @@ describe('Pricing', () => {
     await userEvent.click(screen.getByTestId('next-button'))
     expect(vi.mocked(props.callback).mock.calls[0][0].credit).toEqual({ disputeDays: 14 })
   })
+
+  it.each([
+    ['plain', 11, 'general'],
+    ['community', 3, 'community'],
+  ] as const)(
+    'should let an account with an allowance register a %s name for up to %s years, charged for the chosen duration',
+    async (_, maxYears, kind) => {
+      nameTerms(kind)
+      readAllowance(1000n * USD, { base: 100n * USD, premium: 0n })
+      const props = makeProps({ linkRecords: undefined })
+      render(<Pricing {...props} />)
+      expect(screen.getByText(yearsToSeconds(maxYears))).toBeInTheDocument()
+
+      await userEvent.click(screen.getByTestId('choose-longest'))
+      expect(mockUseReadContract).toHaveBeenCalledWith(
+        expect.objectContaining({
+          functionName: 'rentPriceUSD',
+          args: ['alicebob', BigInt(yearsToSeconds(maxYears))],
+        }),
+      )
+      await userEvent.click(screen.getByTestId('terms-accept'))
+      await userEvent.click(screen.getByTestId('next-button'))
+      expect(props.callback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          seconds: yearsToSeconds(maxYears),
+          credit: { disputeDays: 14 },
+        }),
+      )
+    },
+  )
 
   it.each([
     [

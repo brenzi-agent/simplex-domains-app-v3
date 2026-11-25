@@ -30,7 +30,12 @@ import { NameTerms } from '@app/components/NameTerms'
 import { SocialProfileButton } from '@app/components/pages/profile/ProfileButton'
 import { SimplexInfoPanel } from '@app/components/SimplexInfoPanel'
 import { ProfileRecord } from '@app/constants/profileRecordOptions'
-import { MIN_DISPUTE_DAYS, MIN_REGISTRATION_DURATION } from '@app/constants/simplex'
+import {
+  MAX_REGISTRATION_DURATION,
+  MAX_SPONSORED_REGISTRATION_DURATION,
+  MIN_DISPUTE_DAYS,
+  MIN_REGISTRATION_DURATION,
+} from '@app/constants/simplex'
 import { useAccountSafely } from '@app/hooks/account/useAccountSafely'
 import { useContractAddress } from '@app/hooks/chain/useContractAddress'
 import { useEstimateFullRegistration } from '@app/hooks/gasEstimation/useEstimateRegistration'
@@ -639,13 +644,15 @@ const Pricing = ({
   const isTooShort = !!minCharLength && !isSubname && labelLen > 0 && labelLen < minCharLength
 
   const [seconds, setSeconds] = useState(minSeconds)
-  const durationType = 'years'
+  const [durationType, setDurationType] = useState<'date' | 'years'>('years')
   const {
     allowance,
     price: allowancePrice,
     loaded: allowanceLoaded,
   } = useRegistrarAllowance({ name, seconds })
   const registrar = allowance ? { allowance, price: allowancePrice } : undefined
+  const sponsoredHorizon =
+    terms.kind === 'community' ? MAX_REGISTRATION_DURATION : MAX_SPONSORED_REGISTRATION_DURATION
   const partners = addresses?.filter((connected) => connected !== address) ?? []
   const [chosenOwner, setChosenOwner] = useState<Address>()
   const partnerOwner = partners.find((partner) => partner === chosenOwner)
@@ -752,7 +759,8 @@ const Pricing = ({
       {terms.required && <NameTerms terms={terms} acceptance={acceptance} />}
       <DateSelection
         {...{ seconds, setSeconds, minSeconds, durationType }}
-        maxSeconds={minSeconds}
+        maxSeconds={registrar ? sponsoredHorizon : minSeconds}
+        onChangeDurationType={setDurationType}
       />
       {registrar ? (
         <AllowanceInvoice name={name} seconds={seconds} />
