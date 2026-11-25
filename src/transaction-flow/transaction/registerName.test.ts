@@ -13,6 +13,7 @@ import { getPrice } from '@ensdomains/ensjs/public'
 import { makeCommitment, RegistrationParameters } from '@ensdomains/ensjs/utils'
 import { registerName } from '@ensdomains/ensjs/wallet'
 
+import { getSponsorAddress } from '@app/constants/chains'
 import { ClientWithEns, ConnectorClientWithEns } from '@app/types'
 
 import registerNameFlowTransaction from './registerName'
@@ -21,7 +22,7 @@ vi.mock('@ensdomains/ensjs/public')
 vi.mock('@ensdomains/ensjs/wallet')
 vi.mock('@app/constants/chains', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  getSponsorAddress: () => SPONSOR,
+  getSponsorAddress: vi.fn(() => SPONSOR),
 }))
 
 const SPONSOR = '0x5555555555555555555555555555555555555555'
@@ -71,4 +72,22 @@ it('registers the committed registration through the sponsor, paid from the allo
     makeCommitment(registration),
   )
   expect(args.slice(1)).toEqual([14n, 0n, 0n, '0x'])
+})
+
+it('refuses a registration from the allowance on a chain without a SimplexSponsor address', async () => {
+  mockFunction(getSponsorAddress).mockReturnValueOnce(undefined)
+  const owner = '0x2222222222222222222222222222222222222222'
+  await expect(
+    registerNameFlowTransaction.transaction({
+      client: { chain: { id: 1 } } as unknown as ClientWithEns,
+      connectorClient: {} as unknown as ConnectorClientWithEns,
+      data: {
+        name: 'alicebob.simplex',
+        owner,
+        duration: 63072000,
+        secret: `0x${'33'.repeat(32)}`,
+        credit: { owner },
+      },
+    }),
+  ).rejects.toThrow('SimplexSponsor')
 })

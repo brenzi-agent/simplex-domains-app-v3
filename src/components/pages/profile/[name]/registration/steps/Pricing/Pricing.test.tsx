@@ -372,7 +372,7 @@ describe('Pricing', () => {
       expect.objectContaining({
         seconds: yearsToSeconds(2),
         terms: { kind: 'general', hash: TERMS },
-        paymentMethodChoice: '',
+        paymentMethodChoice: 'allowance',
         credit: { owner: '0x123' },
       }),
     )
@@ -386,6 +386,60 @@ describe('Pricing', () => {
     render(<Pricing {...makeProps()} />)
     expect(screen.queryByTestId('public-sales-closed')).not.toBeInTheDocument()
     expect(screen.getByTestId('next-button')).toBeDisabled()
+  })
+
+  it('should not offer the ETH path while the allowance of the account is read', () => {
+    mockUseReadContract.mockReturnValue({ data: undefined, isLoading: true } as never)
+    render(<Pricing {...makeProps()} />)
+    expect(screen.queryByTestId('full-invoice')).not.toBeInTheDocument()
+    expect(screen.getByTestId('next-button')).toBeDisabled()
+  })
+
+  it('should say when the allowance of the account cannot be read, and read it again', async () => {
+    mockUseControllerLimits.mockReturnValue({ minCharLength: 6, publicSalesOpen: false })
+    const refetch = vi.fn()
+    mockUseReadContract.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch,
+    } as never)
+    render(<Pricing {...makeProps()} />)
+    expect(screen.queryByTestId('public-sales-closed')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('next-button')).not.toBeInTheDocument()
+    expect(screen.getByTestId('allowance-read-failed')).toHaveTextContent(
+      'errors.networkError.title',
+    )
+    await userEvent.click(screen.getByText('action.tryAgain'))
+    expect(refetch).toHaveBeenCalled()
+  })
+
+  it('should keep the duration of a registration from the allowance when the step is shown again', async () => {
+    readAllowance(1000n * USD, { base: 100n * USD, premium: 0n })
+    const props = makeProps({
+      linkRecords: undefined,
+      registrationData: {
+        seconds: yearsToSeconds(5),
+        durationType: 'years',
+        started: false,
+        credit: { owner: '0x123' },
+      } as RegistrationReducerDataItem,
+    })
+    render(<Pricing {...props} />)
+    await userEvent.click(screen.getByTestId('next-button'))
+    expect(props.callback).toHaveBeenCalledWith(
+      expect.objectContaining({ seconds: yearsToSeconds(5), credit: { owner: '0x123' } }),
+    )
+  })
+
+  it('should register from an allowance equal to the price', () => {
+    readAllowance(100n * USD, { base: 100n * USD, premium: 0n })
+    render(<Pricing {...makeProps()} />)
+    expect(screen.getByText('$0.00')).toBeVisible()
+    expect(screen.getByTestId('next-button')).toBeEnabled()
+    expect(screen.getByTestId('next-button')).toHaveTextContent(
+      'steps.pricing.registerWithAllowance',
+    )
   })
 
   it('should register with the allowance, not with ETH, while public sales are open', async () => {

@@ -47,7 +47,7 @@ describe('useSimulateRegistration', () => {
     )
   })
 
-  it('simulates the register from the allowance through the sponsor', () => {
+  it('simulates the registration from the allowance through the sponsor', () => {
     const { result } = renderHook(() =>
       useSimulateRegistration({
         registrationParams,
@@ -66,7 +66,7 @@ describe('useSimulateRegistration', () => {
     expect(result.current).toEqual({ functionName: 'registerWithCredit' })
   })
 
-  it('simulates the paid register without credit', () => {
+  it('simulates the paid registration without credit', () => {
     const { result } = renderHook(() =>
       useSimulateRegistration({ registrationParams, query: { enabled: true } }),
     )

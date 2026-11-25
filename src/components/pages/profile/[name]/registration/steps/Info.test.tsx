@@ -74,6 +74,12 @@ describe('Info', () => {
     expect(screen.getByTestId('next-button')).toHaveTextContent('steps.pricing.allowanceTooLow')
   })
 
+  it('a registration from the allowance cannot begin while the allowance is read', () => {
+    mockFunction(useReadContract).mockReturnValue({ data: undefined, isLoading: true } as never)
+    render(info({ ...registrationData, credit: { owner: '0x123' } }))
+    expect(screen.getByTestId('next-button')).toBeDisabled()
+  })
+
   it('a paid registration shows the ETH invoice', () => {
     render(info(registrationData))
     expect(screen.getByTestId('full-invoice')).toBeInTheDocument()

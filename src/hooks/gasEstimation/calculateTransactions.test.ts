@@ -117,7 +117,7 @@ describe('calculateTransactions', () => {
     expect(result?.map((t) => t.name)).toEqual(['commitName', 'registerName'])
   })
 
-  it('estimates the register from the allowance when the registration is credited', () => {
+  it('estimates the registration from the allowance when the registration is credited', () => {
     const credit = { owner: '0x000000000000000000000000000000000000beef' } as const
     const result = calculateTransactions({
       registrationParams: baseParams,
@@ -127,5 +127,15 @@ describe('calculateTransactions', () => {
       credit,
     })
     expect(result![1].data).toEqual(expect.objectContaining({ credit }))
+  })
+
+  it('estimates the registration from the allowance without the ETH price', () => {
+    const result = calculateTransactions({
+      registrationParams: baseParams,
+      ethRegistrarControllerAddress: '0x000000000000000000000000000000000000ca11',
+      fiveMinutesAgoInSeconds: 1_700_000_000,
+      credit: { owner: '0x000000000000000000000000000000000000beef' },
+    })
+    expect(result?.map((t) => t.name)).toEqual(['commitName', 'registerName'])
   })
 })
