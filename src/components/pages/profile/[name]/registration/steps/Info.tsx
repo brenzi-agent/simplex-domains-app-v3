@@ -9,6 +9,7 @@ import { useEstimateFullRegistration } from '@app/hooks/gasEstimation/useEstimat
 import { useRegistrarAllowance } from '@app/hooks/useRegistrarAllowance'
 
 import AllowanceInvoice from '../AllowanceInvoice'
+import AllowanceTooLowButton from '../AllowanceTooLowButton'
 import FullInvoice from '../FullInvoice'
 import { RegistrationReducerDataItem } from '../types'
 
@@ -112,7 +113,11 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
     name,
     registrationData,
   })
-  const { covers } = useRegistrarAllowance({ name, seconds: registrationData.seconds })
+  const { allowance, price, covers } = useRegistrarAllowance({
+    name,
+    seconds: registrationData.seconds,
+  })
+  const readsAllowance = !!registrationData.credit && covers === undefined
 
   return (
     <StyledCard>
@@ -128,8 +133,9 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
       </InfoItems>
       {registrationData.credit ? (
         <AllowanceInvoice
-          name={name}
           seconds={registrationData.seconds}
+          allowance={allowance}
+          price={price}
           estimatedGasFee={estimate.estimatedGasLoading ? undefined : estimate.estimatedGasFee}
         />
       ) : (
@@ -150,11 +156,14 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
         </MobileFullWidth>
         <MobileFullWidth>
           {registrationData.credit && covers === false ? (
-            <Button data-testid="next-button" disabled>
-              {t('steps.pricing.allowanceTooLow')}
-            </Button>
+            <AllowanceTooLowButton />
           ) : (
-            <Button data-testid="next-button" onClick={() => callback({ back: false })}>
+            <Button
+              data-testid="next-button"
+              loading={readsAllowance}
+              disabled={readsAllowance}
+              onClick={() => callback({ back: false })}
+            >
               {t('action.begin', { ns: 'common' })}
             </Button>
           )}

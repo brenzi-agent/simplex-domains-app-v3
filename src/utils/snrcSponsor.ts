@@ -22,7 +22,7 @@ export const makeRegisterWithCreditCall = ({
   registrationParams: RegistrationParameters
 }) =>
   ({
-    address: getSponsorAddress(chainId)!,
+    address: getSponsorAddress(chainId),
     abi: sponsorAbi,
     functionName: 'registerWithCredit',
     args: [makeRegistrationCallData(registrationParams), BigInt(MIN_DISPUTE_DAYS), 0n, 0n, '0x'],

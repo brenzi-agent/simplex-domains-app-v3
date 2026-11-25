@@ -29,7 +29,7 @@ export const calculateTransactions = ({
   price?: { base: bigint; premium: bigint }
   credit?: TransactionData<'registerName'>['credit']
 }): ReturnType => {
-  if (!registrationParams || !ethRegistrarControllerAddress || !price) return null
+  if (!registrationParams || !ethRegistrarControllerAddress || (!credit && !price)) return null
   const commitment = makeCommitment(registrationParams)
 
   const registrationStateOverride = {

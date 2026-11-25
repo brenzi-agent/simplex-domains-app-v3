@@ -69,13 +69,14 @@ const LineItem = styled.div<{ $color?: Colors }>(
   `,
 )
 
-export type InvoiceItem = {
-  label: string
-  value?: bigint
-  /* Percentage buffer to multiply value by when displaying in ETH, defaults to 100 */
-  bufferPercentage?: bigint
-  usd?: bigint
-}
+export type InvoiceItem = { label: string } & (
+  | {
+      value?: bigint
+      /* Percentage buffer to multiply value by when displaying in ETH, defaults to 100 */
+      bufferPercentage?: bigint
+    }
+  | { usd: bigint | undefined }
+)
 
 type Props = {
   name: string
@@ -90,21 +91,23 @@ export const Invoice = ({ name, expiryTitle, expiryDate, items }: Props) => {
 
   return (
     <Container>
-      {items.map(({ label, value, bufferPercentage, usd }, inx) => (
-        <LineItem data-testid={`invoice-item-${inx}`} key={label}>
+      {items.map((item, inx) => (
+        <LineItem data-testid={`invoice-item-${inx}`} key={item.label}>
           <Typography fontVariant="small" color="grey">
-            {label}
+            {item.label}
           </Typography>
-          {usd !== undefined ? (
-            <Typography color="textPrimary" data-testid={`invoice-item-${inx}-amount-usd`}>
-              {makeDisplay({ value: usd, symbol: 'usd' })}
-            </Typography>
+          {'usd' in item ? (
+            <Skeleton loading={item.usd === undefined}>
+              <Typography color="textPrimary" data-testid={`invoice-item-${inx}-amount-usd`}>
+                {makeDisplay({ value: item.usd ?? 0n, symbol: 'usd' })}
+              </Typography>
+            </Skeleton>
           ) : (
-            <Skeleton loading={!value}>
+            <Skeleton loading={!item.value}>
               <Typography color="textPrimary" data-testid={`invoice-item-${inx}-amount`}>
                 <CurrencyText
-                  bufferPercentage={bufferPercentage}
-                  eth={value || 0n}
+                  bufferPercentage={item.bufferPercentage}
+                  eth={item.value || 0n}
                   currency="eth"
                 />
               </Typography>
@@ -114,8 +117,8 @@ export const Invoice = ({ name, expiryTitle, expiryDate, items }: Props) => {
                 data-testid={`invoice-item-${inx}-amount-usd`}
               >
                 <CurrencyText
-                  bufferPercentage={bufferPercentage}
-                  eth={value || 0n}
+                  bufferPercentage={item.bufferPercentage}
+                  eth={item.value || 0n}
                   currency="usd"
                 />
               </Typography>

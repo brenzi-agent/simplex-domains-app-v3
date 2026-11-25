@@ -49,6 +49,7 @@ import { useBreakpoint } from '@app/utils/BreakpointProvider'
 import { Terms } from '@app/utils/snrcNameTerms'
 
 import AllowanceInvoice from '../../AllowanceInvoice'
+import AllowanceTooLowButton from '../../AllowanceTooLowButton'
 import FullInvoice from '../../FullInvoice'
 import {
   MoonpayTransactionStatus,
@@ -534,12 +535,7 @@ const AllowanceButton = ({
         {t('steps.pricing.registerWithAllowance')}
       </Button>
     )
-  if (!covers)
-    return (
-      <Button data-testid="next-button" disabled>
-        {t('steps.pricing.allowanceTooLow')}
-      </Button>
-    )
+  if (!covers) return <AllowanceTooLowButton />
   if (!paysGas)
     return (
       <Button data-testid="next-button" disabled>
@@ -606,10 +602,20 @@ const Pricing = ({
   const isSubname = !!name && name.split('.').length > 2
   const isTooShort = !!minCharLength && !isSubname && labelLen > 0 && labelLen < minCharLength
 
-  const [seconds, setSeconds] = useState(minSeconds)
-  const [durationType, setDurationType] = useState<'date' | 'years'>('years')
-  const { allowance, covers, loaded: allowanceLoaded } = useRegistrarAllowance({ name, seconds })
-  const credit = allowance && address ? { owner: address } : undefined
+  const [seconds, setSeconds] = useState(
+    registrationData.credit ? registrationData.seconds : minSeconds,
+  )
+  const [durationType, setDurationType] = useState<'date' | 'years'>(
+    registrationData.credit ? registrationData.durationType : 'years',
+  )
+  const {
+    status: allowanceStatus,
+    allowance,
+    price: allowancePrice,
+    covers,
+    refetch: refetchAllowance,
+  } = useRegistrarAllowance({ name, seconds })
+  const credit = allowanceStatus === 'allowance' && address ? { owner: address } : undefined
   const sponsoredHorizon =
     terms.kind === 'community' ? MAX_REGISTRATION_DURATION : MAX_SPONSORED_REGISTRATION_DURATION
 
@@ -693,22 +699,39 @@ const Pricing = ({
   const unsafeDisplayEstimatedGasFee =
     estimatedGasFee === 0n ? previousEstimatedGasFee : estimatedGasFee
 
+  if (allowanceStatus === 'loading')
+    return (
+      <StyledCard>
+        <StyledHeading>{t('heading', { name: beautifiedName })}</StyledHeading>
+        <Button data-testid="next-button" disabled loading>
+          {t('action.next', { ns: 'common' })}
+        </Button>
+      </StyledCard>
+    )
+
+  if (allowanceStatus === 'error')
+    return (
+      <StyledCard>
+        <StyledHeading>{t('heading', { name: beautifiedName })}</StyledHeading>
+        <Helper alert="error" alignment="horizontal" data-testid="allowance-read-failed">
+          <Typography>{t('errors.networkError.title', { ns: 'common' })}</Typography>
+          <Button size="small" colorStyle="accentSecondary" onClick={() => refetchAllowance()}>
+            {t('action.tryAgain', { ns: 'common' })}
+          </Button>
+        </Helper>
+      </StyledCard>
+    )
+
   if (publicSalesOpen === false && !credit)
     return (
       <StyledCard>
         <StyledHeading>{t('heading', { name: beautifiedName })}</StyledHeading>
-        {allowanceLoaded ? (
-          <Helper alert="warning" alignment="horizontal" data-testid="public-sales-closed">
-            <div>
-              <Typography weight="bold">Public sales are not open yet</Typography>
-              <Typography>Names can&apos;t be registered here until public sales open.</Typography>
-            </div>
-          </Helper>
-        ) : (
-          <Button data-testid="next-button" disabled loading>
-            {t('action.next', { ns: 'common' })}
-          </Button>
-        )}
+        <Helper alert="warning" alignment="horizontal" data-testid="public-sales-closed">
+          <div>
+            <Typography weight="bold">Public sales are not open yet</Typography>
+            <Typography>Names can&apos;t be registered here until public sales open.</Typography>
+          </div>
+        </Helper>
       </StyledCard>
     )
 
@@ -727,8 +750,9 @@ const Pricing = ({
       />
       {credit ? (
         <AllowanceInvoice
-          name={name}
           seconds={seconds}
+          allowance={allowance}
+          price={allowancePrice}
           estimatedGasFee={fullEstimate.estimatedGasLoading ? undefined : estimatedGasFee}
         />
       ) : (
@@ -797,7 +821,7 @@ const Pricing = ({
               callback({
                 reverseRecord,
                 seconds,
-                paymentMethodChoice: '',
+                paymentMethodChoice: PaymentMethod.allowance,
                 durationType,
                 terms: acceptance.acceptedTerms,
                 credit,
@@ -827,7 +851,6 @@ const Pricing = ({
                 hasConnected &&
                 reservedLoaded &&
                 nftLoaded &&
-                allowanceLoaded &&
                 minCharLength !== undefined &&
                 !fullEstimate.priceLoading,
             }}

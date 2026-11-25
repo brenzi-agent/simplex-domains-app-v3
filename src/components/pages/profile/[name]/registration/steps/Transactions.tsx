@@ -262,7 +262,7 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
   })
   const canRegisterOverride = isSimulateRegistrationSuccess
   const { covers } = useRegistrarAllowance({ name, seconds: registrationData.seconds })
-  const allowanceTooLow = !!registrationData.credit && covers === false
+  const allowanceCovers = !registrationData.credit || canRegisterOverride || covers
 
   const checkRegistered = useCheckRegistered({
     name,
@@ -451,10 +451,10 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
   }
 
   useEffect(() => {
-    if (!commitTx) {
+    if (!commitTx && allowanceCovers) {
       makeCommitNameFlow()
     }
-  }, [commitTx, makeCommitNameFlow])
+  }, [commitTx, makeCommitNameFlow, allowanceCovers])
 
   useEffect(() => {
     if (registerTx?.stage === 'complete' || checkRegistered) {
@@ -563,6 +563,11 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
       </CountdownContainer>
       <CenteredTypography data-testid="transactions-subheading">
         {match(transactionState)
+          .with(
+            P.union('commitReady', 'commitFailed', 'commitComplete', 'registrationReady'),
+            () => allowanceCovers === false,
+            () => t('steps.pricing.allowanceTooLow'),
+          )
           .with('registrationComplete', () => '')
           .with('registrationOverriden', () => (
             <Trans i18nKey="steps.transactions.subheading.commitCompleteNoDuration" t={t} />
@@ -659,18 +664,14 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
             ),
           )
           .with(
-            P.union('registrationReady', 'registrationOverriden', 'commitComplete'),
-            () => allowanceTooLow,
-            () => (
-              <>
-                {ResetBackButton}
-                <MobileFullWidth>
-                  <Button data-testid="allowance-too-low" disabled>
-                    {t('steps.pricing.allowanceTooLow')}
-                  </Button>
-                </MobileFullWidth>
-              </>
-            ),
+            P.union('registrationReady', 'commitComplete'),
+            () => allowanceCovers === false,
+            () => ResetBackButton,
+          )
+          .with(
+            P.union('commitReady', 'commitFailed'),
+            () => allowanceCovers === false,
+            () => NormalBackButton,
           )
           .with('registrationReady', 'registrationOverriden', () => (
             <>
@@ -734,7 +735,11 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
                 </Button>
               </MobileFullWidth>
               <MobileFullWidth>
-                <Button data-testid="start-timer-button" onClick={makeCommitNameFlow}>
+                <Button
+                  data-testid="start-timer-button"
+                  disabled={!allowanceCovers}
+                  onClick={makeCommitNameFlow}
+                >
                   {t('steps.transactions.startTimer')}
                 </Button>
               </MobileFullWidth>

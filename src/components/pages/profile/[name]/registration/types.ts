@@ -17,6 +17,7 @@ type Prettify<T> = {
 export enum PaymentMethod {
   ethereum = 'ethereum',
   moonpay = 'moonpay',
+  allowance = 'allowance',
 }
 
 export type RegistrationStepData = {

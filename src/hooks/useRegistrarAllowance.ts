@@ -10,6 +10,22 @@ const rentPriceUsdAbi = parseAbi([
   'function rentPriceUSD(string label, uint256 duration) view returns ((uint256 base, uint256 premium))',
 ])
 
+export type AllowanceStatus = 'loading' | 'error' | 'none' | 'allowance'
+
+const getAllowanceStatus = ({
+  enabled,
+  data,
+  isError,
+}: {
+  enabled: boolean
+  data?: bigint
+  isError: boolean
+}): AllowanceStatus => {
+  if (!enabled) return 'none'
+  if (data !== undefined) return data > 0n ? 'allowance' : 'none'
+  return isError ? 'error' : 'loading'
+}
+
 const coversPrice = (allowance?: bigint, price?: { base: bigint; premium: bigint }) => {
   if (allowance === undefined) return undefined
   if (allowance === 0n) return false
@@ -37,13 +53,14 @@ export const useRegistrarAllowance = ({ name, seconds }: { name: string; seconds
     abi: rentPriceUsdAbi,
     functionName: 'rentPriceUSD',
     args: [name.split('.')[0], BigInt(seconds)],
-    query: { enabled: !!allowance.data },
+    query: { enabled },
   })
 
   return {
+    status: getAllowanceStatus({ enabled, data: allowance.data, isError: allowance.isError }),
     allowance: allowance.data,
     price: price.data,
     covers: coversPrice(allowance.data, price.data),
-    loaded: !enabled || !allowance.isLoading,
+    refetch: allowance.refetch,
   }
 }
