@@ -129,6 +129,11 @@ export const test = base.extend<{ app: App }>({
 export const around = (page: Page, ...landmarks: Locator[]) =>
   landmarks.reduce((scope, landmark) => scope.filter({ has: landmark }), page.locator('*')).last()
 
+export const matchScreenshot = async (target: Locator, name: string) => {
+  await target.page().mouse.move(0, 0)
+  await expect(target).toHaveScreenshot(name)
+}
+
 export const transactionDialog = async (page: Page) => {
   const confirm = page.getByTestId('transaction-modal-confirm-button')
   await expect(confirm).toBeEnabled()

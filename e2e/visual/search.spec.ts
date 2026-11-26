@@ -1,5 +1,5 @@
 import { register, TLD } from './chain'
-import { around, expect, test } from './fixtures'
+import { around, expect, matchScreenshot, test } from './fixtures'
 
 const HOLDER = 1
 
@@ -10,7 +10,7 @@ test('home page', async ({ page, app }) => {
     page.getByRole('heading', { name: 'Your SimpleX name' }),
     page.getByTestId('search-input-box'),
   )
-  await expect(home).toHaveScreenshot('home.png')
+  await matchScreenshot(home, 'home.png')
 })
 
 for (const { input, status, screenshot } of [
@@ -24,10 +24,11 @@ for (const { input, status, screenshot } of [
     await register('heldname', HOLDER)
     await app.open('/')
     await page.getByTestId('search-input-box').fill(input)
-    const result = page.getByTestId('search-result-name').first()
-    await expect(result).toContainText(`${input}.${TLD}`)
-    await expect(result).toContainText(status)
-    await expect(page.getByTestId('search-input-results')).toHaveScreenshot(screenshot)
+    const [name, tld] = [0, 1].map((row) => page.getByTestId('search-result-name').nth(row))
+    await expect(name).toContainText(`${input}.${TLD}`)
+    await expect(name).toContainText(status)
+    await expect(tld).toContainText('Not Supported')
+    await matchScreenshot(page.getByTestId('search-input-results'), screenshot)
   })
 }
 
@@ -35,5 +36,5 @@ test('search for an invalid name', async ({ page, app }) => {
   await app.open('/')
   await page.getByTestId('search-input-box').fill('my_name')
   await expect(page.getByTestId('search-result-error')).toHaveText('Invalid name')
-  await expect(page.getByTestId('search-input-results')).toHaveScreenshot('invalid.png')
+  await matchScreenshot(page.getByTestId('search-input-results'), 'invalid.png')
 })

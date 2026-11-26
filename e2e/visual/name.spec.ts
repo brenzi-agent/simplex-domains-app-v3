@@ -2,7 +2,14 @@ import { type Page } from '@playwright/test'
 import { zeroAddress } from 'viem'
 
 import { ACCOUNTS, createSubname, register, setText, subnameHolderOf, textOf, TLD } from './chain'
-import { around, completeTransactions, expect, test, transactionDialog } from './fixtures'
+import {
+  around,
+  completeTransactions,
+  expect,
+  matchScreenshot,
+  test,
+  transactionDialog,
+} from './fixtures'
 
 const HOLDER = 1
 const LABEL = 'holdername'
@@ -39,28 +46,32 @@ const subnamesPanel = (page: Page) =>
   around(page, page.getByTestId('add-subname-action'), page.getByTestId(`name-item-mobile.${NAME}`))
 
 const morePanel = (page: Page) =>
-  around(page, page.getByText('Token', { exact: true }), page.getByText('Resolver', { exact: true }))
+  around(
+    page,
+    page.getByText('Token', { exact: true }),
+    page.getByText('Resolver', { exact: true }),
+  )
 
 test('name page of the holder', async ({ page, app }) => {
   await seedName()
   await app.open(`/${NAME}`, { as: [HOLDER] })
   await expect(page.getByTestId('profile-section-simplex')).toContainText('SimpleX Channel')
   await expect(page.getByTestId('profile-actions')).toBeVisible()
-  await expect(profilePanel(page)).toHaveScreenshot('holder-profile.png')
+  await matchScreenshot(profilePanel(page), 'holder-profile.png')
 
   await showTab(page, 'Records')
   await expect(page.getByTestId('text-amount')).toHaveText(/^2 /)
-  await expect(recordsPanel(page)).toHaveScreenshot('holder-records.png')
+  await matchScreenshot(recordsPanel(page), 'holder-records.png')
 
   await showTab(page, 'Ownership')
   await expect(page.getByTestId('expiry-panel-grace-period')).toBeVisible()
-  await expect(ownershipPanel(page)).toHaveScreenshot('holder-ownership.png')
+  await matchScreenshot(ownershipPanel(page), 'holder-ownership.png')
 
   await showTab(page, 'Subnames')
-  await expect(subnamesPanel(page)).toHaveScreenshot('holder-subnames.png')
+  await matchScreenshot(subnamesPanel(page), 'holder-subnames.png')
 
   await showTab(page, 'More')
-  await expect(morePanel(page)).toHaveScreenshot('holder-more.png')
+  await matchScreenshot(morePanel(page), 'holder-more.png')
 })
 
 test('name page of a visitor', async ({ page, app }) => {
@@ -68,11 +79,11 @@ test('name page of a visitor', async ({ page, app }) => {
   await app.open(`/${NAME}`)
   await expect(page.getByTestId('profile-section-simplex')).toContainText('SimpleX Channel')
   await expect(page.getByTestId('profile-actions')).toHaveCount(0)
-  await expect(profilePanel(page)).toHaveScreenshot('visitor-profile.png')
+  await matchScreenshot(profilePanel(page), 'visitor-profile.png')
 
   await showTab(page, 'Ownership')
   await expect(page.getByTestId('expiry-panel-grace-period')).toBeVisible()
-  await expect(ownershipPanel(page)).toHaveScreenshot('visitor-ownership.png')
+  await matchScreenshot(ownershipPanel(page), 'visitor-ownership.png')
 })
 
 test('editing the SimpleX links', async ({ page, app }) => {
@@ -85,16 +96,17 @@ test('editing the SimpleX links', async ({ page, app }) => {
   )
   await expect(editor.getByTestId('multi-url-field-simplex.channel-add')).toHaveCount(0)
   await editor.getByTestId('multi-url-field-simplex.channel-input-0').fill(SECOND_CHANNEL)
-  await expect(around(page, editor, page.getByTestId('profile-submit-button'))).toHaveScreenshot(
+  await matchScreenshot(
+    around(page, editor, page.getByTestId('profile-submit-button')),
     'editor.png',
   )
   await page.getByTestId('profile-submit-button').click()
-  await expect(await transactionDialog(page)).toHaveScreenshot('editor-confirm.png')
+  await matchScreenshot(await transactionDialog(page), 'editor-confirm.png')
   await completeTransactions(page)
   expect(await textOf(NAME, 'simplex.channel')).toBe(SECOND_CHANNEL)
   expect(await textOf(NAME, 'simplex.contact')).toBe(CONTACTS.join(';'))
   await expect(page.getByTestId('profile-section-simplex')).toContainText('smp7.simplex.im')
-  await expect(profilePanel(page)).toHaveScreenshot('edited-profile.png')
+  await matchScreenshot(profilePanel(page), 'edited-profile.png')
 })
 
 test('editing a record in the advanced editor', async ({ page, app }) => {
@@ -109,13 +121,13 @@ test('editing a record in the advanced editor', async ({ page, app }) => {
   await channel.fill(SECOND_CHANNEL)
   const save = page.getByRole('button', { name: 'Save', exact: true })
   await expect(save).toBeEnabled()
-  await expect(around(page, editor, save)).toHaveScreenshot('advanced-editor.png')
+  await matchScreenshot(around(page, editor, save), 'advanced-editor.png')
   await save.click()
-  await expect(await transactionDialog(page)).toHaveScreenshot('advanced-editor-confirm.png')
+  await matchScreenshot(await transactionDialog(page), 'advanced-editor-confirm.png')
   await completeTransactions(page)
   expect(await textOf(NAME, 'simplex.channel')).toBe(SECOND_CHANNEL)
   await expect(recordsPanel(page)).toContainText(SECOND_CHANNEL)
-  await expect(recordsPanel(page)).toHaveScreenshot('edited-records.png')
+  await matchScreenshot(recordsPanel(page), 'edited-records.png')
 })
 
 test('creating, listing and deleting a subname', async ({ page, app }) => {
@@ -125,26 +137,27 @@ test('creating, listing and deleting a subname', async ({ page, app }) => {
   await page.getByTestId('add-subname-input').fill('shop')
   const next = page.getByTestId('create-subname-next')
   await expect(next).toBeEnabled()
-  await expect(around(page, page.getByTestId('add-subname-input'), next)).toHaveScreenshot(
+  await matchScreenshot(
+    around(page, page.getByTestId('add-subname-input'), next),
     'subname-create.png',
   )
   await next.click()
   await page.getByTestId('multi-url-field-simplex.contact-input-0').fill(CONTACTS[0])
   await page.getByTestId('create-subname-profile-next').click()
-  await expect(await transactionDialog(page)).toHaveScreenshot('subname-create-confirm.png')
+  await matchScreenshot(await transactionDialog(page), 'subname-create-confirm.png')
   await completeTransactions(page, { count: 2 })
   expect(await subnameHolderOf(`shop.${NAME}`)).toBe(ACCOUNTS[HOLDER].address)
   expect(await textOf(`shop.${NAME}`, 'simplex.contact')).toBe(CONTACTS[0])
   await expect(page.getByTestId('profile-snippet-name')).toHaveText(`shop.${NAME}`)
-  await expect(profilePanel(page)).toHaveScreenshot('subname-created.png')
+  await matchScreenshot(profilePanel(page), 'subname-created.png')
 
   await app.goto(`/${NAME}?tab=subnames`)
   await expect(page.getByTestId(`name-item-shop.${NAME}`)).toBeVisible()
-  await expect(subnamesPanel(page)).toHaveScreenshot('subnames-listed.png')
+  await matchScreenshot(subnamesPanel(page), 'subnames-listed.png')
 
   await app.goto(`/mobile.${NAME}`)
   await page.getByTestId('profile-action-Delete subname').click()
-  await expect(await transactionDialog(page)).toHaveScreenshot('subname-delete-confirm.png')
+  await matchScreenshot(await transactionDialog(page), 'subname-delete-confirm.png')
   await completeTransactions(page)
   expect(await subnameHolderOf(`mobile.${NAME}`)).toBe(zeroAddress)
 })
@@ -156,10 +169,10 @@ test.describe('phone', () => {
     await seedName()
     await app.open(`/${NAME}`, { as: [HOLDER] })
     await expect(page.getByTestId('profile-section-simplex')).toContainText('SimpleX Channel')
-    await expect(profilePanel(page)).toHaveScreenshot('phone-holder-profile.png')
+    await matchScreenshot(profilePanel(page), 'phone-holder-profile.png')
 
     await showTab(page, 'Ownership')
     await expect(page.getByTestId('expiry-panel-grace-period')).toBeVisible()
-    await expect(ownershipPanel(page)).toHaveScreenshot('phone-holder-ownership.png')
+    await matchScreenshot(ownershipPanel(page), 'phone-holder-ownership.png')
   })
 })

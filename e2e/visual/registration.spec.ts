@@ -1,7 +1,14 @@
 import { type Page } from '@playwright/test'
 
 import { ACCOUNTS, advance, holderOf, setAllowance, setPublicSalesOpen, textOf, TLD } from './chain'
-import { around, completeTransactions, expect, test, transactionDialog } from './fixtures'
+import {
+  around,
+  completeTransactions,
+  expect,
+  matchScreenshot,
+  test,
+  transactionDialog,
+} from './fixtures'
 
 const BUYER = 1
 const PARTNER = 1
@@ -37,11 +44,11 @@ test('registration on the payable path under the general terms', async ({ page, 
   await expect(page.getByTestId('terms-text')).toBeVisible()
   await expect(page.getByTestId('invoice-total')).toBeVisible()
   await expect(page.getByTestId('next-button')).toHaveText('Accept the terms to continue')
-  await expect(pricingCard(page, label)).toHaveScreenshot('pricing-general-terms.png')
+  await matchScreenshot(pricingCard(page, label), 'pricing-general-terms.png')
 
   await page.getByTestId('terms-accept').check()
   await expect(page.getByTestId('next-button')).toHaveText('Next')
-  await expect(pricingCard(page, label)).toHaveScreenshot('pricing-terms-accepted.png')
+  await matchScreenshot(pricingCard(page, label), 'pricing-terms-accepted.png')
   await page.getByTestId('next-button').click()
 
   await page.getByTestId('multi-url-field-simplex.contact-input-0').fill(CONTACT)
@@ -50,30 +57,30 @@ test('registration on the payable path under the general terms', async ({ page, 
     page.getByText('Create your profile', { exact: true }),
     page.getByTestId('profile-submit-button'),
   )
-  await expect(profile).toHaveScreenshot('profile.png')
+  await matchScreenshot(profile, 'profile.png')
   await page.getByTestId('profile-submit-button').click()
 
   await expect(page.getByTestId('invoice-total')).toBeVisible()
-  await expect(infoCard(page)).toHaveScreenshot('info.png')
+  await matchScreenshot(infoCard(page), 'info.png')
   await page.getByTestId('next-button').click()
 
-  await expect(await transactionDialog(page)).toHaveScreenshot('commit-confirm.png')
+  await matchScreenshot(await transactionDialog(page), 'commit-confirm.png')
   await page.getByTestId('close-icon').click()
   await expect(page.getByTestId('start-timer-button')).toBeEnabled()
-  await expect(transactionsCard(page, 'start-timer-button')).toHaveScreenshot('commit.png')
+  await matchScreenshot(transactionsCard(page, 'start-timer-button'), 'commit.png')
   await page.getByTestId('start-timer-button').click()
   await completeTransactions(page, { autoClose: true })
 
-  await expect(transactionsCard(page, 'wait-button')).toHaveScreenshot('wait.png')
+  await matchScreenshot(transactionsCard(page, 'wait-button'), 'wait.png')
   await waitOutCommitment(page, app)
   await expect(page.getByTestId('finish-button')).toBeEnabled()
-  await expect(transactionsCard(page, 'finish-button')).toHaveScreenshot('register.png')
+  await matchScreenshot(transactionsCard(page, 'finish-button'), 'register.png')
   await page.getByTestId('finish-button').click()
-  await expect(await transactionDialog(page)).toHaveScreenshot('register-confirm.png')
+  await matchScreenshot(await transactionDialog(page), 'register-confirm.png')
   await completeTransactions(page, { autoClose: true })
 
   await expect(page.getByTestId('invoice-item-expiry-date')).toBeVisible()
-  await expect(completeCard(page)).toHaveScreenshot('complete.png')
+  await matchScreenshot(completeCard(page), 'complete.png')
   expect(await holderOf(label)).toBe(ACCOUNTS[BUYER].address)
   expect(await textOf(`${label}.${TLD}`, 'simplex.contact')).toBe(CONTACT)
 })
@@ -83,7 +90,7 @@ test('pricing under the community terms', async ({ page, app }) => {
   await app.open(`/${label}.${TLD}/register`, { as: [BUYER] })
   await expect(page.getByTestId('terms-text')).toContainText('community', { ignoreCase: true })
   await expect(page.getByTestId('invoice-total')).toBeVisible()
-  await expect(pricingCard(page, label)).toHaveScreenshot('pricing-community-terms.png')
+  await matchScreenshot(pricingCard(page, label), 'pricing-community-terms.png')
 })
 
 test('pricing while public sales are closed', async ({ page, app }) => {
@@ -91,9 +98,10 @@ test('pricing while public sales are closed', async ({ page, app }) => {
   await app.open(`/freshname.${TLD}/register`, { as: [BUYER] })
   const closed = page.getByTestId('public-sales-closed')
   await expect(closed).toContainText('Public sales are not open yet')
-  await expect(
+  await matchScreenshot(
     around(page, page.getByText(`Register freshname.${TLD}`, { exact: true }), closed),
-  ).toHaveScreenshot('pricing-sales-closed.png')
+    'pricing-sales-closed.png',
+  )
 })
 
 test('registration from a registrar allowance', async ({ page, app }) => {
@@ -103,12 +111,12 @@ test('registration from a registrar allowance', async ({ page, app }) => {
   await page.getByTestId('terms-accept').check()
   await expect(page.getByTestId('next-button')).toHaveText('Register with allowance')
   await expect(page.getByText('$900.00')).toBeVisible()
-  await expect(pricingCard(page, label)).toHaveScreenshot('allowance-pricing.png')
+  await matchScreenshot(pricingCard(page, label), 'allowance-pricing.png')
   await page.getByTestId('next-button').click()
   await page.getByTestId('profile-submit-button').click()
 
   await expect(page.getByTestId('next-button')).toBeEnabled()
-  await expect(infoCard(page)).toHaveScreenshot('allowance-info.png')
+  await matchScreenshot(infoCard(page), 'allowance-info.png')
   await page.getByTestId('next-button').click()
   await completeTransactions(page, { autoClose: true })
   await waitOutCommitment(page, app)
@@ -116,7 +124,7 @@ test('registration from a registrar allowance', async ({ page, app }) => {
   await completeTransactions(page, { autoClose: true })
 
   await expect(page.getByTestId('invoice-item-0-amount-usd')).toHaveText('$100.00')
-  await expect(completeCard(page)).toHaveScreenshot('allowance-complete.png')
+  await matchScreenshot(completeCard(page), 'allowance-complete.png')
   expect(await holderOf(label)).toBe(ACCOUNTS[PARTNER].address)
 })
 
@@ -127,7 +135,7 @@ test('registration from an allowance that is too low', async ({ page, app }) => 
   await page.getByTestId('terms-accept').check()
   await expect(page.getByTestId('next-button')).toHaveText('Allowance too low')
   await expect(page.getByText('-$90.00')).toBeVisible()
-  await expect(pricingCard(page, label)).toHaveScreenshot('allowance-too-low.png')
+  await matchScreenshot(pricingCard(page, label), 'allowance-too-low.png')
 })
 
 test('registration from an allowance to a temporary owner', async ({ page, app }) => {
@@ -139,16 +147,16 @@ test('registration from an allowance to a temporary owner', async ({ page, app }
   })
   await page.getByTestId('terms-accept').check()
   await expect(page.getByTestId(`owner-${owner}`)).toBeVisible()
-  await expect(pricingCard(page, label)).toHaveScreenshot('owner-choice.png')
+  await matchScreenshot(pricingCard(page, label), 'owner-choice.png')
   await page.getByTestId(`owner-${owner}`).click()
   await page.getByTestId('next-button').click()
   await page.getByTestId('profile-submit-button').click()
 
   await expect(page.getByText(`Your wallet first asks ${owner}`)).toBeVisible()
   await expect(page.getByTestId('next-button')).toBeEnabled()
-  await expect(infoCard(page)).toHaveScreenshot('owner-info.png')
+  await matchScreenshot(infoCard(page), 'owner-info.png')
   await page.getByTestId('next-button').click()
-  await expect(await transactionDialog(page)).toHaveScreenshot('owner-commit-confirm.png')
+  await matchScreenshot(await transactionDialog(page), 'owner-commit-confirm.png')
   expect(typedData.map(({ signer, typedData: { primaryType } }) => [signer, primaryType])).toEqual([
     [owner, 'AcceptGeneralTerms'],
     [owner, 'RegisterName'],
@@ -157,12 +165,12 @@ test('registration from an allowance to a temporary owner', async ({ page, app }
   await completeTransactions(page, { autoClose: true })
   await waitOutCommitment(page, app)
   await page.getByTestId('finish-button').click()
-  await expect(await transactionDialog(page)).toHaveScreenshot('owner-register-confirm.png')
+  await matchScreenshot(await transactionDialog(page), 'owner-register-confirm.png')
 
   await page.route('**/_next/static/chunks/pages/profile-*.js', () => {})
   await completeTransactions(page, { autoClose: true })
   await expect(page.getByText(`${label}.${TLD} is registered to ${owner}.`)).toBeVisible()
-  await expect(completeCard(page)).toHaveScreenshot('owner-complete.png')
+  await matchScreenshot(completeCard(page), 'owner-complete.png')
   expect(await holderOf(label)).toBe(owner)
 })
 
@@ -174,6 +182,6 @@ test.describe('phone', () => {
     await app.open(`/${label}.${TLD}/register`, { as: [BUYER] })
     await page.getByTestId('terms-accept').check()
     await expect(page.getByTestId('invoice-total')).toBeVisible()
-    await expect(pricingCard(page, label)).toHaveScreenshot('phone-pricing.png')
+    await matchScreenshot(pricingCard(page, label), 'phone-pricing.png')
   })
 })
