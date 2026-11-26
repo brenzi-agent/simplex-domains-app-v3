@@ -19,6 +19,7 @@ import { useBlockTimestamp } from '@app/hooks/chain/useBlockTimestamp'
 import { useEstimateGasWithStateOverride } from '@app/hooks/chain/useEstimateGasWithStateOverride'
 import { useExpiry } from '@app/hooks/ensjs/public/useExpiry'
 import { usePrice } from '@app/hooks/ensjs/public/usePrice'
+import { useDisputeEnd, type DisputeEnd } from '@app/hooks/useDisputeEnd'
 import { useEnsAvatar } from '@app/hooks/useEnsAvatar'
 import { useEthPrice } from '@app/hooks/useEthPrice'
 import { useReferrer } from '@app/hooks/useReferrer'
@@ -30,7 +31,12 @@ import { CURRENCY_FLUCTUATION_BUFFER_PERCENTAGE } from '@app/utils/constants'
 import { getReferrerHex } from '@app/utils/referrer'
 import { ONE_YEAR, secondsToYears, yearsToSeconds } from '@app/utils/time'
 import useUserConfig from '@app/utils/useUserConfig'
-import { deriveYearlyFee, formatDurationOfDates, formatExpiry } from '@app/utils/utils'
+import {
+  deriveYearlyFee,
+  formatDurationOfDates,
+  formatExpiry,
+  formatFullExpiry,
+} from '@app/utils/utils'
 
 import { ShortExpiry } from '../../../components/@atoms/ExpiryComponents/ExpiryComponents'
 import GasDisplay from '../../../components/@atoms/GasDisplay'
@@ -38,6 +44,29 @@ import { SearchViewLoadingView } from '../SendName/views/SearchView/views/Search
 import { validateExtendNamesDuration } from './utils/validateExtendNamesDuration'
 
 type View = 'name-list' | 'no-ownership-warning' | 'registration'
+
+type ExtensionRestriction =
+  | { reason: 'reserved' }
+  | { reason: 'disputePeriod'; date: Date }
+  | { reason: 'tooEarly'; date: Date }
+  | { reason: 'disputeUnknown' }
+
+const getExtensionRestriction = ({
+  isReserved,
+  disputeEnd,
+  earliestExtension,
+}: {
+  isReserved: boolean
+  disputeEnd: DisputeEnd
+  earliestExtension?: Date
+}): ExtensionRestriction | undefined => {
+  if (isReserved) return { reason: 'reserved' }
+  if (disputeEnd.date && !(earliestExtension && earliestExtension > disputeEnd.date))
+    return { reason: 'disputePeriod', date: disputeEnd.date }
+  if (earliestExtension) return { reason: 'tooEarly', date: earliestExtension }
+  if (disputeEnd.status === 'unknown') return { reason: 'disputeUnknown' }
+  return undefined
+}
 
 const PlusMinusWrapper = styled.div(
   () => css`
@@ -232,8 +261,14 @@ const ExtendNames = ({
       ? Number(blockTimestamp / 1000n) + MAX_REGISTRATION_DURATION - Number(expiryData.expiry.value)
       : undefined
   const isTooEarly = maxSeconds !== undefined && maxSeconds < minSeconds
+  const earliestExtension =
+    isTooEarly && expiryDate
+      ? new Date(expiryDate.getTime() - (MAX_REGISTRATION_DURATION - minSeconds) * 1000)
+      : undefined
   const { reservedNames, isLoading: isReservedLoading } = useReservedNames({ names })
   const isReserved = reservedNames.length > 0
+  const disputeEnd = useDisputeEnd({ name: names[0] })
+  const restriction = getExtensionRestriction({ isReserved, disputeEnd, earliestExtension })
 
   const {
     data: { gasEstimate: estimatedGasLimit, gasCost: transactionFee },
@@ -261,7 +296,12 @@ const ExtendNames = ({
       },
     ],
     enabled:
-      !!totalRentFee && !!address && seconds > 0 && totalRentFee > 0n && !isTooEarly && !isReserved,
+      !!totalRentFee &&
+      !!address &&
+      seconds > 0 &&
+      totalRentFee > 0n &&
+      !restriction &&
+      disputeEnd.status !== 'loading',
   })
 
   const previousTransactionFee = usePreviousDistinct(transactionFee) || 0n
@@ -305,7 +345,8 @@ const ExtendNames = ({
     isBalanceLoading ||
     isExpiryEnabledAndLoading ||
     isEthPriceLoading ||
-    isReservedLoading
+    isReservedLoading ||
+    disputeEnd.status === 'loading'
   const isRegisterLoading = isPriceLoading || (isEstimateGasLoading && !estimateGasLimitError)
 
   const { title, alert, buttonProps } = match(view)
@@ -332,7 +373,11 @@ const ExtendNames = ({
       title: t('input.extendNames.title', { name: names.at(0), count: names.length }),
       alert: undefined,
       buttonProps: {
-        disabled: isRegisterLoading || isTooEarly || isReserved || isReservedLoading,
+        disabled:
+          isRegisterLoading ||
+          isReservedLoading ||
+          disputeEnd.status === 'loading' ||
+          !!restriction,
         onClick: () => {
           if (!priceData) return
           const transactions = createTransactionItem('extendNames', {
@@ -360,42 +405,39 @@ const ExtendNames = ({
     <>
       <Dialog.Heading title={title} alert={alert} />
       <Dialog.Content data-testid="extend-names-modal">
-        {match([view, isBaseDataLoading])
-          .with([P._, true], () => <SearchViewLoadingView />)
-          .with(['no-ownership-warning', false], () => (
+        {match([view, isBaseDataLoading, restriction])
+          .with([P._, true, P._], () => <SearchViewLoadingView />)
+          .with(['no-ownership-warning', false, P._], () => (
             <CenteredMessage>
               {t('input.extendNames.ownershipWarning.description', { count: names.length })}
             </CenteredMessage>
           ))
-          .with(['name-list', false], () => {
+          .with(['name-list', false, P._], () => {
             return <NamesList names={names} />
           })
-          .with(
-            ['registration', false],
-            () => isReserved,
-            () => (
-              <Helper alert="warning" data-testid="extend-names-reserved">
-                {t('input.extendNames.reserved', {
-                  names: reservedNames.join(', '),
-                  count: reservedNames.length,
-                })}
-              </Helper>
-            ),
-          )
-          .with(
-            ['registration', false],
-            () => isTooEarly,
-            () => {
-              const earliestExtension = new Date(
-                expiryDate!.getTime() - (MAX_REGISTRATION_DURATION - minSeconds) * 1000,
-              )
-              return (
-                <Helper alert="info" data-testid="extend-names-too-early">
-                  {t('input.extendNames.tooEarly', { date: formatExpiry(earliestExtension) })}
-                </Helper>
-              )
-            },
-          )
+          .with(['registration', false, { reason: 'reserved' }], () => (
+            <Helper alert="warning" data-testid="extend-names-reserved">
+              {t('input.extendNames.reserved', {
+                names: reservedNames.join(', '),
+                count: reservedNames.length,
+              })}
+            </Helper>
+          ))
+          .with(['registration', false, { reason: 'disputePeriod' }], ([, , { date }]) => (
+            <Helper alert="info" data-testid="extend-names-dispute-period">
+              {t('input.extendNames.disputePeriod', { date: formatFullExpiry(date) })}
+            </Helper>
+          ))
+          .with(['registration', false, { reason: 'tooEarly' }], ([, , { date }]) => (
+            <Helper alert="info" data-testid="extend-names-too-early">
+              {t('input.extendNames.tooEarly', { date: formatExpiry(date) })}
+            </Helper>
+          ))
+          .with(['registration', false, { reason: 'disputeUnknown' }], () => (
+            <Helper alert="error" data-testid="extend-names-dispute-failed">
+              {t('input.extendNames.disputeFailed')}
+            </Helper>
+          ))
           .otherwise(() => (
             <>
               <PlusMinusWrapper>

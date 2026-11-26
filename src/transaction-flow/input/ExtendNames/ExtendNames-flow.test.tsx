@@ -8,10 +8,11 @@ import { useBlockTimestamp } from '@app/hooks/chain/useBlockTimestamp'
 import { useEstimateGasWithStateOverride } from '@app/hooks/chain/useEstimateGasWithStateOverride'
 import { useExpiry } from '@app/hooks/ensjs/public/useExpiry'
 import { usePrice } from '@app/hooks/ensjs/public/usePrice'
+import { useDisputeEnd } from '@app/hooks/useDisputeEnd'
 import { useEthPrice } from '@app/hooks/useEthPrice'
 import { useReferrer } from '@app/hooks/useReferrer'
 import { useReservedNames } from '@app/hooks/useReservedStatus'
-import { ONE_YEAR } from '@app/utils/time'
+import { ONE_DAY, ONE_YEAR } from '@app/utils/time'
 
 import { makeMockIntersectionObserver } from '../../../../test/mock/makeMockIntersectionObserver'
 import ExtendNames from './ExtendNames-flow'
@@ -24,6 +25,7 @@ vi.mock('@app/hooks/ensjs/public/useExpiry')
 vi.mock('@app/hooks/useEthPrice')
 vi.mock('@app/hooks/useReferrer')
 vi.mock('@app/hooks/useReservedStatus')
+vi.mock('@app/hooks/useDisputeEnd')
 
 const mockUseBlockTimestamp = mockFunction(useBlockTimestamp)
 const mockUseEstimateGasWithStateOverride = mockFunction(useEstimateGasWithStateOverride)
@@ -34,6 +36,7 @@ const mockUseEthPrice = mockFunction(useEthPrice)
 const mockUseExpiry = mockFunction(useExpiry)
 const mockUseReferrer = mockFunction(useReferrer)
 const mockUseReservedNames = mockFunction(useReservedNames)
+const mockUseDisputeEnd = mockFunction(useDisputeEnd)
 
 vi.mock('@ensdomains/thorin', async () => {
   const originalModule = await vi.importActual('@ensdomains/thorin')
@@ -73,6 +76,7 @@ describe('Extendnames', () => {
   mockUseBlockTimestamp.mockReturnValue({ data: undefined })
   mockUseReferrer.mockReturnValue(undefined)
   mockUseReservedNames.mockReturnValue({ reservedNames: [], isLoading: false })
+  mockUseDisputeEnd.mockReturnValue({ status: 'none', isFetching: false })
   it('should render', async () => {
     render(
       <ExtendNames
@@ -132,6 +136,7 @@ describe('Extendnames', () => {
   afterEach(() => {
     mockUseExpiry.mockReturnValue({ data: { expiry: { date: new Date() } }, isLoading: false })
     mockUseBlockTimestamp.mockReturnValue({ data: undefined })
+    mockUseDisputeEnd.mockReturnValue({ status: 'none', isFetching: false })
   })
   it('should disable extending while the name is paid up close to three years ahead', () => {
     mockExpiryAhead(MAX_REGISTRATION_DURATION)
@@ -190,5 +195,96 @@ describe('Extendnames', () => {
     )
     expect(screen.getByTestId('extend-names-confirm')).toHaveAttribute('disabled')
     expect(screen.queryByText('Invoice')).not.toBeInTheDocument()
+  })
+  it('should disable extending until the dispute period ends', () => {
+    mockUseDisputeEnd.mockReturnValue({
+      status: 'until',
+      date: new Date(Date.now() + 60_000),
+      isFetching: false,
+    })
+    render(
+      <ExtendNames
+        {...{
+          data: { names: ['nick.simplex'], isSelf: true, hasWrapped: false },
+          dispatch: () => null,
+          onDismiss: () => null,
+        }}
+      />,
+    )
+    expect(mockUseDisputeEnd).toHaveBeenLastCalledWith({ name: 'nick.simplex' })
+    expect(screen.getByTestId('extend-names-dispute-period')).toBeVisible()
+    expect(screen.getByTestId('extend-names-confirm')).toHaveAttribute('disabled')
+    expect(mockUseEstimateGasWithStateOverride).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: false }),
+    )
+  })
+  it('should wait for the dispute period read', () => {
+    mockUseDisputeEnd.mockReturnValue({ status: 'loading', isFetching: true })
+    render(
+      <ExtendNames
+        {...{
+          data: { names: ['nick.simplex'], isSelf: true, hasWrapped: false },
+          dispatch: () => null,
+          onDismiss: () => null,
+        }}
+      />,
+    )
+    expect(screen.getByTestId('extend-names-confirm')).toHaveAttribute('disabled')
+    expect(screen.queryByText('Invoice')).not.toBeInTheDocument()
+  })
+  it('should not extend while the dispute period cannot be read', () => {
+    mockUseDisputeEnd.mockReturnValue({ status: 'unknown', isFetching: false })
+    render(
+      <ExtendNames
+        {...{
+          data: { names: ['nick.simplex'], isSelf: true, hasWrapped: false },
+          dispatch: () => null,
+          onDismiss: () => null,
+        }}
+      />,
+    )
+    expect(screen.getByTestId('extend-names-dispute-failed')).toBeVisible()
+    expect(screen.getByTestId('extend-names-confirm')).toHaveAttribute('disabled')
+    expect(mockUseEstimateGasWithStateOverride).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: false }),
+    )
+  })
+  it('should name the earliest extension when it comes after the dispute end', () => {
+    mockExpiryAhead(MAX_REGISTRATION_DURATION)
+    mockUseDisputeEnd.mockReturnValue({
+      status: 'until',
+      date: new Date(Date.now() + 60_000),
+      isFetching: false,
+    })
+    render(
+      <ExtendNames
+        {...{
+          data: { names: ['nick.testing'], isSelf: true, hasWrapped: false },
+          dispatch: () => null,
+          onDismiss: () => null,
+        }}
+      />,
+    )
+    expect(screen.getByTestId('extend-names-too-early')).toBeVisible()
+    expect(screen.queryByTestId('extend-names-dispute-period')).not.toBeInTheDocument()
+  })
+  it('should name the dispute end when it comes after the earliest extension', () => {
+    mockExpiryAhead(MAX_REGISTRATION_DURATION - ONE_YEAR + ONE_DAY)
+    mockUseDisputeEnd.mockReturnValue({
+      status: 'until',
+      date: new Date(Date.now() + 2 * ONE_DAY * 1000),
+      isFetching: false,
+    })
+    render(
+      <ExtendNames
+        {...{
+          data: { names: ['nick.testing'], isSelf: true, hasWrapped: false },
+          dispatch: () => null,
+          onDismiss: () => null,
+        }}
+      />,
+    )
+    expect(screen.getByTestId('extend-names-dispute-period')).toBeVisible()
+    expect(screen.queryByTestId('extend-names-too-early')).not.toBeInTheDocument()
   })
 })
