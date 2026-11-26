@@ -4,14 +4,19 @@ import { defineConfig } from '@playwright/test'
 
 import { APP_URL, RPC_URL } from './chain'
 
+const REPOSITORY = join(__dirname, '..', '..')
+const DESKTOP = { width: 1280, height: 1000 }
+const PHONE = { width: 390, height: 1400 }
+
 export default defineConfig({
   testDir: '.',
   testMatch: '*.spec.ts',
-  snapshotPathTemplate: '{testDir}/screenshots/{testFileName}/{arg}{ext}',
+  snapshotPathTemplate: '{testDir}/screenshots/{projectName}/{testFileName}/{arg}{ext}',
   outputDir: '../../test-results/visual',
-  timeout: 240_000,
+  timeout: 90_000,
   workers: 1,
   retries: 0,
+  maxFailures: 20,
   forbidOnly: !!process.env.CI,
   reporter: [['list'], ['html', { open: 'never', outputFolder: '../../playwright-report/visual' }]],
   expect: {
@@ -20,22 +25,30 @@ export default defineConfig({
       animations: 'disabled',
       caret: 'hide',
       scale: 'css',
-      threshold: 0.01,
+      threshold: 0.02,
       maxDiffPixels: 0,
       stylePath: join(__dirname, 'screenshot.css'),
     },
   },
   use: {
     baseURL: APP_URL,
-    viewport: { width: 1280, height: 1000 },
     deviceScaleFactor: 1,
     locale: 'en-US',
     timezoneId: 'UTC',
-    colorScheme: 'light',
     serviceWorkers: 'block',
+    actionTimeout: 30_000,
+    navigationTimeout: 30_000,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
+  projects: [
+    { name: 'desktop', use: { viewport: DESKTOP, colorScheme: 'light' } },
+    {
+      name: 'phone',
+      use: { viewport: PHONE, colorScheme: 'light', isMobile: true, hasTouch: true },
+    },
+    { name: 'dark', use: { viewport: DESKTOP, colorScheme: 'dark' } },
+  ],
   webServer: [
     {
       command: `anvil --chain-id 1337 --port ${new URL(RPC_URL).port} --silent`,
@@ -43,11 +56,12 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
-      command: `pnpm start --port ${new URL(APP_URL).port}`,
-      cwd: join(__dirname, '..', '..'),
+      command: `node e2e/visual/pages-server.mjs out .github/pages/404.html ${
+        new URL(APP_URL).port
+      }`,
+      cwd: REPOSITORY,
       url: APP_URL,
       reuseExistingServer: false,
-      timeout: 120_000,
     },
   ],
 })

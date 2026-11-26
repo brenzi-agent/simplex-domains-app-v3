@@ -1,40 +1,55 @@
+import { type Page } from '@playwright/test'
+
 import { register, TLD } from './chain'
-import { around, expect, matchScreenshot, test } from './fixtures'
+import { expect, matchScreen, test } from './fixtures'
 
 const HOLDER = 1
 
-test('home page', async ({ page, app }) => {
+const searchBox = (page: Page, isMobile: boolean) =>
+  page.getByTestId(isMobile ? 'search-input-box-fake' : 'search-input-box')
+
+const typeSearch = async (page: Page, isMobile: boolean, input: string) => {
+  await searchBox(page, isMobile).click()
+  await page.getByTestId('search-input-box').fill(input)
+}
+
+const search = async (page: Page, isMobile: boolean, input: string, status: string) => {
+  await typeSearch(page, isMobile, input)
+  const [name, tld] = [0, 1].map((row) => page.getByTestId('search-result-name').nth(row))
+  await expect(name).toContainText(`${input}.${TLD}`)
+  await expect(name).toContainText(status)
+  await expect(tld).toContainText('Not Supported')
+}
+
+test('home page', async ({ page, app, isMobile }) => {
   await app.open('/')
-  const home = around(
-    page,
-    page.getByRole('heading', { name: 'Your SimpleX name' }),
-    page.getByTestId('search-input-box'),
-  )
-  await matchScreenshot(home, 'home.png')
+  await expect(searchBox(page, isMobile)).toBeVisible()
+  await matchScreen(page, 'home.png')
 })
 
 for (const { input, status, screenshot } of [
   { input: 'freshname', status: 'Available', screenshot: 'available.png' },
-  { input: 'heldname', status: 'Registered', screenshot: 'registered.png' },
   { input: 'simplex-chat', status: 'Reserved', screenshot: 'reserved.png' },
   { input: 'short', status: 'Min 6 chars', screenshot: 'too-short.png' },
   { input: 'communityname', status: 'Available', screenshot: 'community.png' },
 ]) {
-  test(`search for ${input}`, async ({ page, app }) => {
-    await register('heldname', HOLDER)
+  test(`search for ${input}`, async ({ page, app, isMobile }) => {
     await app.open('/')
-    await page.getByTestId('search-input-box').fill(input)
-    const [name, tld] = [0, 1].map((row) => page.getByTestId('search-result-name').nth(row))
-    await expect(name).toContainText(`${input}.${TLD}`)
-    await expect(name).toContainText(status)
-    await expect(tld).toContainText('Not Supported')
-    await matchScreenshot(page.getByTestId('search-input-results'), screenshot)
+    await search(page, isMobile, input, status)
+    await matchScreen(page, screenshot)
   })
 }
 
-test('search for an invalid name', async ({ page, app }) => {
+test('search for a registered name', async ({ page, app, isMobile }) => {
+  await register('heldname', HOLDER)
   await app.open('/')
-  await page.getByTestId('search-input-box').fill('my_name')
+  await search(page, isMobile, 'heldname', 'Registered')
+  await matchScreen(page, 'registered.png')
+})
+
+test('search for an invalid name', async ({ page, app, isMobile }) => {
+  await app.open('/')
+  await typeSearch(page, isMobile, 'my_name')
   await expect(page.getByTestId('search-result-error')).toHaveText('Invalid name')
-  await matchScreenshot(page.getByTestId('search-input-results'), 'invalid.png')
+  await matchScreen(page, 'invalid.png')
 })

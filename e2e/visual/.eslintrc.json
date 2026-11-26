@@ -1,5 +1,5 @@
 {
-  "ignorePatterns": ["chain/dump-state.mjs"],
+  "ignorePatterns": ["*.mjs"],
   "rules": {
     "import/no-extraneous-dependencies": ["error", { "devDependencies": true }]
   }

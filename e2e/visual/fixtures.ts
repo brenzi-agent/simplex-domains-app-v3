@@ -1,7 +1,14 @@
 import { readFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 
-import { test as base, expect, type Locator, type Page, type Route } from '@playwright/test'
+import {
+  test as base,
+  expect,
+  type Frame,
+  type Locator,
+  type Page,
+  type Route,
+} from '@playwright/test'
 import { isAddressEqual, type Address, type TypedDataDefinition } from 'viem'
 
 import { injectHeadlessWeb3Provider, Web3RequestKind } from '@ensdomains/headless-web3-provider'
@@ -12,29 +19,7 @@ const LOCAL_ORIGINS = [new URL(APP_URL).origin, new URL(RPC_URL).origin]
 const TERMS_ORIGIN = 'https://raw.githubusercontent.com'
 const DNS_OVER_HTTPS = 'https://1.1.1.1/dns-query'
 const NXDOMAIN = { Status: 3, TC: false, RD: true, RA: true, AD: true, CD: false }
-
-const SEEDED_RANDOMNESS = `(() => {
-  const stream = (seed) => {
-    let state = seed
-    return () => {
-      state = (Math.imul(state, 1664525) + 1013904223) >>> 0
-      return state
-    }
-  }
-  const nextNumber = stream(1)
-  const nextByte = stream(2)
-  const nextDigit = stream(3)
-  Math.random = () => nextNumber() / 4294967296
-  crypto.getRandomValues = (array) => {
-    const bytes = new Uint8Array(array.buffer, array.byteOffset, array.byteLength)
-    for (let i = 0; i < bytes.length; i += 1) bytes[i] = nextByte() >>> 24
-    return array
-  }
-  crypto.randomUUID = () =>
-    '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, (c) =>
-      (Number(c) ^ (nextDigit() & (15 >> (Number(c) / 4)))).toString(16),
-    )
-})()`
+const LASTING_SCREEN_MS = 3_000
 
 const serveExternal = (route: Route) => {
   const url = new URL(route.request().url())
@@ -51,9 +36,11 @@ const serveExternal = (route: Route) => {
   return route.abort('blockedbyclient')
 }
 
-export type SignedTypedData = { signer: string; typedData: TypedDataDefinition }
+export type SignedTypedData = { signer: Address; typedData: TypedDataDefinition }
 
-const injectWallet = async (page: Page, accounts: number[]) => {
+export type Wallet = { accounts: readonly [number, ...number[]]; connected?: boolean }
+
+const injectWallet = async (page: Page, accounts: Wallet['accounts']) => {
   const typedData: SignedTypedData[] = []
   const wallet = await injectHeadlessWeb3Provider({
     page,
@@ -83,19 +70,19 @@ const injectWallet = async (page: Page, accounts: number[]) => {
   return typedData
 }
 
-const connect = async (page: Page) => {
-  const connectButton = page.locator(
+export const connectButton = (page: Page) =>
+  page.locator(
     '[data-testid="connect-button"]:visible, [data-testid="tabbar-connect-button"]:visible',
   )
-  await connectButton.click()
+
+const connect = async (page: Page) => {
+  await connectButton(page).click()
   await page.getByText('Headless Web3 Provider').click()
-  await expect(connectButton).toHaveCount(0)
+  await expect(connectButton(page)).toHaveCount(0)
 }
 
-type Visitor = { as?: number[]; connected?: boolean }
-
 type App = {
-  open: (path: string, visitor?: Visitor) => Promise<{ typedData: SignedTypedData[] }>
+  open: (path: string, wallet?: Wallet) => Promise<{ typedData: SignedTypedData[] }>
   goto: (path: string) => Promise<void>
   syncClock: () => Promise<void>
 }
@@ -104,9 +91,8 @@ export const test = base.extend<{ app: App }>({
   app: async ({ page }, use) => {
     await resetChain()
     const context = page.context()
-    await context.addInitScript(SEEDED_RANDOMNESS)
     await context.route((url) => !LOCAL_ORIGINS.includes(url.origin), serveExternal)
-    await context.routeWebSocket(/.*/, (socket) => socket.close())
+    await context.routeWebSocket(/.*/, () => {})
     const syncClock = async () =>
       page.clock.setFixedTime(new Date(Number(await latestTimestamp()) * 1000))
     await use({
@@ -115,41 +101,81 @@ export const test = base.extend<{ app: App }>({
         await syncClock()
         await page.goto(path)
       },
-      open: async (path, { as: accounts = [], connected = true } = {}) => {
+      open: async (path, wallet) => {
         await syncClock()
-        const typedData = accounts.length ? await injectWallet(page, accounts) : []
+        const typedData = wallet ? await injectWallet(page, wallet.accounts) : []
         await page.goto(path)
-        if (accounts.length && connected) await connect(page)
+        if (wallet && (wallet.connected ?? true)) await connect(page)
         return { typedData }
       },
     })
   },
 })
 
-export const around = (page: Page, ...landmarks: Locator[]) =>
-  landmarks.reduce((scope, landmark) => scope.filter({ has: landmark }), page.locator('*')).last()
-
-export const matchScreenshot = async (target: Locator, name: string) => {
-  await target.page().mouse.move(0, 0)
-  await expect(target).toHaveScreenshot(name)
+export const matchScreen = async (page: Page, name: string, mask: Locator[] = []) => {
+  await page.mouse.move(0, 0)
+  await expect(page).toHaveScreenshot(name, { mask })
 }
 
-export const transactionDialog = async (page: Page) => {
-  const confirm = page.getByTestId('transaction-modal-confirm-button')
-  await expect(confirm).toBeEnabled()
-  return around(page, page.getByTestId('transaction-modal-inner'), confirm)
+export const matchLastingScreen = async (page: Page, name: string) => {
+  await matchScreen(page, name)
+  const navigations: string[] = []
+  const recordNavigation = (frame: Frame) => {
+    if (frame === page.mainFrame()) navigations.push(frame.url())
+  }
+  page.on('framenavigated', recordNavigation)
+  await page.waitForTimeout(LASTING_SCREEN_MS)
+  page.off('framenavigated', recordNavigation)
+  expect(navigations).toEqual([])
+  await matchScreen(page, name)
+}
+
+const scrollDialogToEnd = (page: Page) =>
+  page.evaluate(() => {
+    const isInFixedLayer = (element: Element | null): boolean =>
+      !!element &&
+      (getComputedStyle(element).position === 'fixed' || isInFixedLayer(element.parentElement))
+    const dialogBody = [...document.querySelectorAll('body *')].find((element) => {
+      const { overflowY } = getComputedStyle(element)
+      return (
+        ['auto', 'scroll'].includes(overflowY) &&
+        element.scrollHeight > element.clientHeight + 1 &&
+        element.getAttribute('data-testid') !== 'terms-text' &&
+        isInFixedLayer(element)
+      )
+    })
+    if (!dialogBody) return false
+    dialogBody.scrollTop = dialogBody.scrollHeight
+    return true
+  })
+
+export const matchDialog = async (page: Page, name: string) => {
+  await matchScreen(page, `${name}.png`)
+  if (await scrollDialogToEnd(page)) await matchScreen(page, `${name}-end.png`)
+}
+
+export const transactionConfirm = (page: Page) =>
+  page.getByTestId('transaction-modal-confirm-button')
+
+export const matchTransactionDialog = async (page: Page, name: string) => {
+  await expect(transactionConfirm(page)).toBeEnabled()
+  await matchDialog(page, name)
 }
 
 export const completeTransactions = async (
   page: Page,
   { count = 1, autoClose = false }: { count?: number; autoClose?: boolean } = {},
 ): Promise<void> => {
-  const confirm = page.getByTestId('transaction-modal-confirm-button')
-  await expect(confirm).toBeEnabled()
-  await confirm.click()
+  await expect(transactionConfirm(page)).toBeEnabled()
+  await transactionConfirm(page).click()
   if (count > 1 || !autoClose) await page.getByTestId('transaction-modal-complete-button').click()
   if (count > 1) return completeTransactions(page, { count: count - 1, autoClose })
   await expect(page.getByTestId('transaction-modal-inner')).toBeHidden()
+}
+
+export const showTab = async (page: Page, tab: string) => {
+  await page.getByRole('button', { name: tab, exact: true }).click()
+  await expect(page).toHaveURL(new RegExp(`tab=${tab.toLowerCase()}`))
 }
 
 export { expect }
