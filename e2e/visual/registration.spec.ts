@@ -27,6 +27,8 @@ const CONTACT = 'https://smp4.simplex.im/a#visualtestcontactlinkaaaaaaaaaaaaaaaa
 
 type App = { syncClock: () => Promise<void> }
 
+const countdown = (page: Page) => [page.getByTestId('countdown-circle')]
+
 const waitOutCommitment = async (page: Page, app: App) => {
   await expect(page.getByTestId('wait-button')).toBeVisible()
   await advance(60n)
@@ -66,9 +68,9 @@ const registerOnPayablePath = async (page: Page, app: App, label: string, terms:
   await matchScreen(page, `${terms}-wait.png`)
   await waitOutCommitment(page, app)
   await expect(page.getByTestId('finish-button')).toBeEnabled()
-  await matchScreen(page, `${terms}-register.png`, [page.getByTestId('countdown-circle')])
+  await matchScreen(page, `${terms}-register.png`, countdown(page))
   await page.getByTestId('finish-button').click()
-  await matchTransactionDialog(page, `${terms}-register-confirm`)
+  await matchTransactionDialog(page, `${terms}-register-confirm`, countdown(page))
   await completeTransactions(page, { autoClose: true })
 
   await expect(page.getByTestId('invoice-item-expiry-date')).toBeVisible()
@@ -118,7 +120,7 @@ test('registration from a registrar allowance while sales are closed', async ({ 
   await completeTransactions(page, { autoClose: true })
   await waitOutCommitment(page, app)
   await page.getByTestId('finish-button').click()
-  await matchTransactionDialog(page, 'allowance-register-confirm')
+  await matchTransactionDialog(page, 'allowance-register-confirm', countdown(page))
   await completeTransactions(page, { autoClose: true })
 
   await expect(page.getByTestId('invoice-item-0-amount-usd')).toHaveText('$100.00')
@@ -166,7 +168,7 @@ test('registration from an allowance to a temporary owner', async ({ page, app }
   expect(await committedAt(terms.message.commitment as Hex)).toBeGreaterThan(0n)
   await waitOutCommitment(page, app)
   await page.getByTestId('finish-button').click()
-  await matchTransactionDialog(page, 'owner-register-confirm')
+  await matchTransactionDialog(page, 'owner-register-confirm', countdown(page))
 
   await completeTransactions(page, { autoClose: true })
   await expect(page.getByText(`${label}.${TLD} is registered to ${owner}.`)).toBeVisible()

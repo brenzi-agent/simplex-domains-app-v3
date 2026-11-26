@@ -34,7 +34,7 @@ Playwright specs drive the static export of the dApp through its flows on a loca
 | dialogs | compared at the top and, when their body scrolls, again scrolled to its end (`-end`); a desktop dialog is at most 576 px high at any viewport height, a phone dialog's body at most 60% of the viewport height |
 | hidden in screenshots | `canvas` (confetti of the registration), transaction toasts (shown for 8 s) |
 | pixel tolerance | Playwright `threshold` 0.02 (YIQ colour distance): a grey change of up to 5 per channel is accepted; the rendering of icon edges and gradients varies by up to 4 per channel between runs on one machine |
-| masked | the countdown ring of the registration's second step: its progress dot is drawn while `commitComplete` is false, which the countdown's end sets only if the registration simulation has succeeded by then |
+| masked | the countdown ring of the registration's second step, also behind the confirmation of its transaction: its progress dot is drawn while `commitComplete` is false, which the countdown's end sets only if the registration simulation has succeeded by then |
 
 ## Run
 

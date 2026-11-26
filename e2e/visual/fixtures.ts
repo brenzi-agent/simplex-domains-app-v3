@@ -162,17 +162,17 @@ const scrollDialogToEnd = (page: Page) =>
     return true
   })
 
-export const matchDialog = async (page: Page, name: string) => {
-  await matchScreen(page, `${name}.png`)
-  if (await scrollDialogToEnd(page)) await matchScreen(page, `${name}-end.png`)
+export const matchDialog = async (page: Page, name: string, mask: Locator[] = []) => {
+  await matchScreen(page, `${name}.png`, mask)
+  if (await scrollDialogToEnd(page)) await matchScreen(page, `${name}-end.png`, mask)
 }
 
 export const transactionConfirm = (page: Page) =>
   page.getByTestId('transaction-modal-confirm-button')
 
-export const matchTransactionDialog = async (page: Page, name: string) => {
+export const matchTransactionDialog = async (page: Page, name: string, mask: Locator[] = []) => {
   await expect(transactionConfirm(page)).toBeEnabled()
-  await matchDialog(page, name)
+  await matchDialog(page, name, mask)
 }
 
 export const completeTransactions = async (
