@@ -1,0 +1,5 @@
+canvas,
+[data-testid='toast-desktop'],
+[data-testid='toast-touch'] {
+  visibility: hidden;
+}

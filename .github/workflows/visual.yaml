@@ -1,0 +1,55 @@
+name: Visual
+
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      update:
+        description: Write the screenshots that differ as the new baselines
+        type: boolean
+        default: false
+
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: mcr.microsoft.com/playwright:v1.50.1-jammy
+    env:
+      NEXT_PUBLIC_CHAIN_NAME: localhost
+      NEXT_PUBLIC_PROVIDER: http://127.0.0.1:8545
+      NEXT_PUBLIC_SIMPLEX_TLD: simplex
+      E2E_PORT: 3000
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.5.1
+          cache: false
+
+      - name: Build the dApp for the local chain
+        run: |
+          export NEXT_PUBLIC_DEPLOYMENT_ADDRESSES="$(cat e2e/visual/chain/addresses.json)"
+          pnpm build
+
+      - name: Compare the screens with the baselines
+        run: pnpm exec playwright test -c e2e/visual/playwright.config.ts ${{ inputs.update && '--update-snapshots' || '' }}
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-results
+          path: |
+            test-results/visual
+            playwright-report/visual
+          retention-days: 14
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-baselines
+          path: e2e/visual/screenshots
+          retention-days: 14
