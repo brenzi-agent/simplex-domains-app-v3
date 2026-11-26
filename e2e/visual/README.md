@@ -23,7 +23,8 @@ Playwright specs drive the dApp through its flows on a local anvil chain and com
 | chain at each test's start | `chain/state.json.gz`, block time 2026-03-02 12:00:01 UTC |
 | block time | previous block + 1 s |
 | browser clock | fixed at the time of the latest block, set at each page load by the specs and after the commitment wait |
-| `Math.random`, `crypto.getRandomValues`, `crypto.randomUUID` | seeded generators |
+| `Math.random`, `crypto.getRandomValues`, `crypto.randomUUID` | seeded generators; the registration secret takes a varying position in their sequence, so `owner-typed-data.json` holds `<random>` for its commitment |
+| pointer | at (0, 0) before each screenshot |
 | network | the dApp and the node; terms files from `chain/terms/`; NXDOMAIN for DNS-over-HTTPS queries; other requests and WebSockets closed |
 | browser | Chromium of `mcr.microsoft.com/playwright:v1.50.1-jammy`, 1280×1000 or 390×844, `en-US`, UTC, light, scale 1 |
 | hidden in screenshots | `canvas` (confetti of the registration), transaction toasts (shown for 8 s) |
