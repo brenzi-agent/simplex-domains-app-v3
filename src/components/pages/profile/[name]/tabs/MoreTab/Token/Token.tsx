@@ -10,7 +10,7 @@ import { Outlink } from '@app/components/Outlink'
 import RecordItem from '@app/components/RecordItem'
 import { useBlockExplorer } from '@app/hooks/chain/useBlockExplorer'
 import { useContractAddress } from '@app/hooks/chain/useContractAddress'
-import { checkETH2LDFromName } from '@app/utils/utils'
+import { isEthLikeTld } from '@app/utils/utils'
 
 import { TabWrapper } from '../../../../TabWrapper'
 
@@ -110,7 +110,7 @@ const Token = ({ name, isWrapped }: Props) => {
   const nameWrapperAddress = useContractAddress({ contract: 'ensNameWrapper' })
   const registrarAddress = useContractAddress({ contract: 'ensBaseRegistrarImplementation' })
 
-  const is2ldEth = checkETH2LDFromName(name)
+  const is2ldEth = name.split('.').length === 2 && isEthLikeTld(name)
 
   const hex = isWrapped ? namehash(name) : labelhash(name.split('.')[0])
   const tokenId = BigInt(hex).toString(10)
