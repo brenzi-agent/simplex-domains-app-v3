@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 
 import { test as base, expect, type Locator, type Page, type Route } from '@playwright/test'
 import { isAddressEqual, type Address, type TypedDataDefinition } from 'viem'
@@ -9,7 +9,7 @@ import { injectHeadlessWeb3Provider, Web3RequestKind } from '@ensdomains/headles
 import { ACCOUNTS, APP_URL, chain, KEYS, latestTimestamp, resetChain, RPC_URL } from './chain'
 
 const LOCAL_ORIGINS = [new URL(APP_URL).origin, new URL(RPC_URL).origin]
-const TERMS_ORIGIN = 'http://127.0.0.1:8097'
+const TERMS_ORIGIN = 'https://raw.githubusercontent.com'
 const DNS_OVER_HTTPS = 'https://1.1.1.1/dns-query'
 const NXDOMAIN = { Status: 3, TC: false, RD: true, RA: true, AD: true, CD: false }
 
@@ -41,7 +41,7 @@ const serveExternal = (route: Route) => {
   if (url.origin === TERMS_ORIGIN)
     return route.fulfill({
       contentType: 'text/markdown; charset=utf-8',
-      body: readFileSync(join(__dirname, 'chain', 'terms', url.pathname)),
+      body: readFileSync(join(__dirname, 'chain', 'terms', basename(url.pathname))),
     })
   if (`${url.origin}${url.pathname}` === DNS_OVER_HTTPS)
     return route.fulfill({
