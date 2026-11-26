@@ -181,7 +181,6 @@ test('registration from an allowance to a temporary owner', async ({ page, app }
   await page.getByTestId('finish-button').click()
   await matchScreenshot(await transactionDialog(page), 'owner-register-confirm.png')
 
-  await page.route('**/_next/static/chunks/pages/profile-*.js', () => {})
   await completeTransactions(page, { autoClose: true })
   await expect(page.getByText(`${label}.${TLD} is registered to ${owner}.`)).toBeVisible()
   await matchScreenshot(completeCard(page), 'owner-complete.png')
