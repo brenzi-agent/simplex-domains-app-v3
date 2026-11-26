@@ -1,6 +1,16 @@
 import { type Page } from '@playwright/test'
+import { type Hex } from 'viem'
 
-import { ACCOUNTS, advance, holderOf, setAllowance, setPublicSalesOpen, textOf, TLD } from './chain'
+import {
+  ACCOUNTS,
+  advance,
+  committedAt,
+  holderOf,
+  setAllowance,
+  setPublicSalesOpen,
+  textOf,
+  TLD,
+} from './chain'
 import {
   around,
   completeTransactions,
@@ -161,8 +171,12 @@ test('registration from an allowance to a temporary owner', async ({ page, app }
     [owner, 'AcceptGeneralTerms'],
     [owner, 'RegisterName'],
   ])
-  expect(JSON.stringify(typedData, null, 2)).toMatchSnapshot('owner-typed-data.json')
+  const [{ typedData: terms }] = typedData
+  expect(
+    JSON.stringify(typedData, (key, value) => (key === 'commitment' ? '<random>' : value), 2),
+  ).toMatchSnapshot('owner-typed-data.json')
   await completeTransactions(page, { autoClose: true })
+  expect(await committedAt(terms.message.commitment as Hex)).toBeGreaterThan(0n)
   await waitOutCommitment(page, app)
   await page.getByTestId('finish-button').click()
   await matchScreenshot(await transactionDialog(page), 'owner-register-confirm.png')

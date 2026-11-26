@@ -80,6 +80,7 @@ export const resetChain = async () => {
 const registration = parseAbi([
   'struct Registration { string label; address owner; uint256 duration; bytes32 secret; address resolver; bytes[] data; uint8 reverseRecord; bytes32 referrer; }',
   'function makeCommitment(Registration registration) pure returns (bytes32)',
+  'function commitments(bytes32 commitment) view returns (uint256)',
   'function register(Registration registration) payable',
   'function rentPrice(string label, uint256 duration) view returns ((uint256 base, uint256 premium))',
   'function setPublicSalesOpen(bool open)',
@@ -180,6 +181,14 @@ export const register = async (label: string, owner: number) => {
     }),
   )
 }
+
+export const committedAt = (commitment: Hex) =>
+  client.readContract({
+    address: CONTRACTS.ETHRegistrarController,
+    abi: registration,
+    functionName: 'commitments',
+    args: [commitment],
+  })
 
 const usd = (dollars: number) => BigInt(dollars) * 10n ** 18n
 
