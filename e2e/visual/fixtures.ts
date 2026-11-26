@@ -112,9 +112,22 @@ export const test = base.extend<{ app: App }>({
   },
 })
 
-export const matchScreen = async (page: Page, name: string, mask: Locator[] = []) => {
+const matchViewport = async (page: Page, name: string, mask: Locator[]) => {
   await page.mouse.move(0, 0)
   await expect(page).toHaveScreenshot(name, { mask })
+}
+
+const scrollToTop = (page: Page) => page.evaluate(() => window.scrollTo(0, 0))
+
+export const matchScreen = async (page: Page, name: string, mask: Locator[] = []) => {
+  await scrollToTop(page)
+  await matchViewport(page, name, mask)
+}
+
+export const matchSection = async (page: Page, section: Locator, name: string) => {
+  await scrollToTop(page)
+  await section.scrollIntoViewIfNeeded()
+  await matchViewport(page, name, [])
 }
 
 export const matchLastingScreen = async (page: Page, name: string) => {

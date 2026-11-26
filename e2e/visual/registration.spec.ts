@@ -62,6 +62,7 @@ const registerOnPayablePath = async (page: Page, app: App, label: string, terms:
 
   await expect(page.getByTestId('wait-button')).toBeVisible()
   await app.syncClock()
+  await expect(page.getByTestId('countdown-circle')).toHaveText('60')
   await matchScreen(page, `${terms}-wait.png`)
   await waitOutCommitment(page, app)
   await expect(page.getByTestId('finish-button')).toBeEnabled()

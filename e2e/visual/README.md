@@ -27,7 +27,8 @@ Playwright specs drive the static export of the dApp through its flows on a loca
 | block time | previous block + 1 s |
 | browser clock | fixed at the time of the latest block, set at each page load, before a screen of the commitment wait and after the wait |
 | registration secret | random; `owner-typed-data.json` holds `<random>` for its commitment, and the test reads the commitment on chain |
-| pointer | at (0, 0) before each screenshot |
+| pointer and scroll | the pointer at (0, 0) and the page at its top before each screenshot; an admin card is then scrolled into view |
+| countdown | the commitment wait is compared once it shows 60 |
 | network | the dApp and the node; terms files from `chain/terms/`; NXDOMAIN for DNS-over-HTTPS queries; other requests refused; WebSockets accepted and left unanswered |
 | browser | Chromium of `mcr.microsoft.com/playwright:v1.50.1-jammy`, `en-US`, UTC, scale 1; `desktop` 1280×1000 light, `phone` 390×1400 light with touch, `dark` 1280×1000 dark |
 | dialogs | compared at the top and, when their body scrolls, again scrolled to its end (`-end`); a desktop dialog is at most 576 px high at any viewport height, a phone dialog's body at most 60% of the viewport height |

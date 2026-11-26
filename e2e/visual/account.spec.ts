@@ -13,17 +13,15 @@ import {
   TLD,
   unregister,
 } from './chain'
-import { expect, matchScreen, test } from './fixtures'
+import { expect, matchScreen, matchSection, test } from './fixtures'
 
 const HOLDER = 3
 const RECEIVER = 2
 const TRADEMARK = 2
 const OTHER_COMMIT = '1'.repeat(40)
 
-const matchSection = async (page: Page, title: string, name: string) => {
-  await page.getByText(title, { exact: true }).scrollIntoViewIfNeeded()
-  await matchScreen(page, name)
-}
+const matchCard = (page: Page, title: string, name: string) =>
+  matchSection(page, page.getByText(title, { exact: true }), name)
 
 const settled = async (page: Page) =>
   expect(page.getByText(/^(Sending \w+\.\.\.|Tx sent: .*|\w+ confirmed)$/)).toHaveCount(0)
@@ -50,10 +48,10 @@ test('admin page of the owner and guardian', async ({ page, app }) => {
   await page.getByLabel('Check name', { exact: true }).fill('simplex-chat')
   await page.getByRole('button', { name: 'Check', exact: true }).click()
   await expect(page.getByText('RESERVED (Internal)')).toBeVisible()
-  await matchSection(page, 'Check Reserved Name', 'admin-check.png')
-  await matchSection(page, 'General Terms', 'admin-general-terms.png')
-  await matchSection(page, 'Community Names', 'admin-community-names.png')
-  await matchSection(page, 'Register Reserved Name', 'admin-register-reserved.png')
+  await matchCard(page, 'Check Reserved Name', 'admin-check.png')
+  await matchCard(page, 'General Terms', 'admin-general-terms.png')
+  await matchCard(page, 'Community Names', 'admin-community-names.png')
+  await matchCard(page, 'Register Reserved Name', 'admin-register-reserved.png')
 })
 
 test('admin actions of the owner and guardian', async ({ page, app }) => {
@@ -64,7 +62,7 @@ test('admin actions of the owner and guardian', async ({ page, app }) => {
   await page.getByTestId('admin-set-min-char-button').click()
   await expect.poll(minCharLength).toBe(5)
   await settled(page)
-  await matchSection(page, 'Min Character Length', 'admin-min-length-set.png')
+  await matchCard(page, 'Min Character Length', 'admin-min-length-set.png')
 
   await page.getByLabel('Reserve name(s)', { exact: true }).fill('brandname')
   await page.getByRole('button', { name: 'Reserve', exact: true }).click()
@@ -74,7 +72,7 @@ test('admin actions of the owner and guardian', async ({ page, app }) => {
   await page.getByRole('button', { name: 'Unreserve', exact: true }).click()
   await expect.poll(() => reservationOf('simplex-chat')).toBe(0)
   await settled(page)
-  await matchSection(page, 'Reserved Names', 'admin-reserved-changed.png')
+  await matchCard(page, 'Reserved Names', 'admin-reserved-changed.png')
 
   const newTermsLink = (await generalTermsLink()).replace(/[0-9a-f]{40}/, OTHER_COMMIT)
   await page.getByTestId('admin-general-terms-input').fill(newTermsLink)
@@ -82,7 +80,7 @@ test('admin actions of the owner and guardian', async ({ page, app }) => {
   await expect.poll(generalTermsLink).toBe(newTermsLink)
   await settled(page)
   await expect(page.getByTestId('admin-general-terms-link')).toContainText(newTermsLink)
-  await matchSection(page, 'General Terms', 'admin-general-terms-set.png')
+  await matchCard(page, 'General Terms', 'admin-general-terms-set.png')
 
   await page.getByLabel('List name(s)', { exact: true }).fill('cityname')
   await page.getByTestId('admin-list-community').click()
@@ -92,7 +90,7 @@ test('admin actions of the owner and guardian', async ({ page, app }) => {
   await page.getByRole('button', { name: 'Unlist', exact: true }).click()
   await expect.poll(() => isCommunityName('communityclaim')).toBe(false)
   await settled(page)
-  await matchSection(page, 'Community Names', 'admin-community-names-changed.png')
+  await matchCard(page, 'Community Names', 'admin-community-names-changed.png')
 
   await page.getByLabel('Label', { exact: true }).fill('simplex')
   await page.getByLabel('Owner address', { exact: true }).fill(ACCOUNTS[RECEIVER].address)
@@ -101,7 +99,7 @@ test('admin actions of the owner and guardian', async ({ page, app }) => {
     .poll(() => holderOf('simplex').catch(() => undefined))
     .toBe(ACCOUNTS[RECEIVER].address)
   await settled(page)
-  await matchSection(page, 'Register Reserved Name', 'admin-reserved-registered.png')
+  await matchCard(page, 'Register Reserved Name', 'admin-reserved-registered.png')
 })
 
 test('name policy page', async ({ page, app }) => {
