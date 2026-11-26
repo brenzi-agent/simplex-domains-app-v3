@@ -6,7 +6,7 @@ import { useInitial } from '@app/hooks/useInitial'
 import { useNameDetails } from '@app/hooks/useNameDetails'
 import { useRouterWithHistory } from '@app/hooks/useRouterWithHistory'
 
-import Page from './register'
+import Page from './pages/register'
 
 vi.mock('wagmi')
 vi.mock('@app/utils/query/wagmi', () => ({ wagmiConfig: {} }))
