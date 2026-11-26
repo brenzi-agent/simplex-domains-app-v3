@@ -1,13 +1,15 @@
 import type { TFunction } from 'react-i18next'
+import { encodeFunctionData } from 'viem'
 
 import { getPrice } from '@ensdomains/ensjs/public'
 import { RegistrationParameters } from '@ensdomains/ensjs/utils'
 import { registerName } from '@ensdomains/ensjs/wallet'
 
 import { Transaction, TransactionDisplayItem, TransactionFunctionParameters } from '@app/types'
+import { Credit, makeRegisterWithCreditCall } from '@app/utils/snrcSponsor'
 import { calculateValueWithBuffer, formatDurationOfDates } from '@app/utils/utils'
 
-type Data = RegistrationParameters
+type Data = RegistrationParameters & { credit?: Credit }
 const now = Math.floor(Date.now())
 const displayItems = (
   { name, duration }: Data,
@@ -35,8 +37,16 @@ const displayItems = (
 const transaction = async ({
   client,
   connectorClient,
-  data,
+  data: { credit, ...data },
 }: TransactionFunctionParameters<Data>) => {
+  if (credit) {
+    const { address, ...call } = makeRegisterWithCreditCall({
+      chainId: client.chain.id,
+      registrationParams: data,
+    })
+    if (!address) throw new Error(`No SimplexSponsor address on chain ${client.chain.id}`)
+    return { to: address, data: encodeFunctionData(call) }
+  }
   const price = await getPrice(client, { nameOrNames: data.name, duration: data.duration })
   const value = price.base + price.premium
   const valueWithBuffer = calculateValueWithBuffer(value)

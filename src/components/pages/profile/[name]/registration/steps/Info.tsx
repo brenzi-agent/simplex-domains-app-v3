@@ -6,7 +6,10 @@ import { Button, Heading, Typography } from '@ensdomains/thorin'
 import MobileFullWidth from '@app/components/@atoms/MobileFullWidth'
 import { Card } from '@app/components/Card'
 import { useEstimateFullRegistration } from '@app/hooks/gasEstimation/useEstimateRegistration'
+import { useRegistrarAllowance } from '@app/hooks/useRegistrarAllowance'
 
+import AllowanceInvoice from '../AllowanceInvoice'
+import AllowanceTooLowButton from '../AllowanceTooLowButton'
 import FullInvoice from '../FullInvoice'
 import { RegistrationReducerDataItem } from '../types'
 
@@ -110,6 +113,11 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
     name,
     registrationData,
   })
+  const { allowance, price, covers } = useRegistrarAllowance({
+    name,
+    seconds: registrationData.seconds,
+  })
+  const readsAllowance = !!registrationData.credit && covers === undefined
 
   return (
     <StyledCard>
@@ -123,7 +131,16 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
           </InfoItem>
         ))}
       </InfoItems>
-      <FullInvoice {...estimate} />
+      {registrationData.credit ? (
+        <AllowanceInvoice
+          seconds={registrationData.seconds}
+          allowance={allowance}
+          price={price}
+          estimatedGasFee={estimate.estimatedGasLoading ? undefined : estimate.estimatedGasFee}
+        />
+      ) : (
+        <FullInvoice {...estimate} />
+      )}
       {!registrationData.queue.includes('profile') && (
         <ProfileButton data-testid="setup-profile-button" onClick={onProfileClick}>
           <Typography weight="bold" color="accent">
@@ -138,9 +155,18 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
           </Button>
         </MobileFullWidth>
         <MobileFullWidth>
-          <Button data-testid="next-button" onClick={() => callback({ back: false })}>
-            {t('action.begin', { ns: 'common' })}
-          </Button>
+          {registrationData.credit && covers === false ? (
+            <AllowanceTooLowButton />
+          ) : (
+            <Button
+              data-testid="next-button"
+              loading={readsAllowance}
+              disabled={readsAllowance}
+              onClick={() => callback({ back: false })}
+            >
+              {t('action.begin', { ns: 'common' })}
+            </Button>
+          )}
         </MobileFullWidth>
       </ButtonContainer>
     </StyledCard>

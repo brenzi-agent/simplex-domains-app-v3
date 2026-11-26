@@ -5,6 +5,34 @@ import { EMPTY_BYTES32 } from '@ensdomains/ensjs/utils'
 
 import { SelectedItemProperties } from '@app/components/pages/profile/[name]/registration/types'
 
+import { reducer } from './useRegistrationReducer'
+
+describe('useRegistrationReducer - pricing data', () => {
+  const selected: SelectedItemProperties = {
+    address: '0x2222222222222222222222222222222222222222',
+    name: 'alicebob.simplex',
+    chainId: 1,
+  }
+  const pricing = {
+    seconds: 63072000,
+    reverseRecord: false,
+    durationType: 'years' as const,
+  }
+
+  it('the registration from the allowance is kept until the pricing step is left without it', () => {
+    const credit = { owner: selected.address as `0x${string}` }
+    const state = reducer({ items: [] }, {
+      name: 'setPricingData',
+      selected,
+      payload: { ...pricing, seconds: 157680000, credit },
+    })
+    expect(state.items[0]).toEqual(expect.objectContaining({ seconds: 157680000, credit }))
+
+    reducer(state, { name: 'setPricingData', selected, payload: pricing })
+    expect(state.items[0].credit).toBeUndefined()
+  })
+})
+
 // Test the getReferrerHex function behavior
 describe('useRegistrationReducer - referrer storage', () => {
   // Helper function to simulate getReferrerHex

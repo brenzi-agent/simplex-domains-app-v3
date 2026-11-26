@@ -76,7 +76,7 @@ export const getSelectedIndex = (
   )
 
 /* eslint-disable no-param-reassign */
-const reducer = (state: RegistrationReducerData, action: RegistrationReducerAction) => {
+export const reducer = (state: RegistrationReducerData, action: RegistrationReducerAction) => {
   let selectedItemInx = getSelectedIndex(state, action.selected)
 
   if (!isBrowser) return state
@@ -133,6 +133,7 @@ const reducer = (state: RegistrationReducerData, action: RegistrationReducerActi
       item.reverseRecord = action.payload.reverseRecord
       item.durationType = action.payload.durationType
       item.terms = action.payload.terms
+      item.credit = action.payload.credit
       break
     }
     case 'setTransactionsData': {

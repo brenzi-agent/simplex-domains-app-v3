@@ -2,6 +2,7 @@ import { Address, Hex } from 'viem'
 
 import { ProfileRecord } from '@app/constants/profileRecordOptions'
 import { Terms } from '@app/utils/snrcNameTerms'
+import { Credit } from '@app/utils/snrcSponsor'
 
 export type RegistrationStep = 'pricing' | 'profile' | 'info' | 'transactions' | 'complete'
 
@@ -16,6 +17,7 @@ type Prettify<T> = {
 export enum PaymentMethod {
   ethereum = 'ethereum',
   moonpay = 'moonpay',
+  allowance = 'allowance',
 }
 
 export type RegistrationStepData = {
@@ -27,6 +29,7 @@ export type RegistrationStepData = {
     ethPrice?: bigint
     durationType: 'date' | 'years'
     terms?: Terms
+    credit?: Credit
   }
   profile: {
     records: ProfileRecord[]

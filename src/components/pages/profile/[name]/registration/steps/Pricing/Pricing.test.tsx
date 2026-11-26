@@ -1,7 +1,7 @@
 import { act, mockFunction, render, screen, userEvent } from '@app/test-utils'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useAccountEffect, UseAccountEffectParameters, useBalance } from 'wagmi'
+import { useAccountEffect, UseAccountEffectParameters, useBalance, useReadContract } from 'wagmi'
 import type { GetBalanceData } from 'wagmi/query'
 
 import { ProfileRecord } from '@app/constants/profileRecordOptions'
@@ -27,18 +27,43 @@ vi.mock('@app/hooks/useEthPrice')
 vi.mock('@app/hooks/useNameTerms')
 vi.mock('@app/hooks/useNftGateStatus')
 vi.mock('@app/hooks/useReservedStatus')
-vi.mock('@app/components/SimplexInfoPanel', () => ({ SimplexInfoPanel: () => null }))
+vi.mock('@app/components/SimplexInfoPanel', () => ({
+  SimplexInfoPanel: ({ nftGated }: { nftGated: boolean }) => (
+    <div data-testid="simplex-info-panel">{nftGated ? 'nft gated' : 'nft not gated'}</div>
+  ),
+}))
 vi.mock('@app/components/@molecules/DateSelection/DateSelection', () => ({
-  DateSelection: ({ maxSeconds }: { maxSeconds: number }) => <div>{maxSeconds}</div>,
+  DateSelection: ({
+    maxSeconds,
+    setSeconds,
+  }: {
+    maxSeconds: number
+    setSeconds: (seconds: number) => void
+  }) => (
+    <>
+      <div>{maxSeconds}</div>
+      <button type="button" data-testid="choose-longest" onClick={() => setSeconds(maxSeconds)} />
+    </>
+  ),
 }))
 vi.mock('@app/components/pages/profile/ProfileButton', () => ({
   SocialProfileButton: ({ value }: { value: string }) => <div>{value}</div>,
 }))
-vi.mock('../../FullInvoice', () => ({ default: () => null }))
+vi.mock('../../FullInvoice', () => ({ default: () => <div data-testid="full-invoice" /> }))
+vi.mock('@app/constants/chains', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getSnrcAddresses: () => ({ ETHRegistrarController: CONTROLLER }),
+  getSponsorAddress: () => SPONSOR,
+}))
+
+const SPONSOR = '0x5555555555555555555555555555555555555555'
+const CONTROLLER = '0x6666666666666666666666666666666666666666'
+const USD = 10n ** 18n
 
 const mockUseAccountSafely = mockFunction(useAccountSafely)
 const mockUseAccountEffect = mockFunction(useAccountEffect)
 const mockUseBalance = mockFunction(useBalance)
+const mockUseReadContract = mockFunction(useReadContract)
 const mockUseContractAddress = mockFunction(useContractAddress)
 const mockUseEstimateFullRegistration = mockFunction(useEstimateFullRegistration)
 const mockUseControllerLimits = mockFunction(useControllerLimits)
@@ -135,7 +160,14 @@ describe('Pricing', () => {
   const connect = (isReconnected: boolean) =>
     act(() => onConnect?.({ isReconnected } as Parameters<OnConnect>[0]))
 
+  const readAllowance = (allowance: bigint, price?: { base: bigint; premium: bigint }) =>
+    mockUseReadContract.mockImplementation(((parameters: { functionName: string }) => ({
+      data: parameters.functionName === 'registrarAllowance' ? allowance : price,
+      isLoading: false,
+    })) as never)
+
   const setLoaded = () => {
+    readAllowance(0n)
     mockUseAccountSafely.mockReturnValue({ address: '0x123' })
     mockUseAccountEffect.mockImplementation((parameters) => {
       onConnect = parameters?.onConnect
@@ -304,6 +336,193 @@ describe('Pricing', () => {
     expect(screen.queryByTestId('next-button')).not.toBeInTheDocument()
   })
 
+  it('should register with the allowance of the account while public sales are closed', async () => {
+    mockUseControllerLimits.mockReturnValue({ minCharLength: 6, publicSalesOpen: false })
+    readAllowance(1000n * USD, { base: 100n * USD, premium: 0n })
+    nameTerms('general')
+    const props = makeProps()
+    render(<Pricing {...props} />)
+    expect(screen.queryByTestId('public-sales-closed')).not.toBeInTheDocument()
+    expect(mockUseReadContract).toHaveBeenCalledWith(
+      expect.objectContaining({
+        address: SPONSOR,
+        functionName: 'registrarAllowance',
+        args: ['0x123'],
+      }),
+    )
+    expect(mockUseReadContract).toHaveBeenCalledWith(
+      expect.objectContaining({
+        address: CONTROLLER,
+        functionName: 'rentPriceUSD',
+        args: ['alicebob', BigInt(yearsToSeconds(2))],
+      }),
+    )
+    expect(screen.getByText('$100.00')).toBeVisible()
+    expect(screen.getByText('invoice.estimatedNetworkFee')).toBeVisible()
+    expect(screen.getByText('invoice.allowanceLeft')).toBeVisible()
+    expect(screen.getByText('$900.00')).toBeVisible()
+    expect(screen.queryByTestId('full-invoice')).not.toBeInTheDocument()
+    expect(screen.getByTestId('next-button')).toBeDisabled()
+    await userEvent.click(screen.getByTestId('terms-accept'))
+    expect(screen.getByTestId('next-button')).toHaveTextContent(
+      'steps.pricing.registerWithAllowance',
+    )
+    await userEvent.click(screen.getByTestId('next-button'))
+    expect(props.callback).toHaveBeenCalledWith(
+      expect.objectContaining({
+        seconds: yearsToSeconds(2),
+        terms: { kind: 'general', hash: TERMS },
+        paymentMethodChoice: 'allowance',
+        credit: { owner: '0x123' },
+      }),
+    )
+    expect(vi.mocked(props.callback).mock.calls[0][0]).not.toHaveProperty('estimatedTotal')
+    expect(vi.mocked(props.callback).mock.calls[0][0]).not.toHaveProperty('ethPrice')
+  })
+
+  it('should wait for the allowance of the account before saying public sales are not open', () => {
+    mockUseControllerLimits.mockReturnValue({ minCharLength: 6, publicSalesOpen: false })
+    mockUseReadContract.mockReturnValue({ data: undefined, isLoading: true } as never)
+    render(<Pricing {...makeProps()} />)
+    expect(screen.queryByTestId('public-sales-closed')).not.toBeInTheDocument()
+    expect(screen.getByTestId('next-button')).toBeDisabled()
+  })
+
+  it('should not offer the ETH path while the allowance of the account is read', () => {
+    mockUseReadContract.mockReturnValue({ data: undefined, isLoading: true } as never)
+    render(<Pricing {...makeProps()} />)
+    expect(screen.queryByTestId('full-invoice')).not.toBeInTheDocument()
+    expect(screen.getByTestId('next-button')).toBeDisabled()
+  })
+
+  it('should say when the allowance of the account cannot be read, and read it again', async () => {
+    mockUseControllerLimits.mockReturnValue({ minCharLength: 6, publicSalesOpen: false })
+    const refetch = vi.fn()
+    mockUseReadContract.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch,
+    } as never)
+    render(<Pricing {...makeProps()} />)
+    expect(screen.queryByTestId('public-sales-closed')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('next-button')).not.toBeInTheDocument()
+    expect(screen.getByTestId('allowance-read-failed')).toHaveTextContent(
+      'errors.networkError.title',
+    )
+    await userEvent.click(screen.getByText('action.tryAgain'))
+    expect(refetch).toHaveBeenCalled()
+  })
+
+  it('should keep the duration of a registration from the allowance when the step is shown again', async () => {
+    readAllowance(1000n * USD, { base: 100n * USD, premium: 0n })
+    const props = makeProps({
+      linkRecords: undefined,
+      registrationData: {
+        seconds: yearsToSeconds(5),
+        durationType: 'years',
+        started: false,
+        credit: { owner: '0x123' },
+      } as RegistrationReducerDataItem,
+    })
+    render(<Pricing {...props} />)
+    await userEvent.click(screen.getByTestId('next-button'))
+    expect(props.callback).toHaveBeenCalledWith(
+      expect.objectContaining({ seconds: yearsToSeconds(5), credit: { owner: '0x123' } }),
+    )
+  })
+
+  it('should register from an allowance equal to the price', () => {
+    readAllowance(100n * USD, { base: 100n * USD, premium: 0n })
+    render(<Pricing {...makeProps()} />)
+    expect(screen.getByText('$0.00')).toBeVisible()
+    expect(screen.getByTestId('next-button')).toBeEnabled()
+    expect(screen.getByTestId('next-button')).toHaveTextContent(
+      'steps.pricing.registerWithAllowance',
+    )
+  })
+
+  it('should register with the allowance, not with ETH, while public sales are open', async () => {
+    readAllowance(1000n * USD, { base: 100n * USD, premium: 0n })
+    const props = makeProps({ linkRecords: undefined })
+    render(<Pricing {...props} />)
+    expect(screen.queryByTestId('full-invoice')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByTestId('next-button'))
+    expect(props.callback).toHaveBeenCalledWith(
+      expect.objectContaining({ credit: { owner: '0x123' } }),
+    )
+  })
+
+  it('should register with ETH without an allowance', async () => {
+    const props = makeProps({ linkRecords: undefined })
+    render(<Pricing {...props} />)
+    expect(screen.getByTestId('full-invoice')).toBeInTheDocument()
+    expect(screen.getByTestId('simplex-info-panel')).toHaveTextContent('nft gated')
+    await userEvent.click(screen.getByTestId('next-button'))
+    expect(vi.mocked(props.callback).mock.calls[0][0].credit).toBeUndefined()
+  })
+
+  it('should not register for more than the allowance left, temporary premium included', () => {
+    readAllowance(120n * USD, { base: 100n * USD, premium: 50n * USD })
+    render(<Pricing {...makeProps()} />)
+    expect(screen.getByText('invoice.temporaryPremium')).toBeVisible()
+    expect(screen.getByText('$50.00')).toBeVisible()
+    expect(screen.getByText('-$30.00')).toBeVisible()
+    expect(screen.getByTestId('next-button')).toBeDisabled()
+    expect(screen.getByTestId('next-button')).toHaveTextContent('steps.pricing.allowanceTooLow')
+  })
+
+  it('should not register from the allowance without the ETH for the network fee', () => {
+    readAllowance(1000n * USD, { base: 100n * USD, premium: 0n })
+    mockUseBalance.mockReturnValue({ data: { value: 0n } })
+    render(<Pricing {...makeProps()} />)
+    expect(screen.getByTestId('next-button')).toBeDisabled()
+    expect(screen.getByTestId('next-button')).toHaveTextContent(
+      'steps.pricing.insufficientBalance',
+    )
+  })
+
+  it('should not hold an account with an allowance at the NFT gate', () => {
+    mockUseNftGateStatus.mockReturnValue({ required: true, hasNft: false, loaded: true })
+    readAllowance(1000n * USD, { base: 100n * USD, premium: 0n })
+    render(<Pricing {...makeProps()} />)
+    expect(screen.getByTestId('simplex-info-panel')).toHaveTextContent('nft not gated')
+    expect(screen.getByTestId('next-button')).toBeEnabled()
+    expect(screen.getByTestId('next-button')).toHaveTextContent(
+      'steps.pricing.registerWithAllowance',
+    )
+  })
+
+  it.each([
+    ['plain', 11, 'general'],
+    ['community', 3, 'community'],
+  ] as const)(
+    'should let an account with an allowance register a %s name for up to %s years, charged for the chosen duration',
+    async (_, maxYears, kind) => {
+      nameTerms(kind)
+      readAllowance(1000n * USD, { base: 100n * USD, premium: 0n })
+      const props = makeProps({ linkRecords: undefined })
+      render(<Pricing {...props} />)
+      expect(screen.getByText(yearsToSeconds(maxYears))).toBeInTheDocument()
+
+      await userEvent.click(screen.getByTestId('choose-longest'))
+      expect(mockUseReadContract).toHaveBeenCalledWith(
+        expect.objectContaining({
+          functionName: 'rentPriceUSD',
+          args: ['alicebob', BigInt(yearsToSeconds(maxYears))],
+        }),
+      )
+      await userEvent.click(screen.getByTestId('terms-accept'))
+      await userEvent.click(screen.getByTestId('next-button'))
+      expect(props.callback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          seconds: yearsToSeconds(maxYears),
+          credit: { owner: '0x123' },
+        }),
+      )
+    },
+  )
+
   it.each([
     [
       'the reserved status',
@@ -315,6 +534,10 @@ describe('Pricing', () => {
         mockUseNftGateStatus.mockReturnValue({ required: true, hasNft: undefined, loaded: false }),
     ],
     ['the controller limits', () => mockUseControllerLimits.mockReturnValue({})],
+    [
+      'the registrar allowance',
+      () => mockUseReadContract.mockReturnValue({ data: undefined, isLoading: true } as never),
+    ],
     [
       'the price',
       () =>

@@ -30,7 +30,11 @@ import { NameTerms } from '@app/components/NameTerms'
 import { SocialProfileButton } from '@app/components/pages/profile/ProfileButton'
 import { SimplexInfoPanel } from '@app/components/SimplexInfoPanel'
 import { ProfileRecord } from '@app/constants/profileRecordOptions'
-import { MIN_REGISTRATION_DURATION } from '@app/constants/simplex'
+import {
+  MAX_REGISTRATION_DURATION,
+  MAX_SPONSORED_REGISTRATION_DURATION,
+  MIN_REGISTRATION_DURATION,
+} from '@app/constants/simplex'
 import { useAccountSafely } from '@app/hooks/account/useAccountSafely'
 import { useContractAddress } from '@app/hooks/chain/useContractAddress'
 import { useEstimateFullRegistration } from '@app/hooks/gasEstimation/useEstimateRegistration'
@@ -38,11 +42,14 @@ import { useControllerLimits } from '@app/hooks/useControllerLimits'
 import { useEthPrice } from '@app/hooks/useEthPrice'
 import { useNameTerms } from '@app/hooks/useNameTerms'
 import { useNftGateStatus } from '@app/hooks/useNftGateStatus'
+import { useRegistrarAllowance } from '@app/hooks/useRegistrarAllowance'
 import { useReservedStatus } from '@app/hooks/useReservedStatus'
 import { useTermsAcceptance } from '@app/hooks/useTermsAcceptance'
 import { useBreakpoint } from '@app/utils/BreakpointProvider'
 import { Terms } from '@app/utils/snrcNameTerms'
 
+import AllowanceInvoice from '../../AllowanceInvoice'
+import AllowanceTooLowButton from '../../AllowanceTooLowButton'
 import FullInvoice from '../../FullInvoice'
 import {
   MoonpayTransactionStatus,
@@ -511,6 +518,37 @@ export const ActionButton = (props: ActionButtonProps) => {
     )
 }
 
+const AllowanceButton = ({
+  covers,
+  paysGas,
+  onClick,
+}: {
+  covers?: boolean
+  paysGas?: boolean
+  onClick: () => void
+}) => {
+  const { t } = useTranslation('register')
+
+  if (covers === undefined || paysGas === undefined)
+    return (
+      <Button data-testid="next-button" disabled loading>
+        {t('steps.pricing.registerWithAllowance')}
+      </Button>
+    )
+  if (!covers) return <AllowanceTooLowButton />
+  if (!paysGas)
+    return (
+      <Button data-testid="next-button" disabled>
+        {t('steps.pricing.insufficientBalance')}
+      </Button>
+    )
+  return (
+    <Button data-testid="next-button" onClick={onClick}>
+      {t('steps.pricing.registerWithAllowance')}
+    </Button>
+  )
+}
+
 export type PricingProps = {
   name: string
   gracePeriodEndDate: Date | undefined
@@ -564,8 +602,22 @@ const Pricing = ({
   const isSubname = !!name && name.split('.').length > 2
   const isTooShort = !!minCharLength && !isSubname && labelLen > 0 && labelLen < minCharLength
 
-  const [seconds, setSeconds] = useState(minSeconds)
-  const durationType = 'years'
+  const [seconds, setSeconds] = useState(
+    registrationData.credit ? registrationData.seconds : minSeconds,
+  )
+  const [durationType, setDurationType] = useState<'date' | 'years'>(
+    registrationData.credit ? registrationData.durationType : 'years',
+  )
+  const {
+    status: allowanceStatus,
+    allowance,
+    price: allowancePrice,
+    covers,
+    refetch: refetchAllowance,
+  } = useRegistrarAllowance({ name, seconds })
+  const credit = allowanceStatus === 'allowance' && address ? { owner: address } : undefined
+  const sponsoredHorizon =
+    terms.kind === 'community' ? MAX_REGISTRATION_DURATION : MAX_SPONSORED_REGISTRATION_DURATION
 
   const [reverseRecord, setReverseRecord] = useState(() =>
     registrationData.started ? registrationData.reverseRecord : !hasPrimaryName,
@@ -611,6 +663,7 @@ const Pricing = ({
       clearRecords: resolverExists,
       resolverAddress,
       terms: terms.kind && terms.hash && { kind: terms.kind, hash: terms.hash },
+      credit,
     },
   })
 
@@ -646,7 +699,30 @@ const Pricing = ({
   const unsafeDisplayEstimatedGasFee =
     estimatedGasFee === 0n ? previousEstimatedGasFee : estimatedGasFee
 
-  if (publicSalesOpen === false)
+  if (allowanceStatus === 'loading')
+    return (
+      <StyledCard>
+        <StyledHeading>{t('heading', { name: beautifiedName })}</StyledHeading>
+        <Button data-testid="next-button" disabled loading>
+          {t('action.next', { ns: 'common' })}
+        </Button>
+      </StyledCard>
+    )
+
+  if (allowanceStatus === 'error')
+    return (
+      <StyledCard>
+        <StyledHeading>{t('heading', { name: beautifiedName })}</StyledHeading>
+        <Helper alert="error" alignment="horizontal" data-testid="allowance-read-failed">
+          <Typography>{t('errors.networkError.title', { ns: 'common' })}</Typography>
+          <Button size="small" colorStyle="accentSecondary" onClick={() => refetchAllowance()}>
+            {t('action.tryAgain', { ns: 'common' })}
+          </Button>
+        </Helper>
+      </StyledCard>
+    )
+
+  if (publicSalesOpen === false && !credit)
     return (
       <StyledCard>
         <StyledHeading>{t('heading', { name: beautifiedName })}</StyledHeading>
@@ -662,16 +738,26 @@ const Pricing = ({
   return (
     <StyledCard>
       <StyledHeading>{t('heading', { name: beautifiedName })}</StyledHeading>
-      <SimplexInfoPanel name={name} address={address} />
+      <SimplexInfoPanel name={name} address={address} nftGated={!credit} />
       {linkRecords?.map(({ key, value }) => (
         <SocialProfileButton key={key} iconKey={key} normalisedKey={key} value={value!} />
       ))}
       {terms.required && <NameTerms terms={terms} acceptance={acceptance} />}
       <DateSelection
         {...{ seconds, setSeconds, minSeconds, durationType }}
-        maxSeconds={minSeconds}
+        maxSeconds={credit ? sponsoredHorizon : minSeconds}
+        onChangeDurationType={setDurationType}
       />
-      <FullInvoice {...fullEstimate} />
+      {credit ? (
+        <AllowanceInvoice
+          seconds={seconds}
+          allowance={allowance}
+          price={allowancePrice}
+          estimatedGasFee={fullEstimate.estimatedGasLoading ? undefined : estimatedGasFee}
+        />
+      ) : (
+        <FullInvoice {...fullEstimate} />
+      )}
       {hasPremium && gracePeriodEndDate ? (
         <TemporaryPremium startDate={gracePeriodEndDate} name={name} />
       ) : (
@@ -711,7 +797,7 @@ const Pricing = ({
           <Button data-testid="next-button" disabled>
             Name too short
           </Button>
-        ) : blockedByNftGate ? (
+        ) : blockedByNftGate && !credit ? (
           <Button data-testid="next-button" disabled>
             SimpleX NFT required
           </Button>
@@ -723,6 +809,25 @@ const Pricing = ({
           <Button data-testid="next-button" disabled>
             {terms.text !== undefined ? 'Accept the terms to continue' : 'Terms unavailable'}
           </Button>
+        ) : credit ? (
+          <AllowanceButton
+            covers={covers}
+            paysGas={
+              fullEstimate.estimatedGasLoading || balance === undefined
+                ? undefined
+                : balance.value >= estimatedGasFee
+            }
+            onClick={() =>
+              callback({
+                reverseRecord,
+                seconds,
+                paymentMethodChoice: PaymentMethod.allowance,
+                durationType,
+                terms: acceptance.acceptedTerms,
+                credit,
+              })
+            }
+          />
         ) : (
           <ActionButton
             {...{

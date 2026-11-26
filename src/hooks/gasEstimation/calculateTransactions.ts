@@ -40,6 +40,7 @@ export const calculateTransactions = ({
   namePolicyAddress,
   fiveMinutesAgoInSeconds,
   price,
+  credit,
 }: {
   registrationParams?: RegistrationParameters
   terms?: Terms
@@ -47,8 +48,9 @@ export const calculateTransactions = ({
   namePolicyAddress?: Address
   fiveMinutesAgoInSeconds: number
   price?: { base: bigint; premium: bigint }
+  credit?: TransactionData<'registerName'>['credit']
 }): ReturnType => {
-  if (!registrationParams || !ethRegistrarControllerAddress || !price) return null
+  if (!registrationParams || !ethRegistrarControllerAddress || (!credit && !price)) return null
   const commitment = makeCommitment(registrationParams)
 
   const registrationStateOverride = {
@@ -84,7 +86,7 @@ export const calculateTransactions = ({
     },
     {
       name: 'registerName',
-      data: registrationParams,
+      data: { ...registrationParams, credit },
       stateOverride: [
         registrationStateOverride,
         ...termsStateOverride,

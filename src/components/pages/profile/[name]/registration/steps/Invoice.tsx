@@ -5,6 +5,7 @@ import { CalendarSVG, Colors, Dropdown, Skeleton, Typography } from '@ensdomains
 
 import { CurrencyText } from '@app/components/@atoms/CurrencyText/CurrencyText'
 import { useCalendarOptions } from '@app/hooks/useCalendarOptions'
+import { makeDisplay } from '@app/utils/currency'
 import { formatExpiry } from '@app/utils/utils'
 
 const ReminderContainer = styled(Typography)(
@@ -68,12 +69,14 @@ const LineItem = styled.div<{ $color?: Colors }>(
   `,
 )
 
-export type InvoiceItem = {
-  label: string
-  value?: bigint
-  /* Percentage buffer to multiply value by when displaying in ETH, defaults to 100 */
-  bufferPercentage?: bigint
-}
+export type InvoiceItem = { label: string } & (
+  | {
+      value?: bigint
+      /* Percentage buffer to multiply value by when displaying in ETH, defaults to 100 */
+      bufferPercentage?: bigint
+    }
+  | { usd: bigint | undefined }
+)
 
 type Props = {
   name: string
@@ -88,23 +91,39 @@ export const Invoice = ({ name, expiryTitle, expiryDate, items }: Props) => {
 
   return (
     <Container>
-      {items.map(({ label, value, bufferPercentage }, inx) => (
-        <LineItem data-testid={`invoice-item-${inx}`} key={label}>
+      {items.map((item, inx) => (
+        <LineItem data-testid={`invoice-item-${inx}`} key={item.label}>
           <Typography fontVariant="small" color="grey">
-            {label}
+            {item.label}
           </Typography>
-          <Skeleton loading={!value}>
-            <Typography color="textPrimary" data-testid={`invoice-item-${inx}-amount`}>
-              <CurrencyText bufferPercentage={bufferPercentage} eth={value || 0n} currency="eth" />
-            </Typography>
-            <Typography
-              fontVariant="small"
-              color="grey"
-              data-testid={`invoice-item-${inx}-amount-usd`}
-            >
-              <CurrencyText bufferPercentage={bufferPercentage} eth={value || 0n} currency="usd" />
-            </Typography>
-          </Skeleton>
+          {'usd' in item ? (
+            <Skeleton loading={item.usd === undefined}>
+              <Typography color="textPrimary" data-testid={`invoice-item-${inx}-amount-usd`}>
+                {makeDisplay({ value: item.usd ?? 0n, symbol: 'usd' })}
+              </Typography>
+            </Skeleton>
+          ) : (
+            <Skeleton loading={!item.value}>
+              <Typography color="textPrimary" data-testid={`invoice-item-${inx}-amount`}>
+                <CurrencyText
+                  bufferPercentage={item.bufferPercentage}
+                  eth={item.value || 0n}
+                  currency="eth"
+                />
+              </Typography>
+              <Typography
+                fontVariant="small"
+                color="grey"
+                data-testid={`invoice-item-${inx}-amount-usd`}
+              >
+                <CurrencyText
+                  bufferPercentage={item.bufferPercentage}
+                  eth={item.value || 0n}
+                  currency="usd"
+                />
+              </Typography>
+            </Skeleton>
+          )}
         </LineItem>
       ))}
 

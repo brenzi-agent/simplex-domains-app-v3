@@ -17,6 +17,7 @@ import { useExistingCommitment } from '@app/hooks/registration/useExistingCommit
 import { useSimulateRegistration } from '@app/hooks/registration/useSimulateRegistration'
 import { useDurationCountdown } from '@app/hooks/time/useDurationCountdown'
 import { useCommittedTerms, useNameTerms } from '@app/hooks/useNameTerms'
+import { useRegistrarAllowance } from '@app/hooks/useRegistrarAllowance'
 import useRegistrationParams from '@app/hooks/useRegistrationParams'
 import { useTermsAcceptance } from '@app/hooks/useTermsAcceptance'
 import { CenteredTypography } from '@app/transaction-flow/input/ProfileEditor/components/CenteredTypography'
@@ -229,9 +230,10 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
   const acceptTermsTx = getLatestTransaction(acceptTermsKey)
   const [resetOpen, setResetOpen] = useState(false)
 
+  const owner = registrationData.credit?.owner ?? address!
   const registrationParams = useRegistrationParams({
     name,
-    owner: address!,
+    owner,
     registrationData,
   })
   const commitment = makeCommitment(registrationParams)
@@ -251,6 +253,7 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
   const simulateRegistrationEnabled = commitTx?.stage === 'sent' || commitTx?.stage === 'complete'
   const { isSuccess: isSimulateRegistrationSuccess } = useSimulateRegistration({
     registrationParams,
+    credit: registrationData.credit,
     query: {
       enabled: simulateRegistrationEnabled,
       retry: simulateRegistrationEnabled,
@@ -258,10 +261,12 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
     },
   })
   const canRegisterOverride = isSimulateRegistrationSuccess
+  const { covers } = useRegistrarAllowance({ name, seconds: registrationData.seconds })
+  const allowanceCovers = !registrationData.credit || canRegisterOverride || covers
 
   const checkRegistered = useCheckRegistered({
     name,
-    ownerAddress: address,
+    ownerAddress: owner,
     enabled: registerTx?.stage === 'sent',
   })
 
@@ -390,7 +395,12 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
 
   const makeRegisterNameFlow = () => {
     createTransactionFlow(registerKey, {
-      transactions: [createTransactionItem('registerName', registrationParams)],
+      transactions: [
+        createTransactionItem('registerName', {
+          ...registrationParams,
+          credit: registrationData.credit,
+        }),
+      ],
       requiresManualCleanup: true,
       autoClose: true,
       resumeLink: `/register/${name}`,
@@ -441,10 +451,10 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
   }
 
   useEffect(() => {
-    if (!commitTx) {
+    if (!commitTx && allowanceCovers) {
       makeCommitNameFlow()
     }
-  }, [commitTx, makeCommitNameFlow])
+  }, [commitTx, makeCommitNameFlow, allowanceCovers])
 
   useEffect(() => {
     if (registerTx?.stage === 'complete' || checkRegistered) {
@@ -553,6 +563,11 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
       </CountdownContainer>
       <CenteredTypography data-testid="transactions-subheading">
         {match(transactionState)
+          .with(
+            P.union('commitReady', 'commitFailed', 'commitComplete', 'registrationReady'),
+            () => allowanceCovers === false,
+            () => t('steps.pricing.allowanceTooLow'),
+          )
           .with('registrationComplete', () => '')
           .with('registrationOverriden', () => (
             <Trans i18nKey="steps.transactions.subheading.commitCompleteNoDuration" t={t} />
@@ -648,6 +663,16 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
               </div>
             ),
           )
+          .with(
+            P.union('registrationReady', 'commitComplete'),
+            () => allowanceCovers === false,
+            () => ResetBackButton,
+          )
+          .with(
+            P.union('commitReady', 'commitFailed'),
+            () => allowanceCovers === false,
+            () => NormalBackButton,
+          )
           .with('registrationReady', 'registrationOverriden', () => (
             <>
               {ResetBackButton}
@@ -710,7 +735,11 @@ const Transactions = ({ registrationData, name, callback, onStart, fromLink }: P
                 </Button>
               </MobileFullWidth>
               <MobileFullWidth>
-                <Button data-testid="start-timer-button" onClick={makeCommitNameFlow}>
+                <Button
+                  data-testid="start-timer-button"
+                  disabled={!allowanceCovers}
+                  onClick={makeCommitNameFlow}
+                >
                   {t('steps.transactions.startTimer')}
                 </Button>
               </MobileFullWidth>
