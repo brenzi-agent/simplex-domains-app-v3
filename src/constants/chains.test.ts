@@ -199,7 +199,7 @@ describe('chains', () => {
     })
 
     it('should link localhost to the placeholder block explorer', () => {
-      expect(localhostWithEns.blockExplorers.default.url).toBe('https://localhost.etherscan.io')
+      expect(localhostWithEns.blockExplorers?.default.url).toBe('https://localhost.etherscan.io')
     })
 
     it('should reflect SNRC addresses on sepolia (parsed from env)', () => {
