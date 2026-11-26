@@ -81,9 +81,26 @@ test('name page of a visitor', async ({ page, app }) => {
   await expect(page.getByTestId('profile-actions')).toHaveCount(0)
   await matchScreenshot(profilePanel(page), 'visitor-profile.png')
 
+  await showTab(page, 'Records')
+  await expect(page.getByTestId('text-amount')).toHaveText(/^2 /)
+  await expect(recordsPanel(page).getByRole('button', { name: 'Edit Records' })).toHaveCount(0)
+  await matchScreenshot(recordsPanel(page), 'visitor-records.png')
+
   await showTab(page, 'Ownership')
   await expect(page.getByTestId('expiry-panel-grace-period')).toBeVisible()
   await matchScreenshot(ownershipPanel(page), 'visitor-ownership.png')
+
+  await showTab(page, 'Subnames')
+  const subname = page.getByTestId(`name-item-mobile.${NAME}`)
+  await expect(subname).toBeVisible()
+  await expect(page.getByTestId('add-subname-action')).toHaveCount(0)
+  await matchScreenshot(
+    around(page, page.getByTestId('name-table-header-search'), subname),
+    'visitor-subnames.png',
+  )
+
+  await showTab(page, 'More')
+  await matchScreenshot(morePanel(page), 'visitor-more.png')
 })
 
 test('editing the SimpleX links', async ({ page, app }) => {
