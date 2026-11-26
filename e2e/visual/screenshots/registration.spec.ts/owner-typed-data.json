@@ -1,0 +1,98 @@
+[
+  {
+    "signer": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+    "typedData": {
+      "domain": {
+        "name": "SimplexNamePolicy",
+        "version": "1",
+        "chainId": 1337,
+        "verifyingContract": "0x4a679253410272dd5232b3ff7cf5dbb88f295319"
+      },
+      "message": {
+        "commitment": "<random>",
+        "termsHash": "0xfab51da6e086b9c824e09cf949f72f12590dcbe77ec1b777c0f22c979616f14c",
+        "nonce": "0",
+        "deadline": "1772625602"
+      },
+      "primaryType": "AcceptGeneralTerms",
+      "types": {
+        "AcceptGeneralTerms": [
+          {
+            "name": "commitment",
+            "type": "bytes32"
+          },
+          {
+            "name": "termsHash",
+            "type": "bytes32"
+          },
+          {
+            "name": "nonce",
+            "type": "uint256"
+          },
+          {
+            "name": "deadline",
+            "type": "uint256"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "signer": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+    "typedData": {
+      "domain": {
+        "name": "SimplexSponsor",
+        "version": "1",
+        "chainId": 1337,
+        "verifyingContract": "0x3aa5ebb10dc797cac828524e59a333d0a371443c"
+      },
+      "message": {
+        "label": "ownername",
+        "owner": "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc",
+        "duration": "63072000",
+        "resolver": "0x9a676e781a523b5d0c0e43731313a708cb607508",
+        "data": [],
+        "disputeDays": "14",
+        "nonce": "0",
+        "deadline": "1772625602"
+      },
+      "primaryType": "RegisterName",
+      "types": {
+        "RegisterName": [
+          {
+            "name": "label",
+            "type": "string"
+          },
+          {
+            "name": "owner",
+            "type": "address"
+          },
+          {
+            "name": "duration",
+            "type": "uint256"
+          },
+          {
+            "name": "resolver",
+            "type": "address"
+          },
+          {
+            "name": "data",
+            "type": "bytes[]"
+          },
+          {
+            "name": "disputeDays",
+            "type": "uint256"
+          },
+          {
+            "name": "nonce",
+            "type": "uint256"
+          },
+          {
+            "name": "deadline",
+            "type": "uint256"
+          }
+        ]
+      }
+    }
+  }
+]
