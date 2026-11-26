@@ -23,6 +23,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Allow git in the checkout, owned by another user than the container's
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - uses: ./.github/actions/setup
 
       - uses: foundry-rs/foundry-toolchain@v1
