@@ -39,7 +39,7 @@ const subnamesPanel = (page: Page) =>
   around(page, page.getByTestId('add-subname-action'), page.getByTestId(`name-item-mobile.${NAME}`))
 
 const morePanel = (page: Page) =>
-  around(page, page.getByText('Token', { exact: true }), page.getByTestId('resolver-address'))
+  around(page, page.getByText('Token', { exact: true }), page.getByText('Resolver', { exact: true }))
 
 test('name page of the holder', async ({ page, app }) => {
   await seedName()
