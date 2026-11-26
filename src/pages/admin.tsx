@@ -202,25 +202,23 @@ const TermsSettings = ({
         Terms on chain: {terms?.hash || 'loading...'}
       </Mono>
       {text.data !== undefined && <TermsText data-testid={`${testId}-text`} text={text.data} />}
-      <Row>
-        <Input
-          label="New link"
-          data-testid={`${testId}-input`}
-          value={newLink}
-          onChange={(e) => setNewLink(e.target.value)}
-          placeholder="https://raw.githubusercontent.com/simplex-chat/simplex-chat/…"
-          description="The raw link of one file at a full commit hash on raw.githubusercontent.com or git.simplex.chat, ending #sha256= and the sha256 of the file."
-          error={newLinkError}
-        />
-        <Button
-          size="small"
-          data-testid={`${testId}-set`}
-          onClick={() => onSet(newLink)}
-          disabled={!newLink || !!newLinkError}
-        >
-          {setLabel}
-        </Button>
-      </Row>
+      <Input
+        label="New link"
+        data-testid={`${testId}-input`}
+        value={newLink}
+        onChange={(e) => setNewLink(e.target.value)}
+        placeholder="https://raw.githubusercontent.com/simplex-chat/simplex-chat/…"
+        description="The raw link of one file at a full commit hash on raw.githubusercontent.com or git.simplex.chat, ending #sha256= and the sha256 of the file."
+        error={newLinkError}
+      />
+      <Button
+        size="small"
+        data-testid={`${testId}-set`}
+        onClick={() => onSet(newLink)}
+        disabled={!newLink || !!newLinkError}
+      >
+        {setLabel}
+      </Button>
     </>
   )
 }
@@ -524,33 +522,31 @@ function AdminPanel() {
           <Card>
             <Section>
               <Typography fontVariant="largeBold">Reserved Names</Typography>
-              <Row>
-                <Input
-                  label="Reserve name(s)"
-                  value={reserveName}
-                  onChange={(e) => setReserveName(e.target.value)}
-                  placeholder="one name per line — submitted in a single tx"
-                  description="Newline or comma separated. Up to 200 names per tx fit under the per-transaction gas cap."
-                  error={reserveNameError}
-                />
-                <Select
-                  label="Reason"
-                  size="small"
-                  value={reserveReason}
-                  onChange={(e) => setReserveReason(e.target.value)}
-                  options={REASON_OPTIONS}
-                  id="reserve-reason"
-                />
-                <Button
-                  size="small"
-                  onClick={() =>
-                    execTx(namePolicy, 'addReservedNames', [reserveLabels, Number(reserveReason)])
-                  }
-                  disabled={!reserveLabels.length || !!reserveNameError}
-                >
-                  Reserve
-                </Button>
-              </Row>
+              <Input
+                label="Reserve name(s)"
+                value={reserveName}
+                onChange={(e) => setReserveName(e.target.value)}
+                placeholder="one name per line — submitted in a single tx"
+                description="Newline or comma separated. Up to 200 names per tx fit under the per-transaction gas cap."
+                error={reserveNameError}
+              />
+              <Select
+                label="Reason"
+                size="small"
+                value={reserveReason}
+                onChange={(e) => setReserveReason(e.target.value)}
+                options={REASON_OPTIONS}
+                id="reserve-reason"
+              />
+              <Button
+                size="small"
+                onClick={() =>
+                  execTx(namePolicy, 'addReservedNames', [reserveLabels, Number(reserveReason)])
+                }
+                disabled={!reserveLabels.length || !!reserveNameError}
+              >
+                Reserve
+              </Button>
               <Row>
                 <Input
                   label="Unreserve name(s)"
