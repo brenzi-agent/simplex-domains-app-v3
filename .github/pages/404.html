@@ -9,7 +9,10 @@
 (function () {
   var p = location.pathname.replace(/\/+$/, '');
   var enc = encodeURIComponent;
-  var go = function (path, qs) { location.replace(path + (qs ? '?' + qs : '')); };
+  var go = function (path, qs) {
+    var query = [qs, location.search.slice(1)].filter(Boolean).join('&');
+    location.replace(path + (query ? '?' + query : '') + location.hash);
+  };
 
   // /:label.testing or /:label.simplex (optionally /register | /import | /expired-profile)
   var m = p.match(/^\/(.+?\.(?:testing|simplex))(?:\/(register|expired-profile|import))?$/);
@@ -41,7 +44,7 @@
   if (p === '/legal/terms-of-use')   return location.replace('https://ens.domains/legal/terms-of-use');
 
   // Unrecognised path — fall back to homepage rather than dead-ending.
-  location.replace('/');
+  go('/', '');
 })();
 </script>
 </head>
