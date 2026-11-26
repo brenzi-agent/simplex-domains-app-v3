@@ -71,6 +71,7 @@ test('registration on the payable path under the general terms', async ({ page, 
   await page.getByTestId('profile-submit-button').click()
 
   await expect(page.getByTestId('invoice-total')).toBeVisible()
+  await expect(infoCard(page).getByTestId('invoice-item-1-amount')).not.toHaveText('0 ETH')
   await matchScreenshot(infoCard(page), 'info.png')
   await page.getByTestId('next-button').click()
 

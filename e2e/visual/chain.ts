@@ -10,7 +10,9 @@ import {
   labelhash,
   namehash,
   parseAbi,
+  parseEther,
   toBytes,
+  toHex,
   zeroAddress,
   zeroHash,
   type Address,
@@ -72,6 +74,7 @@ export const advance = async (seconds: bigint) => {
 export const resetChain = async () => {
   await rpc('anvil_reset')
   await rpc('anvil_loadState', [STATE])
+  await rpc('anvil_setBalance', [zeroAddress, toHex(parseEther('1000'))])
   await rpc('anvil_setBlockTimestampInterval', [1])
   await rpc('anvil_setTime', [START])
   await rpc('evm_mine')

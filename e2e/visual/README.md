@@ -20,7 +20,7 @@ Playwright specs drive the dApp through its flows on a local anvil chain and com
 
 | Input | Value |
 |---|---|
-| chain at each test's start | `chain/state.json.gz`, block time 2026-03-02 12:00:01 UTC |
+| chain at each test's start | `chain/state.json.gz`, block time 2026-03-02 12:00:01 UTC, 1000 ETH at the zero address, the `from` of the access-list call in the dApp's fee estimate, as it holds ETH on mainnet |
 | block time | previous block + 1 s |
 | browser clock | fixed at the time of the latest block, set at each page load by the specs and after the commitment wait |
 | `Math.random`, `crypto.getRandomValues`, `crypto.randomUUID` | seeded generators; the registration secret takes a varying position in their sequence, so `owner-typed-data.json` holds `<random>` for its commitment |
