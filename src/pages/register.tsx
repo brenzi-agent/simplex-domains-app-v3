@@ -41,19 +41,22 @@ export default function Page() {
   if (!isLoading && !stayOnRegister) {
     let redirect = true
 
-    if (nameDetails.ownerData?.owner === address && !!address) {
+    if (address) {
       const registrationData = JSON.parse(
         localStorage.getItem('registration-status') || '{"items":[]}',
       )
       const index = getSelectedIndex(registrationData, {
-        address: address!,
+        address,
         name: nameDetails.normalisedName,
         chainId,
       })
       if (index !== -1) {
-        const { stepIndex, queue } = registrationData.items[index]
+        const { stepIndex, queue, credit } = registrationData.items[index]
         const step = queue[stepIndex]
-        if (step === 'transactions' || step === 'complete') {
+        if (
+          nameDetails.ownerData?.owner === (credit?.owner ?? address) &&
+          (step === 'transactions' || step === 'complete')
+        ) {
           redirect = false
         }
       }
