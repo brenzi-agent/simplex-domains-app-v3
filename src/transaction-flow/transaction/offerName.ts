@@ -1,17 +1,18 @@
 import type { TFunction } from 'react-i18next'
-import { Address, encodeFunctionData } from 'viem'
+import { Address } from 'viem'
 
 import { getSnrcAddresses } from '@app/constants/chains'
 import { Transaction, TransactionDisplayItem, TransactionFunctionParameters } from '@app/types'
-import { getSnrcTokenId, registrarOfferAbi } from '@app/utils/snrcOffers'
+import { encodeApproveName, SignedIntent } from '@app/utils/snrcIntents'
 
 type Data = {
   name: string
   recipient: Address
+  intent?: SignedIntent
 }
 
 const displayItems = (
-  { name, recipient }: Data,
+  { name, recipient, intent }: Data,
   t: TFunction<'translation', undefined>,
 ): TransactionDisplayItem[] => [
   {
@@ -23,6 +24,7 @@ const displayItems = (
     label: 'action',
     value: t('transaction.description.offerName'),
   },
+  ...(intent ? [{ label: 'from', value: intent.signer, type: 'address' } as const] : []),
   {
     label: 'to',
     value: recipient,
@@ -36,11 +38,7 @@ const displayItems = (
 
 const transaction = ({ client, data }: TransactionFunctionParameters<Data>) => ({
   to: getSnrcAddresses(client.chain.id).BaseRegistrarImplementation as Address,
-  data: encodeFunctionData({
-    abi: registrarOfferAbi,
-    functionName: 'approve',
-    args: [data.recipient, getSnrcTokenId(data.name)!],
-  }),
+  data: encodeApproveName({ name: data.name, to: data.recipient, intent: data.intent }),
 })
 
 export default { displayItems, transaction, backToInput: true } satisfies Transaction<Data>

@@ -181,6 +181,7 @@
     "emailInvalid": "Invalid email address",
     "invalidAddress": "Invalid address",
     "addressRequired": "Address required",
+    "signedByAnotherAccount": "The wallet signed with an account other than {{signer}}.",
     "indexingErrors": {
       "title": "Error syncing data",
       "message": "This data may be out of date. Please use caution.",
@@ -266,6 +267,7 @@
       "approveNameWrapper": "Approve the NameWrapper to manage your names",
       "approveSubnameRegistrar": "Approve the subname registrar to create subnames under your name",
       "offerName": "The name stays yours until the recipient claims it",
+      "withdrawOfferRelayed": "Your wallet asks {{holder}} to sign this withdrawal, then sends it from the selected account, which pays its network fee.",
       "repairDesyncedName": "Sync the wrapped name expiry",
       "fuses": {
         "revoke": "Revoke",
@@ -295,7 +297,8 @@
       "update": "Update",
       "resolver": "Resolver",
       "records": "Records",
-      "record": "Record"
+      "record": "Record",
+      "owner": "Owner"
     },
     "itemValue": {
       "records_one": "{{count}} record",

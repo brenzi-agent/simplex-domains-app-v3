@@ -518,6 +518,49 @@ export const ActionButton = (props: ActionButtonProps) => {
     )
 }
 
+const OwnerChoice = ({
+  temporaryOwners,
+  temporaryOwner,
+  setTemporaryOwner,
+}: {
+  temporaryOwners: readonly Address[]
+  temporaryOwner?: Address
+  setTemporaryOwner: (owner?: Address) => void
+}) => {
+  const { t } = useTranslation('register')
+
+  if (!temporaryOwners.length)
+    return <Typography color="grey">{t('steps.pricing.temporaryOwnerHint')}</Typography>
+  return (
+    <Box width="full">
+      <StyledTitle color="grey" weight="bold">
+        {t('steps.pricing.owner')}
+      </StyledTitle>
+      <Spacer $height="2" />
+      <RadioButtonGroup
+        value={temporaryOwner ?? 'self'}
+        onChange={(e) =>
+          setTemporaryOwner(temporaryOwners.find((account) => account === e.target.value))
+        }
+      >
+        {['self', ...temporaryOwners].map((account) => (
+          <RadioButton
+            key={account}
+            data-testid={`owner-${account}`}
+            label={
+              <RadioLabel>
+                {account === 'self' ? t('steps.pricing.thisAccount') : account}
+              </RadioLabel>
+            }
+            name="owner"
+            value={account}
+          />
+        ))}
+      </RadioButtonGroup>
+    </Box>
+  )
+}
+
 const AllowanceButton = ({
   covers,
   paysGas,
@@ -584,7 +627,7 @@ const Pricing = ({
 }: PricingProps) => {
   const { t } = useTranslation('register')
 
-  const { address } = useAccountSafely()
+  const { address, addresses } = useAccountSafely()
   const [hasConnected, setHasConnected] = useState(false)
   useAccountEffect({ onConnect: ({ isReconnected }) => setHasConnected(!isReconnected) })
   const { data: balance } = useBalance({ address })
@@ -602,11 +645,10 @@ const Pricing = ({
   const isSubname = !!name && name.split('.').length > 2
   const isTooShort = !!minCharLength && !isSubname && labelLen > 0 && labelLen < minCharLength
 
-  const [seconds, setSeconds] = useState(
-    registrationData.credit ? registrationData.seconds : minSeconds,
-  )
+  const { credit: storedCredit } = registrationData
+  const [seconds, setSeconds] = useState(storedCredit ? registrationData.seconds : minSeconds)
   const [durationType, setDurationType] = useState<'date' | 'years'>(
-    registrationData.credit ? registrationData.durationType : 'years',
+    storedCredit ? registrationData.durationType : 'years',
   )
   const {
     status: allowanceStatus,
@@ -615,7 +657,16 @@ const Pricing = ({
     covers,
     refetch: refetchAllowance,
   } = useRegistrarAllowance({ name, seconds })
-  const credit = allowanceStatus === 'allowance' && address ? { owner: address } : undefined
+  const temporaryOwners = addresses?.filter((connected) => connected !== address) ?? []
+  const [chosenOwner, setChosenOwner] = useState(storedCredit?.owner)
+  const temporaryOwner = temporaryOwners.find((account) => account === chosenOwner)
+  const owner = temporaryOwner ?? address
+  const credit =
+    allowanceStatus === 'allowance' && owner
+      ? storedCredit?.owner === owner
+        ? storedCredit
+        : { owner }
+      : undefined
   const sponsoredHorizon =
     terms.kind === 'community' ? MAX_REGISTRATION_DURATION : MAX_SPONSORED_REGISTRATION_DURATION
 
@@ -749,12 +800,19 @@ const Pricing = ({
         onChangeDurationType={setDurationType}
       />
       {credit ? (
-        <AllowanceInvoice
-          seconds={seconds}
-          allowance={allowance}
-          price={allowancePrice}
-          estimatedGasFee={fullEstimate.estimatedGasLoading ? undefined : estimatedGasFee}
-        />
+        <>
+          <AllowanceInvoice
+            seconds={seconds}
+            allowance={allowance}
+            price={allowancePrice}
+            estimatedGasFee={fullEstimate.estimatedGasLoading ? undefined : estimatedGasFee}
+          />
+          <OwnerChoice
+            temporaryOwners={temporaryOwners}
+            temporaryOwner={temporaryOwner}
+            setTemporaryOwner={setChosenOwner}
+          />
+        </>
       ) : (
         <FullInvoice {...fullEstimate} />
       )}

@@ -392,5 +392,63 @@ describe('useExistingCommitment', () => {
       })
       expect(setTransactionHashFromUpdate).toHaveBeenCalledWith(mockCommitKey, '0xcommit')
     })
+
+    it('finds the commitment relayed for the temporary owner by another sender', async () => {
+      const temporaryOwner = '0x7777777777777777777777777777777777777777'
+      const setTransactionHashFromUpdate = vi.fn()
+      mockUseTransactionFlow.mockReturnValue({ setTransactionHashFromUpdate })
+      const client = {
+        ...mockClient,
+        chain: {
+          contracts: {
+            ...mockClient.chain.contracts,
+            ensEthRegistrarController: { address: '0x1111111111111111111111111111111111111111' },
+          },
+        },
+      }
+      mockUseConfig.mockReturnValue({ getClient: () => client, _isEns: true } as any)
+      mockReadContract
+        .mockResolvedValueOnce(mockTime)
+        .mockResolvedValueOnce(mockMaxAge)
+        .mockResolvedValueOnce(mockTime + 30n)
+      mockGetBlockMetadataByTimestamp.mockResolvedValueOnce({
+        ok: true,
+        data: { hash: '0xblock' },
+      } as any)
+      const input = encodeFunctionData({
+        abi: namePolicyTermsAbi,
+        functionName: 'commitUnderGeneralTermsWithSig',
+        args: [mockCommitment, `0x${'77'.repeat(32)}`, temporaryOwner, 0n, 2n, '0x'],
+      })
+      mockGetBlock.mockResolvedValueOnce({
+        transactions: [
+          {
+            from: '0x9999999999999999999999999999999999999999',
+            to: NAME_POLICY,
+            input,
+            hash: '0xrelayed',
+          },
+        ],
+      } as any)
+      mockGetTransactionReceipt.mockResolvedValueOnce({ status: 'success' } as any)
+
+      const { result } = renderHook(() =>
+        useExistingCommitment({
+          commitment: mockCommitment,
+          commitKey: mockCommitKey,
+          acceptor: temporaryOwner,
+          isLegacyCommit: false,
+          scopeKey: mockAddress,
+        }),
+      )
+
+      await waitFor(() => {
+        expect(result.current.data).toEqual({
+          status: 'transactionExists',
+          timestamp: Number(mockTime),
+        })
+      })
+      expect(setTransactionHashFromUpdate).toHaveBeenCalledWith(mockCommitKey, '0xrelayed')
+    })
   })
 })

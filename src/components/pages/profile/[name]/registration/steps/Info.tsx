@@ -1,17 +1,24 @@
+import { useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 
-import { Button, Heading, Typography } from '@ensdomains/thorin'
+import { makeCommitment } from '@ensdomains/ensjs/utils'
+import { Button, Heading, Helper, Typography } from '@ensdomains/thorin'
 
 import MobileFullWidth from '@app/components/@atoms/MobileFullWidth'
 import { Card } from '@app/components/Card'
+import { useAccountSafely } from '@app/hooks/account/useAccountSafely'
 import { useEstimateFullRegistration } from '@app/hooks/gasEstimation/useEstimateRegistration'
+import { useIntentSigner, useSigningState } from '@app/hooks/useIntentSigner'
 import { useRegistrarAllowance } from '@app/hooks/useRegistrarAllowance'
+import useRegistrationParams from '@app/hooks/useRegistrationParams'
+import { signingErrorMessage } from '@app/utils/snrcIntents'
+import { isSignedFor } from '@app/utils/snrcSponsor'
 
 import AllowanceInvoice from '../AllowanceInvoice'
 import AllowanceTooLowButton from '../AllowanceTooLowButton'
 import FullInvoice from '../FullInvoice'
-import { RegistrationReducerDataItem } from '../types'
+import { BackObj, RegistrationReducerDataItem, RegistrationStepData } from '../types'
 
 const StyledCard = styled(Card)(
   ({ theme }) => css`
@@ -102,7 +109,7 @@ const infoItemArr = Array.from({ length: 3 }, (_, i) => `steps.info.ethItems.${i
 type Props = {
   registrationData: RegistrationReducerDataItem
   name: string
-  callback: (data: { back: boolean }) => void
+  callback: (data: BackObj & RegistrationStepData['info']) => void
   onProfileClick: () => void
 }
 
@@ -118,6 +125,38 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
     seconds: registrationData.seconds,
   })
   const readsAllowance = !!registrationData.credit && covers === undefined
+
+  const { address } = useAccountSafely()
+  const { credit, terms } = registrationData
+  const temporaryOwner = credit && credit.owner !== address ? credit : undefined
+  const registrationParams = useRegistrationParams({
+    name,
+    owner: credit?.owner ?? address!,
+    registrationData,
+  })
+  const { signCredit } = useIntentSigner()
+  const signatures = useMutation({ mutationFn: signCredit })
+  const signingState = useSigningState(temporaryOwner?.owner)
+  const readsSigningState = !!temporaryOwner && !signingState
+  const asksSignatures =
+    !!temporaryOwner &&
+    !(
+      signingState &&
+      isSignedFor(temporaryOwner, {
+        commitment: makeCommitment(registrationParams),
+        terms,
+        onChain: signingState,
+      })
+    )
+
+  const begin = () => {
+    if (asksSignatures)
+      signatures.mutate(
+        { registrationParams, terms },
+        { onSuccess: (signedCredit) => callback({ back: false, credit: signedCredit }) },
+      )
+    else callback({ back: false })
+  }
 
   return (
     <StyledCard>
@@ -141,6 +180,12 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
       ) : (
         <FullInvoice {...estimate} />
       )}
+      {temporaryOwner && asksSignatures && (
+        <Helper alert="info">
+          {t('steps.info.temporaryOwner', { owner: temporaryOwner.owner })}
+        </Helper>
+      )}
+      {signatures.error && <Helper alert="error">{signingErrorMessage(signatures.error)}</Helper>}
       {!registrationData.queue.includes('profile') && (
         <ProfileButton data-testid="setup-profile-button" onClick={onProfileClick}>
           <Typography weight="bold" color="accent">
@@ -160,9 +205,9 @@ const Info = ({ registrationData, name, callback, onProfileClick }: Props) => {
           ) : (
             <Button
               data-testid="next-button"
-              loading={readsAllowance}
-              disabled={readsAllowance}
-              onClick={() => callback({ back: false })}
+              loading={readsAllowance || readsSigningState || signatures.isPending}
+              disabled={readsAllowance || readsSigningState || signatures.isPending}
+              onClick={begin}
             >
               {t('action.begin', { ns: 'common' })}
             </Button>

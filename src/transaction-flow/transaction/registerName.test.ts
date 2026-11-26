@@ -74,6 +74,56 @@ it('registers the committed registration through the sponsor, paid from the allo
   expect(args.slice(1)).toEqual([14n, 0n, 0n, '0x'])
 })
 
+const temporaryOwner ='0x7777777777777777777777777777777777777777'
+const temporaryOwnerRegistration: RegistrationParameters = {
+  name: 'alicebob.simplex',
+  owner: temporaryOwner,
+  duration: 63072000,
+  secret: `0x${'33'.repeat(32)}` as const,
+}
+const signed = { deadline: 1_900_000_000n, signature: `0x${'ab'.repeat(65)}` as const }
+const temporaryOwnerCredit = {
+  owner: temporaryOwner,
+  intents: {
+    commitment: makeCommitment(temporaryOwnerRegistration),
+    terms: {
+      kind: 'general',
+      hash: `0x${'77'.repeat(32)}`,
+      intent: { ...signed, nonce: 0n },
+    },
+    register: { ...signed, nonce: 2n },
+  },
+} as const
+
+it('registers to the temporary owner with the registration it signed, paid from the allowance', async () => {
+  const tx = await registerNameFlowTransaction.transaction({
+    client: { chain: { id: 1 } } as unknown as ClientWithEns,
+    connectorClient: {} as unknown as ConnectorClientWithEns,
+    data: { ...temporaryOwnerRegistration, credit: temporaryOwnerCredit },
+  })
+
+  const { args } = decodeFunctionData({ abi: sponsorAbi, data: tx.data })
+  expect(args[0].owner).toBe(temporaryOwner)
+  expect(args.slice(1)).toEqual([14n, 2n, 1_900_000_000n, signed.signature])
+})
+
+it('shows the owner in the confirmation of a register to a temporary owner', () => {
+  const t = ((key: string) => key) as never
+  const owner = { label: 'owner', value: temporaryOwner, type: 'address' }
+  expect(
+    registerNameFlowTransaction.displayItems(
+      { ...temporaryOwnerRegistration, credit: { owner: temporaryOwner } },
+      t,
+    ),
+  ).not.toContainEqual(owner)
+  expect(
+    registerNameFlowTransaction.displayItems(
+      { ...temporaryOwnerRegistration, credit: temporaryOwnerCredit },
+      t,
+    ),
+  ).toContainEqual(owner)
+})
+
 it('refuses a registration from the allowance on a chain without a SimplexSponsor address', async () => {
   mockFunction(getSponsorAddress).mockReturnValueOnce(undefined)
   const owner = '0x2222222222222222222222222222222222222222'

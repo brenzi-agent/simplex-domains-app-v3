@@ -7,12 +7,12 @@ import {
   parseAbiParameters,
   RawContractError,
 } from 'viem'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { makeRegistrationCallData, RegistrationParameters } from '@ensdomains/ensjs/utils'
 
 import { getReadableError } from './errors'
-import { getAllowanceCharge, makeRegisterWithCreditCall } from './snrcSponsor'
+import { getAllowanceCharge, isSignedFor, makeRegisterWithCreditCall } from './snrcSponsor'
 
 vi.mock('@app/constants/chains', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -61,6 +61,16 @@ describe('the sponsored registration', () => {
     expect(getAllowanceCharge([unrelated] as never)).toBeUndefined()
   })
 
+  it('is one call to the sponsor with the registration the temporary owner signed', () => {
+    const intent = {
+      nonce: 2n,
+      deadline: 1_900_000_000n,
+      signature: `0x${'ab'.repeat(65)}`,
+    } as const
+    const { args } = makeRegisterWithCreditCall({ chainId: 1, registrationParams, intent })
+    expect(args.slice(1)).toEqual([14n, 2n, 1_900_000_000n, intent.signature])
+  })
+
   it.each([
     [
       'InsufficientAllowance',
@@ -79,4 +89,75 @@ describe('the sponsored registration', () => {
     const error = new BaseError('reverted', { cause: new RawContractError({ data }) })
     expect(getReadableError(error)).toEqual({ message: errorName, type: 'contract' })
   })
+})
+
+describe('the signatures of a temporary owner', () => {
+  const NOW = 1_800_000_000
+  const COMMITMENT = `0x${'cc'.repeat(32)}` as const
+  const TERMS = { kind: 'general', hash: `0x${'77'.repeat(32)}` } as const
+  const intent = (deadline: number) =>
+    ({ nonce: 0n, deadline: BigInt(deadline), signature: `0x${'ab'.repeat(65)}` }) as const
+  const signed = (deadline: number) => ({
+    owner: REGISTRAR,
+    intents: {
+      commitment: COMMITMENT,
+      terms: { ...TERMS, intent: intent(deadline) },
+      register: intent(deadline),
+    },
+  })
+
+  beforeEach(() => {
+    vi.useFakeTimers({ now: NOW * 1000 })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  const TWO_DAYS = NOW + 2 * 86400
+  const onChain = { policyNonce: 0n, sponsorNonce: 0n, maxCommitmentAge: 86400n }
+
+  it('hold for a commit when they cover its commitment, terms, nonces and window', () => {
+    expect(
+      isSignedFor(signed(TWO_DAYS), { commitment: COMMITMENT, terms: TERMS, onChain }),
+    ).toBe(true)
+  })
+
+  it.each([
+    ['are missing', { owner: REGISTRAR }, COMMITMENT, TERMS, onChain],
+    ['are for another commitment', signed(TWO_DAYS), `0x${'dd'.repeat(32)}`, TERMS, onChain],
+    [
+      'accept other terms',
+      signed(TWO_DAYS),
+      COMMITMENT,
+      { kind: 'community', hash: TERMS.hash },
+      onChain,
+    ],
+    [
+      'end within the commitment window and an hour',
+      signed(NOW + 86400 + 1800),
+      COMMITMENT,
+      TERMS,
+      onChain,
+    ],
+    [
+      'accept the terms at a used nonce',
+      signed(TWO_DAYS),
+      COMMITMENT,
+      TERMS,
+      { ...onChain, policyNonce: 1n },
+    ],
+    [
+      'register at a used nonce',
+      signed(TWO_DAYS),
+      COMMITMENT,
+      TERMS,
+      { ...onChain, sponsorNonce: 1n },
+    ],
+  ] as const)(
+    'do not hold for a commit when they %s',
+    (_, credit, commitment, terms, chain) => {
+      expect(isSignedFor(credit, { commitment, terms, onChain: chain })).toBe(false)
+    },
+  )
 })

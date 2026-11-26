@@ -170,6 +170,10 @@ export const reducer = (state: RegistrationReducerData, action: RegistrationRedu
       item.referrer = action.payload
       break
     }
+    case 'setCredit': {
+      item.credit = action.payload
+      break
+    }
     // no default
   }
   return state

@@ -1,13 +1,18 @@
-import { decodeFunctionData, zeroAddress, zeroHash } from 'viem'
+import { decodeFunctionData, parseAbi, zeroAddress, zeroHash } from 'viem'
 import { describe, expect, it, vi } from 'vitest'
 
 import { makeCommitment } from '@ensdomains/ensjs/utils'
 import { commitName as ensCommitName } from '@ensdomains/ensjs/wallet'
 
 import { ClientWithEns, ConnectorClientWithEns } from '@app/types'
-import { namePolicyTermsAbi } from '@app/utils/snrcNameTerms'
 
 import commitName from './commitName'
+
+const namePolicyTermsAbi = parseAbi([
+  'function commitUnderGeneralTerms(bytes32 commitment, bytes32 acceptedTermsHash)',
+  'function commitUnderCommunityTerms(bytes32 commitment, bytes32 acceptedTermsHash)',
+  'function commitUnderGeneralTermsWithSig(bytes32 commitment, bytes32 acceptedTermsHash, address acceptor, uint256 nonce, uint256 deadline, bytes sig)',
+])
 
 const NAME_POLICY = '0x4444444444444444444444444444444444444444'
 const TERMS = `0x${'77'.repeat(32)}` as const
@@ -53,13 +58,52 @@ describe('commitName', () => {
     })
   })
 
+  const intent = { nonce: 0n, deadline: 1_900_000_000n, signature: `0x${'ab'.repeat(65)}` } as const
+  const terms = { kind: 'general', hash: TERMS } as const
+  const credit = {
+    owner: registration.owner,
+    intents: {
+      commitment: makeCommitment(registration),
+      terms: { ...terms, intent },
+      register: intent,
+    },
+  }
+
+  it('commits through the name policy with the terms the temporary owner accepted by signing', async () => {
+    const tx = await commitName.transaction({
+      client,
+      connectorClient,
+      data: { ...registration, terms, credit },
+    })
+    expect(tx.to).toBe(NAME_POLICY)
+    expect(decodeFunctionData({ abi: namePolicyTermsAbi, data: tx.data })).toEqual({
+      functionName: 'commitUnderGeneralTermsWithSig',
+      args: [
+        makeCommitment(registration),
+        TERMS,
+        registration.owner,
+        0n,
+        1_900_000_000n,
+        intent.signature,
+      ],
+    })
+  })
+
   it('shows the terms acceptance in the confirmation of a commit through the name policy', () => {
     const t = ((key: string) => key) as never
     expect(commitName.displayItems(registration, t)).not.toContainEqual(
       expect.objectContaining({ value: 'transaction.description.acceptTerms' }),
     )
-    expect(
-      commitName.displayItems({ ...registration, terms: { kind: 'general', hash: TERMS } }, t),
-    ).toContainEqual({ label: 'action', value: 'transaction.description.acceptTerms' })
+    expect(commitName.displayItems({ ...registration, terms }, t)).toContainEqual({
+      label: 'action',
+      value: 'transaction.description.acceptTerms',
+    })
+  })
+
+  it('shows the owner in the confirmation of a commit for a temporary owner', () => {
+    const t = ((key: string) => key) as never
+    const owner = { label: 'owner', value: registration.owner, type: 'address' }
+    expect(commitName.displayItems({ ...registration, terms }, t)).not.toContainEqual(owner)
+    expect(commitName.displayItems({ ...registration, terms, credit }, t)).toContainEqual(owner)
   })
 })

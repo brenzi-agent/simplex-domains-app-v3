@@ -239,13 +239,14 @@ const Registration = ({ nameDetails, isLoading, linkRecords }: Props) => {
     dispatch({ name: back ? 'decreaseStep' : 'increaseStep', selected })
   }
 
-  const infoCallback = ({ back }: BackObj) => {
+  const infoCallback = ({ back, credit }: RegistrationStepData['info'] & BackObj) => {
     if (!back) {
       sendEvent('register:info', {
         // eslint-disable-next-line @typescript-eslint/naming-convention
         ens_name: normalisedName,
       })
     }
+    if (credit) dispatch({ name: 'setCredit', payload: credit, selected })
 
     genericCallback({ back })
   }
@@ -379,6 +380,7 @@ const Registration = ({ nameDetails, isLoading, linkRecords }: Props) => {
                 registrationData={item}
                 onStart={onStart}
                 callback={transactionsCallback}
+                onCredit={(credit) => dispatch({ name: 'setCredit', payload: credit, selected })}
                 fromLink={!!linkRecords}
               />
             ))

@@ -68,7 +68,11 @@ export const useSimulateRegistration = ({
   })
 
   const creditSimulation = useSimulateContract({
-    ...makeRegisterWithCreditCall({ chainId: client.chain.id, registrationParams }),
+    ...makeRegisterWithCreditCall({
+      chainId: client.chain.id,
+      registrationParams,
+      intent: credit?.intents?.register,
+    }),
     query: { ...query, enabled: enabled && !!credit },
   })
 

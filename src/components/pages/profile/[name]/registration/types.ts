@@ -36,7 +36,7 @@ export type RegistrationStepData = {
     clearRecords?: boolean
     resolverAddress?: Address
   }
-  info: {}
+  info: { credit?: Credit }
   transactions: {
     secret: Hex
     started: boolean
@@ -128,6 +128,11 @@ export type RegistrationReducerAction =
       name: 'setReferrer'
       selected: SelectedItemProperties
       payload: Hex
+    }
+  | {
+      name: 'setCredit'
+      selected: SelectedItemProperties
+      payload: Credit
     }
 
 export type MoonpayTransactionStatus = 'pending' | 'completed' | 'failed' | 'waitingAuthorization'

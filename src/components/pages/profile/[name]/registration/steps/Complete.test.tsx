@@ -21,6 +21,7 @@ vi.mock('@app/transaction-flow/TransactionFlowProvider')
 vi.mock('@app/components/@molecules/NFTTemplate/NFTTemplate', () => ({ default: () => null }))
 
 const SELECTED = '0x2222222222222222222222222222222222222222'
+const TEMPORARY_OWNER = '0x7777777777777777777777777777777777777777'
 const SPONSOR = '0x5555555555555555555555555555555555555555'
 
 const spentLog = {
@@ -79,5 +80,27 @@ describe('Complete', () => {
   it('the cost of a paid registration is shown in ETH', () => {
     render(complete())
     expect(screen.getByTestId('invoice-item-0-amount')).toHaveTextContent('0.0100')
+  })
+
+  it('a name registered to the selected account is said to be its', () => {
+    render(complete({ owner: SELECTED }))
+    expect(screen.getByText('steps.complete.subheading')).toBeVisible()
+    expect(screen.queryByText('steps.complete.registeredTo')).not.toBeInTheDocument()
+  })
+
+  it('a name registered to a temporary owner is said to be registered to it', () => {
+    const intent = {
+      nonce: 0n,
+      deadline: 1_900_000_000n,
+      signature: `0x${'ab'.repeat(65)}`,
+    } as const
+    render(
+      complete({
+        owner: TEMPORARY_OWNER,
+        intents: { commitment: `0x${'cc'.repeat(32)}`, register: intent },
+      }),
+    )
+    expect(screen.getByText('steps.complete.registeredTo')).toBeVisible()
+    expect(screen.queryByText('steps.complete.subheading')).not.toBeInTheDocument()
   })
 })

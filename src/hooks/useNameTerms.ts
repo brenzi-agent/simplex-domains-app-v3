@@ -134,12 +134,16 @@ export const useNameTerms = ({ name }: { name: string }) => {
   }
 }
 
-type CommittedTermsQueryKey = CreateQueryKey<{ commitment: Hex }, 'getCommittedTerms', 'standard'>
+type CommittedTermsQueryKey = CreateQueryKey<
+  { commitment: Hex; acceptor?: Address },
+  'getCommittedTerms',
+  'standard'
+>
 
 export const getCommittedTermsQueryFn =
   (config: ConfigWithEns) =>
   async ({
-    queryKey: [{ commitment }, chainId, acceptor],
+    queryKey: [{ commitment, acceptor }, chainId],
   }: QueryFunctionContext<CommittedTermsQueryKey>) => {
     const namePolicyAddress = getNamePolicyAddress(chainId)
     if (!namePolicyAddress || !acceptor) return null
@@ -153,13 +157,15 @@ export const getCommittedTermsQueryFn =
 
 export const useCommittedTerms = ({
   commitment,
+  acceptor,
   enabled,
 }: {
   commitment: Hex
+  acceptor?: Address
   enabled: boolean
 }) => {
   const initialOptions = useQueryOptions({
-    params: { commitment },
+    params: { commitment, acceptor },
     functionName: 'getCommittedTerms',
     queryDependencyType: 'standard',
     queryFn: getCommittedTermsQueryFn,

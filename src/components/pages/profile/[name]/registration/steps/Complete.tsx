@@ -287,8 +287,17 @@ const Complete = ({ name, beautifiedName, callback, isMoonpayFlow, registrationD
       <TitleContainer>
         <Title>{t('steps.complete.heading')}</Title>
         <Typography style={{ display: 'inline' }} fontVariant="headingThree" weight="bold">
-          {t('steps.complete.subheading')}
-          <SubtitleWithGradient>{nameWithColourEmojis}</SubtitleWithGradient>
+          {registrationData.credit?.intents ? (
+            t('steps.complete.registeredTo', {
+              name: beautifiedName,
+              owner: registrationData.credit.owner,
+            })
+          ) : (
+            <>
+              {t('steps.complete.subheading')}
+              <SubtitleWithGradient>{nameWithColourEmojis}</SubtitleWithGradient>
+            </>
+          )}
         </Typography>
       </TitleContainer>
       <InvoiceContainer>

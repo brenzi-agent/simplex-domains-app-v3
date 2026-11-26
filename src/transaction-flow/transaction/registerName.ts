@@ -12,7 +12,7 @@ import { calculateValueWithBuffer, formatDurationOfDates } from '@app/utils/util
 type Data = RegistrationParameters & { credit?: Credit }
 const now = Math.floor(Date.now())
 const displayItems = (
-  { name, duration }: Data,
+  { name, owner, duration, credit }: Data,
   t: TFunction<'translation', undefined>,
 ): TransactionDisplayItem[] => [
   {
@@ -24,6 +24,7 @@ const displayItems = (
     label: 'action',
     value: t('transaction.description.registerName'),
   },
+  ...(credit?.intents ? [{ label: 'owner', value: owner, type: 'address' } as const] : []),
   {
     label: 'duration',
     value: formatDurationOfDates({
@@ -43,6 +44,7 @@ const transaction = async ({
     const { address, ...call } = makeRegisterWithCreditCall({
       chainId: client.chain.id,
       registrationParams: data,
+      intent: credit.intents?.register,
     })
     if (!address) throw new Error(`No SimplexSponsor address on chain ${client.chain.id}`)
     return { to: address, data: encodeFunctionData(call) }

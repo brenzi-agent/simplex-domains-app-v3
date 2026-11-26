@@ -1,9 +1,10 @@
-import { mockFunction, render, screen, userEvent } from '@app/test-utils'
+import { mockFunction, render, screen, userEvent, waitFor } from '@app/test-utils'
 
+import { BaseError, labelhash } from 'viem'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useBytecode } from 'wagmi'
+import { useBytecode, usePublicClient, useSignTypedData } from 'wagmi'
 
-import { useNameOffer } from '@app/hooks/useNameOffer'
+import { useConnectedHolder } from '@app/hooks/useNameOffer'
 
 import { makeMockIntersectionObserver } from '../../../../test/mock/makeMockIntersectionObserver'
 import OfferName from './OfferName-flow'
@@ -11,8 +12,15 @@ import OfferName from './OfferName-flow'
 const HOLDER = '0x2222222222222222222222222222222222222222'
 const RECIPIENT = '0x3333333333333333333333333333333333333333'
 const EARLIER_RECIPIENT = '0x4444444444444444444444444444444444444444'
+const REGISTRAR = '0x1111111111111111111111111111111111111111'
+const signTypedDataAsync = vi.fn()
+const readContract = vi.fn(async () => 2n)
 
 vi.mock('wagmi')
+vi.mock('@app/constants/chains', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getSnrcAddresses: () => ({ BaseRegistrarImplementation: REGISTRAR }),
+}))
 vi.mock('@app/hooks/useNameOffer')
 vi.mock('../SendName/views/SearchView/SearchView', () => ({
   SearchView: ({
@@ -34,15 +42,24 @@ vi.mock('@app/components/@molecules/AvatarWithIdentifier/AvatarWithIdentifier', 
 }))
 
 const mockUseBytecode = mockFunction(useBytecode)
-const mockUseNameOffer = mockFunction(useNameOffer)
+const mockUseConnectedHolder = mockFunction(useConnectedHolder)
 const mockDispatch = vi.fn()
 
 makeMockIntersectionObserver()
 
+const connectedHolder = (
+  offer: { data: object; isError?: boolean },
+  relayedHolder?: string,
+) =>
+  mockUseConnectedHolder.mockReturnValue({
+    offer,
+    connectedHolder: relayedHolder
+      ? { kind: 'relayed', account: relayedHolder }
+      : { kind: 'selected' },
+  } as unknown as ReturnType<typeof useConnectedHolder>)
+
 const offerTo = (recipient?: string) =>
-  mockUseNameOffer.mockReturnValue({
-    data: { holder: HOLDER, recipient, isHolder: true, isRecipient: false },
-  } as unknown as ReturnType<typeof useNameOffer>)
+  connectedHolder({ data: { holder: HOLDER, recipient, isHolder: true, isRecipient: false } })
 
 const renderAndSelect = async () => {
   render(
@@ -56,6 +73,13 @@ describe('OfferName', () => {
     vi.clearAllMocks()
     offerTo(undefined)
     mockUseBytecode.mockReturnValue({ data: undefined, isSuccess: true } as never)
+    mockFunction(usePublicClient).mockReturnValue({
+      chain: { id: 1 },
+      readContract,
+      verifyTypedData: async () => true,
+    } as never)
+    mockFunction(useSignTypedData).mockReturnValue({ signTypedDataAsync } as never)
+    signTypedDataAsync.mockResolvedValue(`0x${'aa'.repeat(65)}`)
   })
 
   it('asks for the recipient under the offer title', () => {
@@ -104,10 +128,7 @@ describe('OfferName', () => {
     expect(screen.getByTestId('offer-name-confirm')).toBeDisabled()
 
     mockUseBytecode.mockReturnValue({ data: undefined, isSuccess: true } as never)
-    mockUseNameOffer.mockReturnValue({
-      data: { holder: HOLDER, isHolder: true, isRecipient: false },
-      isError: true,
-    } as unknown as ReturnType<typeof useNameOffer>)
+    connectedHolder({ data: { holder: HOLDER, isHolder: true, isRecipient: false }, isError: true })
     await userEvent.click(screen.getByText('action.back'))
     await userEvent.click(screen.getByTestId('select-recipient'))
     expect(screen.getByText('input.offerName.failed')).toBeVisible()
@@ -123,5 +144,61 @@ describe('OfferName', () => {
     await userEvent.click(screen.getByText('action.back'))
     await userEvent.click(screen.getByTestId('select-recipient'))
     expect(screen.queryByText('input.offerName.replaces')).not.toBeInTheDocument()
+  })
+
+  const heldByAnotherConnectedAccount = () =>
+    connectedHolder({ data: { holder: HOLDER, isHolder: false, isRecipient: false } }, HOLDER)
+
+  it('the holder, another connected account, signs the offer, and the selected account sends it', async () => {
+    heldByAnotherConnectedAccount()
+    await renderAndSelect()
+    expect(screen.getByText('input.offerName.relayed')).toBeVisible()
+    await userEvent.click(screen.getByTestId('offer-name-confirm'))
+
+    await waitFor(() =>
+      expect(mockDispatch).toHaveBeenCalledWith({
+        name: 'setTransactions',
+        payload: [
+          {
+            name: 'offerName',
+            data: {
+              name: 'alice.testing',
+              recipient: RECIPIENT,
+              intent: {
+                signer: HOLDER,
+                nonce: 2n,
+                deadline: expect.any(BigInt),
+                signature: `0x${'aa'.repeat(65)}`,
+              },
+            },
+          },
+        ],
+      }),
+    )
+    expect(readContract).toHaveBeenCalledWith(
+      expect.objectContaining({ address: REGISTRAR, functionName: 'nonces', args: [HOLDER] }),
+    )
+    expect(signTypedDataAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        account: HOLDER,
+        primaryType: 'ApproveName',
+        domain: expect.objectContaining({ verifyingContract: REGISTRAR }),
+        message: expect.objectContaining({
+          from: HOLDER,
+          to: RECIPIENT,
+          tokenId: BigInt(labelhash('alice')),
+          nonce: 2n,
+        }),
+      }),
+    )
+  })
+
+  it('the reason why the holder did not sign the offer is shown, and nothing is offered', async () => {
+    heldByAnotherConnectedAccount()
+    signTypedDataAsync.mockRejectedValue(new BaseError('User rejected the request.'))
+    await renderAndSelect()
+    await userEvent.click(screen.getByTestId('offer-name-confirm'))
+    expect(await screen.findByText('User rejected the request.')).toBeVisible()
+    expect(mockDispatch).not.toHaveBeenCalled()
   })
 })

@@ -316,10 +316,16 @@ describe('getTermsTextQueryFn', () => {
 describe('getCommittedTermsQueryFn', () => {
   const getCommittedTerms = (acceptor?: `0x${string}`) =>
     getCommittedTermsQueryFn(config)({
-      queryKey: [{ commitment: COMMITMENT }, 1337, acceptor, undefined, 'getCommittedTerms'],
+      queryKey: [
+        { commitment: COMMITMENT, acceptor },
+        1337,
+        HOLDER,
+        undefined,
+        'getCommittedTerms',
+      ],
     } as never)
 
-  it("reads the connected account's acceptance for the commitment", async () => {
+  it("reads the owner's acceptance for the commitment, not the connected account's", async () => {
     mockReadContract.mockResolvedValueOnce(TERMS)
     expect(await getCommittedTerms(RECIPIENT)).toBe(TERMS)
     expect(mockReadContract).toHaveBeenCalledWith(
@@ -332,7 +338,7 @@ describe('getCommittedTermsQueryFn', () => {
     )
   })
 
-  it('reads nothing without a connected account', async () => {
+  it('reads nothing without an owner', async () => {
     expect(await getCommittedTerms()).toBeNull()
     expect(mockReadContract).not.toHaveBeenCalled()
   })
