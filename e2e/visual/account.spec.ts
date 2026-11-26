@@ -55,3 +55,18 @@ test('admin page of the owner and guardian', async ({ page, app }) => {
     'register-reserved.png',
   )
 })
+
+test('name policy page', async ({ page, app }) => {
+  await app.open('/namepolicy')
+  const reserved = page.getByTestId('name-policy-reserved')
+  const community = page.getByTestId('name-policy-community')
+  await expect(reserved).toContainText(`simplex-chat.${TLD}`)
+  await expect(community).toContainText(`communityname.${TLD}`)
+  const policy = around(page, page.getByRole('heading', { name: 'Name policy' }), community)
+  await matchScreenshot(policy, 'name-policy.png')
+
+  await page.getByLabel('Search names', { exact: true }).fill('claim')
+  await expect(page.getByTestId('name-policy-community-count')).toHaveText('1 of 2')
+  await expect(page.getByTestId('name-policy-reserved-count')).toHaveText('0 of 2')
+  await matchScreenshot(policy, 'name-policy-search.png')
+})
