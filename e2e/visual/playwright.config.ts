@@ -20,7 +20,7 @@ export default defineConfig({
       animations: 'disabled',
       caret: 'hide',
       scale: 'css',
-      threshold: 0,
+      threshold: 0.01,
       maxDiffPixels: 0,
       stylePath: join(__dirname, 'screenshot.css'),
     },

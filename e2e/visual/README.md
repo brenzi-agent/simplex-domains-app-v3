@@ -27,6 +27,7 @@ Playwright specs drive the dApp through its flows on a local anvil chain and com
 | network | the dApp and the node; terms files from `chain/terms/`; NXDOMAIN for DNS-over-HTTPS queries; other requests and WebSockets closed |
 | browser | Chromium of `mcr.microsoft.com/playwright:v1.50.1-jammy`, 1280×1000 or 390×844, `en-US`, UTC, light, scale 1 |
 | hidden in screenshots | `canvas` (confetti of the registration), transaction toasts (shown for 8 s) |
+| pixel tolerance | Playwright `threshold` 0.01 (YIQ colour distance); the compositor's rounding, up to 2 per channel between runs on one machine, stays below it |
 
 ## Run
 
