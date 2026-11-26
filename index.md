@@ -6,7 +6,7 @@ The chain runs on anvil in place of a Hardhat node: a Hardhat 3 node refuses `et
 
 ## [#25](https://github.com/simplex-chat/simplex-domains-app-v3/pull/25)
 
-Base simplex b00379559, PR simplex 8ae4e66e1, the merge of this PR: the tree of bfa3a79db plus AvatarUpload.test.tsx of #21. Local chain: anvil 1.5.1, chain ID 1337, ens-contracts 6e035ada deployed by `scripts/deploy-local.mjs` of simplex-namespace-contract main 24e530642; accounts of the test mnemonic only; Chromium at 1280 px (390 px for the phone menu), light theme, UTC. A flip diff alternates the base and the PR every 1.5 s, labelled in its corner.
+Base simplex b00379559, PR simplex 8ae4e66e1, the merge of this PR: the tree of bfa3a79db plus AvatarUpload.test.tsx of #21. Local chain: anvil 1.5.1, chain ID 1337, ens-contracts 6e035ada deployed by `scripts/deploy-local.mjs` of simplex-namespace-contract main 24e530642; accounts of the test mnemonic only; Chromium at 1280 px (390 px for the phone menu), light theme, UTC. A flip diff is a GIF in which the base frame and the PR frame are shown in turn for 1.5 s each, labelled in a corner.
 
 Connected as test account #0. The local network is named “Localhost”.
 
@@ -16,7 +16,7 @@ Connected as test account #0. The local network is named “Localhost”.
 
 ## [#26](https://github.com/simplex-chat/simplex-domains-app-v3/pull/26)
 
-Base simplex 8ae4e66e1, PR f409c6b99. Local chain: anvil 1.5.1, chain ID 1337, ens-contracts 6e035ada deployed by `scripts/deploy-local.mjs` of simplex-namespace-contract main 24e530642; accounts of the test mnemonic only; Chromium at 1280 px (390 px for the phone menu), light theme, UTC. A flip diff alternates the base and the PR every 1.5 s, labelled in its corner.
+Base simplex 8ae4e66e1, PR f409c6b99. Local chain: anvil 1.5.1, chain ID 1337, ens-contracts 6e035ada deployed by `scripts/deploy-local.mjs` of simplex-namespace-contract main 24e530642; accounts of the test mnemonic only; Chromium at 1280 px (390 px for the phone menu), light theme, UTC. A flip diff is a GIF in which the base frame and the PR frame are shown in turn for 1.5 s each, labelled in a corner.
 
 disputedname.simplex and offeredname.simplex are registered with `registerWithCredit` and 14 dispute days (dispute end 10 Dec 2026); offeredname.simplex is offered by account #0 to account #1. endedname.simplex of account #3 is ended in its dispute period with `unregister`, sent by account #0, the local controller owner and guardian.
 
@@ -32,7 +32,7 @@ The three failed reads are made by request interception in the browser: the `dis
 
 ## [#19](https://github.com/simplex-chat/simplex-domains-app-v3/pull/19)
 
-Base #26 f409c6b99, PR c1485b4ce. Local chain: anvil 1.5.1, chain ID 1337, ens-contracts 6e035ada deployed by `scripts/deploy-local.mjs` of simplex-namespace-contract main 24e530642; accounts of the test mnemonic only; Chromium at 1280 px (390 px for the phone menu), light theme, UTC. A flip diff alternates the base and the PR every 1.5 s, labelled in its corner.
+Base #26 f409c6b99, PR c1485b4ce. Local chain: anvil 1.5.1, chain ID 1337, ens-contracts 6e035ada deployed by `scripts/deploy-local.mjs` of simplex-namespace-contract main 24e530642; accounts of the test mnemonic only; Chromium at 1280 px (390 px for the phone menu), light theme, UTC. A flip diff is a GIF in which the base frame and the PR frame are shown in turn for 1.5 s each, labelled in a corner.
 
 renewname.simplex is registered by account #0 on the payable path, without a dispute period; account #1 is a non-holder.
 
@@ -49,7 +49,7 @@ renewname.simplex is registered by account #0 on the payable path, without a dis
 
 ## [#27](https://github.com/simplex-chat/simplex-domains-app-v3/pull/27)
 
-Base simplex 8ae4e66e1, PR 858b40228. Local chain: anvil 1.5.1, chain ID 1337, ens-contracts 6e035ada deployed by `scripts/deploy-local.mjs` of simplex-namespace-contract main 24e530642; accounts of the test mnemonic only; Chromium at 1280 px (390 px for the phone menu), light theme, UTC. A flip diff alternates the base and the PR every 1.5 s, labelled in its corner.
+Base simplex 8ae4e66e1, PR 858b40228. Local chain: anvil 1.5.1, chain ID 1337, ens-contracts 6e035ada deployed by `scripts/deploy-local.mjs` of simplex-namespace-contract main 24e530642; accounts of the test mnemonic only; Chromium at 1280 px (390 px for the phone menu), light theme, UTC. A flip diff is a GIF in which the base frame and the PR frame are shown in turn for 1.5 s each, labelled in a corner.
 
 Account #1 (W0) has a registrar allowance of $1,000 on SimplexSponsor, set by account #0, the local guardian. The price of partnername.simplex for 2 years is $100.
 
@@ -67,7 +67,7 @@ The loading and failed reads are made by request interception in the browser: th
 
 ## [#28](https://github.com/simplex-chat/simplex-domains-app-v3/pull/28)
 
-Base #27 858b40228, PR 3ac283e2e. Local chain: anvil 1.5.1, chain ID 1337, ens-contracts 6e035ada deployed by `scripts/deploy-local.mjs` of simplex-namespace-contract main 24e530642; accounts of the test mnemonic only; Chromium at 1280 px (390 px for the phone menu), light theme, UTC. A flip diff alternates the base and the PR every 1.5 s, labelled in its corner.
+Base #27 858b40228, PR 3ac283e2e. Local chain: anvil 1.5.1, chain ID 1337, ens-contracts 6e035ada deployed by `scripts/deploy-local.mjs` of simplex-namespace-contract main 24e530642; accounts of the test mnemonic only; Chromium at 1280 px (390 px for the phone menu), light theme, UTC. A flip diff is a GIF in which the base frame and the PR frame are shown in turn for 1.5 s each, labelled in a corner.
 
 W0 is account #1 (selected, with the allowance); Wn is account #2, 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC (connected). The test wallet signs typed data with the account that the request names, as MetaMask does for a permitted account.
 
