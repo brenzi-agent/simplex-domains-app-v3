@@ -2,6 +2,9 @@ name: Visual
 
 on:
   push:
+    branches: ['**']
+  pull_request:
+  workflow_call:
   workflow_dispatch:
     inputs:
       update:
@@ -9,12 +12,18 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: read
+
 jobs:
   visual:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    concurrency:
+      group: visual-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+      cancel-in-progress: true
     container:
-      image: mcr.microsoft.com/playwright:v1.50.1-jammy
+      image: mcr.microsoft.com/playwright:v1.50.1-jammy@sha256:8845c40cdade98fd7a6cd32df75bfc234cd52b3278f9cd1f9fe8d6291e48ea03
     env:
       NEXT_PUBLIC_CHAIN_NAME: localhost
       NEXT_PUBLIC_PROVIDER: http://127.0.0.1:8545
@@ -33,10 +42,11 @@ jobs:
           version: v1.5.1
           cache: false
 
-      - name: Build the dApp for the local chain
+      - name: Export the dApp for the local chain as the Pages deploy does
         run: |
           export NEXT_PUBLIC_DEPLOYMENT_ADDRESSES="$(cat e2e/visual/chain/addresses.json)"
           pnpm build
+          pnpm export
 
       - name: Compare the screens with the baselines
         run: pnpm exec playwright test -c e2e/visual/playwright.config.ts ${{ inputs.update && '--update-snapshots' || '' }}
