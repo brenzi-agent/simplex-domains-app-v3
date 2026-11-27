@@ -1,8 +1,8 @@
 # Visual tests
 
-Playwright specs drive the static export of the dApp, built for mainnet as the Pages deploy builds it, through its flows on a local anvil chain with chain id 1, and compare each step with a committed screenshot: a page as a whole, a dialog as the viewport. A screen whose pixels differ beyond the tolerance below fails the test; the run's artifact `visual-results` holds the `-actual`, `-expected` and `-diff` images and the HTML report. Each spec is run in two projects, `desktop` and `phone`; the tests of `/admin`, a desktop-only page, are skipped in `phone`.
+Playwright specs drive the static export of the dApp, built for mainnet as the Pages deploy builds it, through its flows on a local anvil chain with chain id 1, and compare each step with a committed screenshot: a page as a whole, a dialog as the viewport. A screen whose pixels differ beyond the tolerance below fails the test. Each spec is run in two projects, `desktop` and `phone`; the tests of `/admin`, a desktop-only page, are skipped in `phone`.
 
-The workflow Visual runs on pull requests and on pushes to `simplex`. Before a pull request is opened, it is started on the branch with "Run workflow".
+The workflow Visual runs on pull requests and on pushes to `simplex`. Before a pull request is opened, it is started on the branch with "Run workflow". It runs the two projects in two parallel jobs, `visual (desktop)` and `visual (phone)`, each with its own export, anvil and one worker. Each job's artifact `visual-results-<project>` holds the `-actual`, `-expected` and `-diff` images and the HTML report of its project.
 
 ## Files
 
@@ -59,12 +59,12 @@ pnpm export
 pnpm exec playwright test -c e2e/visual/playwright.config.ts
 ```
 
-The config starts anvil on the port of `NEXT_PUBLIC_MAINNET_RPC_URL` and `pages-server.mjs` on `E2E_PORT`. Screenshots taken outside the CI image differ from the baselines.
+The config starts anvil on the port of `NEXT_PUBLIC_MAINNET_RPC_URL` and `pages-server.mjs` on `E2E_PORT`. With `--project=desktop` or `--project=phone`, Playwright runs one project, as each job of the workflow does. Screenshots taken outside the CI image differ from the baselines.
 
 ## Accept a changed screen
 
 1. Run the workflow Visual on the branch with "Write the screenshots that differ as the new baselines".
-2. Replace `e2e/visual/screenshots` with the run's artifact `visual-baselines` and commit it.
+2. Delete `e2e/visual/screenshots/desktop` and `e2e/visual/screenshots/phone`, extract the run's artifacts `visual-baselines-desktop` and `visual-baselines-phone` into `e2e/visual/screenshots`, and commit the result. Each artifact holds its project's folder and `registration.spec.ts/owner-typed-data.json`, which both projects compare.
 
 A new screenshot follows the same steps: its first run writes it and fails.
 

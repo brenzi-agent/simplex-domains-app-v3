@@ -14,13 +14,18 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: visual-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   visual:
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    concurrency:
-      group: visual-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [desktop, phone]
     container:
       image: mcr.microsoft.com/playwright:v1.50.1-jammy@sha256:8845c40cdade98fd7a6cd32df75bfc234cd52b3278f9cd1f9fe8d6291e48ea03
     env:
@@ -58,12 +63,12 @@ jobs:
           pnpm export
 
       - name: Compare the screens with the baselines
-        run: pnpm exec playwright test -c e2e/visual/playwright.config.ts ${{ inputs.update && '--update-snapshots' || '' }}
+        run: pnpm exec playwright test -c e2e/visual/playwright.config.ts --project=${{ matrix.project }} ${{ inputs.update && '--update-snapshots' || '' }}
 
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: visual-results
+          name: visual-results-${{ matrix.project }}
           path: |
             test-results/visual
             playwright-report/visual
@@ -72,6 +77,8 @@ jobs:
       - if: inputs.update || failure()
         uses: actions/upload-artifact@v4
         with:
-          name: visual-baselines
-          path: e2e/visual/screenshots
+          name: visual-baselines-${{ matrix.project }}
+          path: |
+            e2e/visual/screenshots/${{ matrix.project }}
+            e2e/visual/screenshots/registration.spec.ts
           retention-days: 14
