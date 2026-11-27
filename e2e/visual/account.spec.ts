@@ -17,7 +17,7 @@ import {
   unregister,
   type User,
 } from './chain'
-import { expect, matchScreen, test } from './fixtures'
+import { connectButton, expect, matchScreen, test } from './fixtures'
 
 const HOLDER: User = 'user4'
 const RECEIVER: User = 'user3'
@@ -39,13 +39,15 @@ test('my names without a name ended in its dispute period', async ({ page, app }
   await matchScreen(page, 'my-names.png')
 })
 
-for (const { viewer, wallet } of [
-  { viewer: 'holder', wallet: { accounts: [HOLDER] } },
-  { viewer: 'visitor', wallet: undefined },
+for (const { viewer, wallet, connectButtons } of [
+  { viewer: 'holder', wallet: { accounts: [HOLDER] }, connectButtons: 0 },
+  { viewer: 'visitor', wallet: undefined, connectButtons: 1 },
 ] as const) {
   test(`address page of a name's holder, opened by its ${viewer}`, async ({ page, app }) => {
     await register('addressname', HOLDER)
-    await app.open(`/address?address=${accountOf(HOLDER).address}`, wallet)
+    await app.open('/', wallet)
+    await app.goto(`/address?address=${accountOf(HOLDER).address}`)
+    await expect(connectButton(page)).toHaveCount(connectButtons)
     await expect(page.getByTestId('names-list')).toContainText(`addressname.${TLD}`)
     await matchScreen(page, `address-${viewer}.png`)
   })
