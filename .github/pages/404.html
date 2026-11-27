@@ -10,7 +10,11 @@
   var p = location.pathname.replace(/\/+$/, '');
   var enc = encodeURIComponent;
   var go = function (path, qs) {
-    var query = [qs, location.search.slice(1)].filter(Boolean).join('&');
+    var query = new URLSearchParams(qs);
+    new URLSearchParams(location.search).forEach(function (value, key) {
+      if (!query.has(key)) query.append(key, value);
+    });
+    query = query.toString();
     location.replace(path + (query ? '?' + query : '') + location.hash);
   };
 
@@ -44,7 +48,7 @@
   if (p === '/legal/terms-of-use')   return location.replace('https://ens.domains/legal/terms-of-use');
 
   // Unrecognised path — fall back to homepage rather than dead-ending.
-  go('/', '');
+  location.replace('/');
 })();
 </script>
 </head>
