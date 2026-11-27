@@ -2,7 +2,7 @@ name: Visual
 
 on:
   push:
-    branches: ['**']
+    branches: [simplex]
   pull_request:
   workflow_dispatch:
     inputs:
@@ -16,12 +16,11 @@ permissions:
 
 jobs:
   visual:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 60
     concurrency:
       group: visual-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-      cancel-in-progress: ${{ github.ref != 'refs/heads/simplex' && github.ref != 'refs/heads/production' }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     container:
       image: mcr.microsoft.com/playwright:v1.50.1-jammy@sha256:8845c40cdade98fd7a6cd32df75bfc234cd52b3278f9cd1f9fe8d6291e48ea03
     env:
@@ -35,7 +34,17 @@ jobs:
       - name: Allow git in the checkout, owned by another user than the container's
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - uses: ./.github/actions/setup
+      - uses: pnpm/action-setup@v3
+        with:
+          version: '10.23.0'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install the dependencies as the Pages deploy does
+        run: pnpm install --no-frozen-lockfile --prefer-frozen-lockfile
 
       - uses: foundry-rs/foundry-toolchain@v1
         with:
