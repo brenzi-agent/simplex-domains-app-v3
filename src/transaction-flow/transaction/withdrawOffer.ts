@@ -38,6 +38,7 @@ const helper = (
   intent && {
     alert: 'info',
     children: t('transaction.info.withdrawOfferRelayed', { holder: intent.signer }),
+    style: { overflowWrap: 'anywhere' },
   }
 
 const transaction = ({ client, data }: TransactionFunctionParameters<Data>) => ({
