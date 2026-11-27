@@ -161,7 +161,10 @@ const matchAtTop = async (
   name: string,
   options: { fullPage?: boolean; mask: Locator[] },
 ) => {
-  await page.evaluate(() => window.scrollTo(0, 0))
+  await page.evaluate(() => {
+    window.scrollTo(0, 0)
+    if (document.body.style.position === 'fixed') document.body.style.top = '0px'
+  })
   await page.mouse.move(0, 0)
   await expect(page).toHaveScreenshot(name, options)
 }

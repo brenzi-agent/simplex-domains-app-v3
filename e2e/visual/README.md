@@ -28,7 +28,7 @@ Playwright specs drive the static export of the dApp, built for mainnet as the P
 | block time | previous block + 1 s |
 | browser clock | fixed at the time of the latest block, set at each page load, before a screen of the commitment wait and after the wait |
 | registration secret | random; `owner-typed-data.json` holds `<random>` for its commitment, and the test reads the commitment on chain |
-| pointer and scroll | the pointer at (0, 0), the page and a dialog's body at their top before each screenshot |
+| pointer and scroll | the pointer at (0, 0), the page and a dialog's body at their top before each screenshot; behind an open dialog, which fixes the page at its scroll position, the page is moved to its top |
 | countdown | the commitment wait is compared once it shows 60 |
 | network | the dApp and the node; each terms file at the exact URL of its link; NXDOMAIN for DNS-over-HTTPS queries; other requests refused; WebSockets accepted and left unanswered |
 | browser | Chromium of `mcr.microsoft.com/playwright:v1.50.1-jammy`, `en-US`, UTC, light, scale 1; `desktop` 1280×1000; `phone` the iPhone 13 of Playwright, with its user agent and touch, at 390×844 |
