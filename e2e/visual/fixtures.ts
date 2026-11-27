@@ -33,6 +33,7 @@ const SCREENSHOT_CSS = join(__dirname, 'screenshot.css')
 const WHOLE_PAGE_CSS = join(__dirname, 'whole-page.css')
 const LASTING_SCREEN_MS = 3_000
 const RPC_QUIET_MS = 500
+const RPC_POLL_MS = 100
 const TRANSACTION_SUCCESSFUL = 'Transaction Successful'
 export const TERMS_TITLE = 'SimpleX Names Conditions of Use'
 export const USER_REJECTED = 'User rejected the request.'
@@ -203,7 +204,9 @@ const rpcSettled = async (page: Page) => {
   if (!activity) throw new Error('the page was not opened by the app fixture')
   const since = Date.now()
   await expect
-    .poll(() => (activity.pending ? 0 : Date.now() - Math.max(since, activity.lastActivity)))
+    .poll(() => (activity.pending ? 0 : Date.now() - Math.max(since, activity.lastActivity)), {
+      intervals: [RPC_POLL_MS],
+    })
     .toBeGreaterThanOrEqual(RPC_QUIET_MS)
 }
 
