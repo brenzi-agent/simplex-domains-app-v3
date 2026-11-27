@@ -53,6 +53,7 @@ const matchTabs = async (page: Page, viewer: 'holder' | 'visitor') => {
 
   await showTab(page, 'Ownership')
   await expect(page.getByTestId('expiry-panel-grace-period')).toBeVisible()
+  await expect(page.getByTestId('expiry-action-extend')).toHaveCount(editors)
   await matchScreen(page, `${viewer}-ownership.png`)
 
   await showTab(page, 'Subnames')
@@ -87,6 +88,7 @@ test('name page in its grace period', async ({ page, app }) => {
   await matchScreen(page, 'grace-period-profile.png')
   await showTab(page, 'Ownership')
   await expect(page.getByTestId('expiry-panel-grace-period')).toBeVisible()
+  await expect(page.getByTestId('expiry-action-extend')).toBeVisible()
   await matchScreen(page, 'grace-period-ownership.png')
 })
 

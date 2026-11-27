@@ -34,7 +34,7 @@ The workflow Visual runs on pull requests and on pushes to `simplex`. Before a p
 | registration secret | random; `owner-typed-data.json` holds `<random>` for its commitment, and the test reads the commitment on chain |
 | pointer and scroll | the pointer at (0, 0), the page and a dialog's body at their top before each screenshot; behind an open dialog, which fixes the page at its scroll position, the page is moved to its top |
 | countdown | the commitment wait is compared once it shows 60 |
-| network fee | a screen with a fee estimate is compared once the estimate is shown and, after accepting the terms, which changes the estimated transactions, once the node has had no request for 0.5 s |
+| data loading | each screenshot is taken once the dApp has had no pending RPC request for 0.5 s; a screen with a fee estimate is compared once the estimate is shown |
 | network | the dApp and the node; the dApp's fallback RPC endpoints answered by the node, as they answer with mainnet's state; each terms file at the exact URL of its link, with GitHub's content type; NXDOMAIN for DNS-over-HTTPS queries; other requests refused; WebSockets accepted and left unanswered |
 | browser | `mcr.microsoft.com/playwright:v1.50.1-jammy`, `en-US`, UTC, light, scale 1; `desktop` Chromium at 1280×1000; `phone` the iPhone 13 of Playwright, with its engine WebKit, its user agent and touch, at 390×844 |
 | terms checkbox | ticked by a click event dispatched on it: inside a phone dialog, WebKit's hit test at its centre reaches the terms box around it |

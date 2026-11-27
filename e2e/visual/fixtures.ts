@@ -177,11 +177,40 @@ const connect = async (page: Page, isMobile: boolean) => {
   await expect(connectButton(page)).toHaveCount(0)
 }
 
+type RpcActivity = { pending: number; lastActivity: number }
+
+const rpcActivities = new WeakMap<Page, RpcActivity>()
+
+const trackRpcActivity = (page: Page) => {
+  const activity: RpcActivity = { pending: 0, lastActivity: 0 }
+  rpcActivities.set(page, activity)
+  page.on('request', (request) => {
+    if (!isRpc(new URL(request.url()))) return
+    activity.pending += 1
+    activity.lastActivity = Date.now()
+  })
+  const settle = (request: Request) => {
+    if (!isRpc(new URL(request.url()))) return
+    activity.pending -= 1
+    activity.lastActivity = Date.now()
+  }
+  page.on('requestfinished', settle)
+  page.on('requestfailed', settle)
+}
+
+const rpcSettled = async (page: Page) => {
+  const activity = rpcActivities.get(page)
+  if (!activity) throw new Error('the page was not opened by the app fixture')
+  const since = Date.now()
+  await expect
+    .poll(() => (activity.pending ? 0 : Date.now() - Math.max(since, activity.lastActivity)))
+    .toBeGreaterThanOrEqual(RPC_QUIET_MS)
+}
+
 export type App = {
   open: (path: string, wallet?: Wallet) => ReturnType<typeof injectWallet>
   goto: (path: string) => Promise<void>
   syncClock: () => Promise<void>
-  rpcSettled: () => Promise<void>
 }
 
 export const test = base.extend<{ app: App }>({
@@ -190,29 +219,11 @@ export const test = base.extend<{ app: App }>({
     const context = page.context()
     await context.route((url) => !LOCAL_ORIGINS.includes(url.origin), serveExternal)
     await context.routeWebSocket(/.*/, () => {})
+    trackRpcActivity(page)
     const syncClock = async () =>
       page.clock.setFixedTime(new Date(Number(await latestTimestamp()) * 1000))
-    const rpc = { pending: 0, lastActivity: 0 }
-    page.on('request', (request) => {
-      if (!isRpc(new URL(request.url()))) return
-      rpc.pending += 1
-      rpc.lastActivity = Date.now()
-    })
-    const settle = (request: Request) => {
-      if (!isRpc(new URL(request.url()))) return
-      rpc.pending -= 1
-      rpc.lastActivity = Date.now()
-    }
-    page.on('requestfinished', settle)
-    page.on('requestfailed', settle)
     await use({
       syncClock,
-      rpcSettled: async () => {
-        const since = Date.now()
-        await expect
-          .poll(() => (rpc.pending ? 0 : Date.now() - Math.max(since, rpc.lastActivity)))
-          .toBeGreaterThanOrEqual(RPC_QUIET_MS)
-      },
       goto: async (path) => {
         await syncClock()
         await page.goto(path)
@@ -235,6 +246,7 @@ const matchAtTop = async (
   name: string,
   options: { fullPage?: boolean; mask: Locator[]; stylePath?: string[] },
 ) => {
+  await rpcSettled(page)
   await page.evaluate(() => {
     window.scrollTo(0, 0)
     if (document.body.style.position === 'fixed') document.body.style.top = '0px'
