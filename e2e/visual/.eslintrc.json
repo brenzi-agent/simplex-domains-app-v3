@@ -1,5 +1,11 @@
 {
-  "ignorePatterns": ["*.mjs"],
+  "overrides": [
+    {
+      "files": ["*.mjs"],
+      "parserOptions": { "project": "./e2e/visual/tsconfig.eslint.json" },
+      "rules": { "no-await-in-loop": "off" }
+    }
+  ],
   "rules": {
     "import/no-extraneous-dependencies": ["error", { "devDependencies": true }]
   }
