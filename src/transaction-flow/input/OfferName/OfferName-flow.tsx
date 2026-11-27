@@ -12,7 +12,7 @@ import { useIntentSigner } from '@app/hooks/useIntentSigner'
 import { useConnectedHolder } from '@app/hooks/useNameOffer'
 import { createTransactionItem } from '@app/transaction-flow/transaction'
 import { TransactionDialogPassthrough } from '@app/transaction-flow/types'
-import { SignedIntent, signingErrorMessage } from '@app/utils/snrcIntents'
+import { SignedIntent, signerNoteStyle, signingErrorMessage } from '@app/utils/snrcIntents'
 
 import { SearchView } from '../SendName/views/SearchView/SearchView'
 
@@ -89,7 +89,7 @@ const OfferName = ({ data: { name }, dispatch, onDismiss }: Props) => {
           <Helper alert="info">{t('input.offerName.replaces', { recipient: replaced })}</Helper>
         )}
         {connectedHolder?.kind === 'relayed' && (
-          <Helper alert="info">
+          <Helper alert="info" style={signerNoteStyle}>
             {t('input.offerName.relayed', { holder: connectedHolder.account })}
           </Helper>
         )}
