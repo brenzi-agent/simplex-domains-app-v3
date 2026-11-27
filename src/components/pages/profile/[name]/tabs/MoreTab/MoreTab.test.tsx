@@ -1,6 +1,6 @@
 import { mockFunction, render, screen } from '@app/test-utils'
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { useNameDetails } from '@app/hooks/useNameDetails'
 import { useOwners } from '@app/hooks/useOwners'
@@ -61,13 +61,11 @@ describe('MoreTab', () => {
     })
   })
   describe('PrimaryName', () => {
-    beforeEach(() => {
-      vi.stubEnv('NEXT_PUBLIC_CHAIN_NAME', 'mainnet')
-    })
     afterEach(() => {
       vi.unstubAllEnvs()
     })
     it('should not show primary name section on mainnet', () => {
+      vi.stubEnv('NEXT_PUBLIC_CHAIN_NAME', 'mainnet')
       renderHelper({ name: 'test.simplex', isWrapped: false })
       expect(screen.queryByText('tabs.more.primaryName.title')).not.toBeInTheDocument()
       expect(screen.queryByText('action.manage')).not.toBeInTheDocument()
