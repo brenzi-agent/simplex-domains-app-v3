@@ -63,6 +63,12 @@ describe('Token', () => {
       render(<Token {...({ name, isWrapped: false } as any)} />)
       expect(screen.queryByTestId('token-ids')).not.toBeInTheDocument()
     })
+    it('should not show tokenid section or link for unwrapped .simplex subname', () => {
+      const name = 'sub.nick.simplex'
+      render(<Token {...({ name, isWrapped: false } as any)} />)
+      expect(screen.queryByTestId('token-ids')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('etherscan-nft-link')).not.toBeInTheDocument()
+    })
     it('should show correct decimal and hex for wrapped .eth 2ld name', () => {
       const name = 'nick.eth'
       const hexId = namehash(name)
