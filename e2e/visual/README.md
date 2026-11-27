@@ -1,6 +1,6 @@
 # Visual tests
 
-Playwright specs drive the static export of the dApp through its flows on a local anvil chain and compare the viewport at each step with a committed screenshot. A screen whose pixels differ beyond the tolerance below fails the test; the run's artifact `visual-results` holds the `-actual`, `-expected` and `-diff` images and the HTML report. Each spec runs in two projects, `desktop` and `phone`; the admin page, which is desktop-only, runs in `desktop` only.
+Playwright specs drive the static export of the dApp through its flows on a local anvil chain and compare the viewport at each step with a committed screenshot. A screen whose pixels differ beyond the tolerance below fails the test; the run's artifact `visual-results` holds the `-actual`, `-expected` and `-diff` images and the HTML report. Each spec is run in two projects, `desktop` and `phone`; the tests of `/admin`, a desktop-only page, are skipped in `phone`.
 
 ## Files
 
