@@ -29,7 +29,7 @@ export const signingErrorMessage = (error: Error) =>
     ? error.shortMessage
     : error.message
 
-export const signerNoteStyle = { overflowWrap: 'anywhere' } as const
+export const addressNoteStyle = { overflowWrap: 'anywhere' } as const
 
 const acceptTermsFields = [
   { name: 'commitment', type: 'bytes32' },
