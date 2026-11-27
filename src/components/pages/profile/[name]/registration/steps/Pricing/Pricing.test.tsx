@@ -462,6 +462,22 @@ describe('Pricing', () => {
     expect(vi.mocked(props.callback).mock.calls[0][0].credit).toBeUndefined()
   })
 
+  it.each([
+    ['ETH', 0n, undefined],
+    ['the allowance', 1000n * USD, { owner: '0x123' }],
+  ] as const)(
+    'should estimate the registration with %s without a reverse record',
+    (_, allowance, credit) => {
+      readAllowance(allowance, { base: 100n * USD, premium: 0n })
+      render(<Pricing {...makeProps()} />)
+      expect(mockUseEstimateFullRegistration).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          registrationData: expect.objectContaining({ reverseRecord: false, credit }),
+        }),
+      )
+    },
+  )
+
   it('should not register for more than the allowance left, temporary premium included', () => {
     readAllowance(120n * USD, { base: 100n * USD, premium: 50n * USD })
     render(<Pricing {...makeProps()} />)
