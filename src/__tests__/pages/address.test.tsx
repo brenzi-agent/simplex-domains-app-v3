@@ -150,6 +150,7 @@ describe('Address Page', () => {
     await waitFor(() => {
       expect(screen.getByTestId('name-list-view')).toBeInTheDocument()
     })
+    expect(screen.queryByTestId('profile-snippet')).not.toBeInTheDocument()
     expect(screen.queryByTestId('no-profile-snippet')).not.toBeInTheDocument()
   })
 
@@ -159,6 +160,7 @@ describe('Address Page', () => {
     await waitFor(() => {
       expect(screen.getByTestId('name-list-view')).toBeInTheDocument()
     })
+    expect(screen.queryByTestId('profile-snippet')).not.toBeInTheDocument()
     expect(screen.queryByTestId('no-profile-snippet')).not.toBeInTheDocument()
   })
 })
