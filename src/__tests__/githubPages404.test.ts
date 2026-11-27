@@ -39,8 +39,12 @@ describe('404.html of GitHub Pages', () => {
     ],
     ['/my/profile?tab=records', '/profile?connected=true&tab=records'],
     ['/legacyFavourites?view=list', '/legacyfavourites?view=list'],
-    ['/legal/privacy-policy', 'https://ens.domains/legal/privacy-policy'],
-    ['/unknown/path?ref=link#top', '/?ref=link#top'],
+    ['/holdername.simplex?name=other.simplex', '/profile?name=holdername.simplex'],
+    [
+      '/holdername.simplex/register?name=other.simplex&referrer=0x01',
+      '/register?name=holdername.simplex&referrer=0x01',
+    ],
+    ['/unknown/path?ref=link#top', '/'],
   ])('redirects %s to %s', (path, target) => {
     expect(redirectsOf(`https://app.simplex.domains${path}`)).toEqual([[target]])
   })
