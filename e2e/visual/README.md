@@ -1,6 +1,6 @@
 # Visual tests
 
-Playwright specs drive the static export of the dApp through its flows on a local anvil chain and compare the viewport at each step with a committed screenshot. A screen whose pixels differ beyond the tolerance below fails the test; the run's artifact `visual-results` holds the `-actual`, `-expected` and `-diff` images and the HTML report. Each spec runs in three projects: `desktop`, `phone` and `dark`.
+Playwright specs drive the static export of the dApp through its flows on a local anvil chain and compare the viewport at each step with a committed screenshot. A screen whose pixels differ beyond the tolerance below fails the test; the run's artifact `visual-results` holds the `-actual`, `-expected` and `-diff` images and the HTML report. Each spec runs in two projects, `desktop` and `phone`; the admin page, which is desktop-only, runs in `desktop` only.
 
 ## Files
 
@@ -30,7 +30,7 @@ Playwright specs drive the static export of the dApp through its flows on a loca
 | pointer and scroll | the pointer at (0, 0) and the page at its top before each screenshot; an admin card is then scrolled into view |
 | countdown | the commitment wait is compared once it shows 60 |
 | network | the dApp and the node; terms files from `chain/terms/`; NXDOMAIN for DNS-over-HTTPS queries; other requests refused; WebSockets accepted and left unanswered |
-| browser | Chromium of `mcr.microsoft.com/playwright:v1.50.1-jammy`, `en-US`, UTC, scale 1; `desktop` 1280×1000 light, `phone` 390×1400 light with touch, `dark` 1280×1000 dark |
+| browser | Chromium of `mcr.microsoft.com/playwright:v1.50.1-jammy`, `en-US`, UTC, scale 1; light; `desktop` 1280×1000, `phone` 390×1400 with touch |
 | dialogs | compared at the top and, when their body scrolls, again scrolled to its end (`-end`); a desktop dialog is at most 576 px high at any viewport height, a phone dialog's body at most 60% of the viewport height |
 | hidden in screenshots | `canvas` (confetti of the registration), transaction toasts (shown for 8 s) |
 | pixel tolerance | Playwright `threshold` 0.02 (YIQ colour distance): a grey change of up to 5 per channel is accepted; the rendering of icon edges and gradients varies by up to 4 per channel between runs on one machine |

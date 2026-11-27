@@ -47,7 +47,6 @@ export default defineConfig({
       name: 'phone',
       use: { viewport: PHONE, colorScheme: 'light', isMobile: true, hasTouch: true },
     },
-    { name: 'dark', use: { viewport: DESKTOP, colorScheme: 'dark' } },
   ],
   webServer: [
     {
