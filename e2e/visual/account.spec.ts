@@ -46,6 +46,7 @@ for (const { viewer, wallet, connectButtons } of [
   test(`address page of a name's holder, opened by its ${viewer}`, async ({ page, app }) => {
     await register('addressname', HOLDER)
     await app.open('/', wallet)
+    await page.mouse.move(0, 0)
     await app.goto(`/address?address=${accountOf(HOLDER).address}`)
     await expect(connectButton(page)).toHaveCount(connectButtons)
     await expect(page.getByTestId('names-list')).toContainText(`addressname.${TLD}`)
