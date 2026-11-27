@@ -219,6 +219,9 @@ const transactionDone = (page: Page) => page.getByTestId('transaction-modal-comp
 
 export const transactionDialog = (page: Page) => page.getByTestId('transaction-modal-inner')
 
+export const networkFeeEstimated = (page: Page) =>
+  expect(page.getByTestId('invoice-item-1-amount')).toHaveText(/[1-9]/)
+
 const toast = (page: Page) =>
   page.locator('[data-testid="toast-desktop"], [data-testid="toast-touch"]')
 

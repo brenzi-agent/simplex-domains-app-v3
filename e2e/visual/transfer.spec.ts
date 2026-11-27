@@ -21,6 +21,7 @@ import {
   matchDialog,
   matchScreen,
   matchTransactionDialog,
+  networkFeeEstimated,
   test,
 } from './fixtures'
 
@@ -68,7 +69,7 @@ const extendAsHolder = async (page: Page, label: string, screens: string) => {
   await matchDialog(page, `${screens}-terms`)
   await page.getByTestId('terms-accept').check()
   await expect(page.getByTestId('extend-names-confirm')).toBeEnabled()
-  await expect(page.getByTestId('extend-names-modal').getByTestId('invoice-total')).toBeVisible()
+  await networkFeeEstimated(page)
   await matchDialog(page, screens)
   await page.getByTestId('extend-names-confirm').click()
   await matchTransactionDialog(page, `${screens}-confirm`)

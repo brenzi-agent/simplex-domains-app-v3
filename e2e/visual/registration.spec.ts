@@ -18,6 +18,7 @@ import {
   matchLastingScreen,
   matchScreen,
   matchTransactionDialog,
+  networkFeeEstimated,
   test,
   transactionDialog,
   type App,
@@ -43,12 +44,13 @@ const waitOutCommitment = async (page: Page, app: App) => {
 
 const registerOnPayablePath = async (page: Page, app: App, label: string, terms: string) => {
   await expect(page.getByTestId('terms-text')).toContainText('SimpleX Names Conditions of Use')
-  await expect(page.getByTestId('invoice-total')).toBeVisible()
+  await networkFeeEstimated(page)
   await expect(page.getByTestId('next-button')).toHaveText('Accept the terms to continue')
   await matchScreen(page, `${terms}-pricing.png`)
 
   await page.getByTestId('terms-accept').check()
   await expect(page.getByTestId('next-button')).toHaveText('Next')
+  await networkFeeEstimated(page)
   await matchScreen(page, `${terms}-pricing-accepted.png`)
   await page.getByTestId('next-button').click()
 
@@ -56,8 +58,7 @@ const registerOnPayablePath = async (page: Page, app: App, label: string, terms:
   await matchScreen(page, `${terms}-profile.png`)
   await page.getByTestId('profile-submit-button').click()
 
-  await expect(page.getByTestId('invoice-total')).toBeVisible()
-  await expect(page.getByTestId('invoice-item-1-amount')).not.toHaveText('0 ETH')
+  await networkFeeEstimated(page)
   await matchScreen(page, `${terms}-info.png`)
   await page.getByTestId('next-button').click()
 
@@ -113,6 +114,7 @@ test('registration from a registrar allowance while sales are closed', async ({ 
   await app.open(`/${label}.${TLD}/register`, { accounts: [PARTNER] })
   await page.getByTestId('terms-accept').check()
   await expect(page.getByTestId('next-button')).toHaveText('Register with allowance')
+  await expect(page.getByTestId('next-button')).toBeEnabled()
   await expect(page.getByText('$900.00')).toBeVisible()
   await matchScreen(page, 'allowance-pricing.png')
   await page.getByTestId('next-button').click()
@@ -152,6 +154,7 @@ test('registration from an allowance to a temporary owner', async ({ page, app }
   })
   await page.getByTestId('terms-accept').check()
   await expect(page.getByTestId(`owner-${owner}`)).toBeVisible()
+  await expect(page.getByTestId('next-button')).toBeEnabled()
   await matchScreen(page, 'owner-choice.png')
   await page.getByTestId(`owner-${owner}`).click()
   await page.getByTestId('next-button').click()
