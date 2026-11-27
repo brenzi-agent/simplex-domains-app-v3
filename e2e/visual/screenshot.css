@@ -1,3 +1,8 @@
 canvas {
   visibility: hidden;
 }
+
+#tabbar {
+  position: static;
+  order: 1;
+}

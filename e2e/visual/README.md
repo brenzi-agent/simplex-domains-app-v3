@@ -17,7 +17,7 @@ Playwright specs drive the static export of the dApp, built for mainnet as the P
 | `*.spec.ts` | flows |
 | `screenshots/<project>/` | screenshot baselines |
 | `screenshots/registration.spec.ts/owner-typed-data.json` | the typed data the wallet signs for a temporary owner |
-| `screenshot.css` | the element hidden in screenshots |
+| `screenshot.css` | the styles applied in screenshots |
 
 ## Fixed inputs
 
@@ -36,6 +36,7 @@ Playwright specs drive the static export of the dApp, built for mainnet as the P
 | dialogs | compared at the top and, when their body scrolls, again scrolled to its end (`-end`); a desktop dialog is at most 576 px high at any viewport height, a phone dialog's body at most 60% of the viewport height |
 | transactions | each confirmed transaction shows the toast "Transaction Successful", which the test closes; each flow with a dialog that stays open compares its complete stage |
 | hidden in screenshots | `canvas` (confetti of the registration) |
+| phone tab bar | fixed to the bottom of the screen in the dApp, drawn after the page's content in screenshots, so that a whole page shows it once and it covers no content |
 | pixel tolerance | Playwright `threshold` 0.02 (YIQ colour distance): a grey change of up to 5 per channel is accepted; the rendering of icon edges and gradients varies by up to 4 per channel between runs on one machine |
 | masked | the countdown ring of the registration's second step, also behind the confirmation of its transaction: its progress dot is drawn while `commitComplete` is false, which the countdown's end sets only if the registration simulation has succeeded by then |
 
