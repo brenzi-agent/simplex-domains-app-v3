@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import styled, { css } from 'styled-components'
 
 import { Banner } from '@ensdomains/thorin'
 
@@ -9,6 +10,12 @@ import { useProfileActions } from '@app/hooks/pages/profile/[name]/profile/usePr
 import { useProfile } from '@app/hooks/useProfile'
 
 import { profileToProfileRecords } from './registration/steps/Profile/profileRecordUtils'
+
+const Container = styled.div(
+  ({ theme }) => css`
+    margin-top: ${theme.space['4']};
+  `,
+)
 
 export function ProfileEmptyBanner({ name }: { name: string }) {
   const { t } = useTranslation('profile')
@@ -36,14 +43,16 @@ export function ProfileEmptyBanner({ name }: { name: string }) {
   if (hasSimplexLink || isProfileLoading || !action || !canEditRecords) return null
 
   return (
-    <Banner alert="info" title={t('banner.empty.title')} data-testid="profile-empty-banner">
-      <BannerMessageWithAction
-        content={t('banner.empty.description')}
-        button={{
-          children: t('banner.empty.action'),
-          onClick: () => action.onClick(),
-        }}
-      />
-    </Banner>
+    <Container data-testid="profile-empty-banner">
+      <Banner alert="info" title={t('banner.empty.title')}>
+        <BannerMessageWithAction
+          content={t('banner.empty.description')}
+          button={{
+            children: t('banner.empty.action'),
+            onClick: () => action.onClick(),
+          }}
+        />
+      </Banner>
+    </Container>
   )
 }

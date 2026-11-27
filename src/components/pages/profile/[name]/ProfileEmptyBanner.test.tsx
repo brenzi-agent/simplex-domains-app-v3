@@ -154,7 +154,6 @@ describe('ProfileEmptyBanner', () => {
     expect(mockBanner.mock.lastCall?.[0]).toMatchObject({
       alert: 'info',
       title: 'banner.empty.title',
-      'data-testid': 'profile-empty-banner',
     })
     const banner = screen.getByTestId('profile-empty-banner')
     expect(banner).toHaveTextContent('banner.empty.description')
