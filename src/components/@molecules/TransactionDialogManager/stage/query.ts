@@ -235,6 +235,7 @@ export const createTransactionRequestUnsafe = async ({
 
   if (connectorIsMetaMask(connections, connectorClient)) {
     ;(request as any).__is_metamask = true
+    delete request.accessList
   } else if (connectorIsPhantom(connections, connectorClient)) {
     request.accessList = request.accessList?.map((v) => [v.address, v.storageKeys]) as any
   }
