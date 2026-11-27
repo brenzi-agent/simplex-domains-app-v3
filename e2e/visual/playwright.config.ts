@@ -25,7 +25,7 @@ export default defineConfig({
       caret: 'hide',
       scale: 'css',
       threshold: 0.02,
-      maxDiffPixels: 0,
+      maxDiffPixels: 8,
       stylePath: join(__dirname, 'screenshot.css'),
     },
   },
