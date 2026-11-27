@@ -1,6 +1,8 @@
-import { mockFunction, render, screen } from '@app/test-utils'
+import { mockFunction, render, screen, userEvent, within } from '@app/test-utils'
 
 import { describe, expect, it, vi } from 'vitest'
+
+import { Banner } from '@ensdomains/thorin'
 
 import { useAbilities } from '@app/hooks/abilities/useAbilities'
 import { useProfileActions } from '@app/hooks/pages/profile/[name]/profile/useProfileActions/useProfileActions'
@@ -18,10 +20,21 @@ vi.mock('@app/hooks/pages/profile/[name]/profile/useProfileActions/useProfileAct
 vi.mock('@app/hooks/abilities/useAbilities', () => ({
   useAbilities: vi.fn(() => ({ data: { canEditRecords: true } })),
 }))
+vi.mock('@ensdomains/thorin', async (importOriginal) => {
+  const thorin = await importOriginal<typeof import('@ensdomains/thorin')>()
+  const { createElement } = await import('react')
+  return {
+    ...thorin,
+    Banner: vi.fn((props: Parameters<typeof thorin.Banner>[0]) =>
+      createElement(thorin.Banner, props),
+    ),
+  }
+})
 
 const mockUseAbilities = mockFunction(useAbilities)
 const mockUseProfile = mockFunction(useProfile)
 const mockUseProfileActions = mockFunction(useProfileActions)
+const mockBanner = mockFunction(Banner)
 
 describe('ProfileEmptyBanner', () => {
   it('should not display banner if a simplex link is set', () => {
@@ -115,6 +128,38 @@ describe('ProfileEmptyBanner', () => {
 
     render(<ProfileEmptyBanner name={name} />)
     expect(screen.queryByTestId('profile-empty-banner')).toBeInTheDocument()
+  })
+
+  it('should display the prompt as a plain info banner whose action edits the profile', async () => {
+    const editProfile = vi.fn()
+
+    mockUseProfile.mockImplementation(() => ({
+      data: {
+        texts: [],
+        coins: [],
+      },
+      isLoading: false,
+    }))
+
+    mockUseProfileActions.mockImplementation(() => ({
+      profileActions: [
+        {
+          label: 'tabs.profile.actions.editProfile.label',
+          onClick: editProfile,
+        },
+      ],
+    }))
+
+    render(<ProfileEmptyBanner name="test" />)
+    expect(mockBanner.mock.lastCall?.[0]).toMatchObject({
+      alert: 'info',
+      title: 'banner.empty.title',
+      'data-testid': 'profile-empty-banner',
+    })
+    const banner = screen.getByTestId('profile-empty-banner')
+    expect(banner).toHaveTextContent('banner.empty.description')
+    await userEvent.click(within(banner).getByRole('button', { name: 'banner.empty.action' }))
+    expect(editProfile).toHaveBeenCalledOnce()
   })
 
   it('should not display banner if cannot edit records', () => {
