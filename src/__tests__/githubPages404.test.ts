@@ -38,6 +38,15 @@ describe('404.html of GitHub Pages', () => {
       '/my/names?address=0x70997970C51812dc3A010C7d01b50e0d17dc79C8&page=2',
     ],
     ['/my/profile?tab=records', '/profile?connected=true&tab=records'],
+    [
+      '/0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+      '/address?address=0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+    ],
+    [
+      '/0x70997970c51812dc3a010c7d01b50e0d17dc79c8/',
+      '/address?address=0x70997970c51812dc3a010c7d01b50e0d17dc79c8',
+    ],
+    ['/0x7099', '/'],
     ['/legacyFavourites?view=list', '/legacyfavourites?view=list'],
     ['/holdername.simplex?name=other.simplex', '/profile?name=holdername.simplex'],
     [
