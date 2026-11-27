@@ -4,7 +4,7 @@ import { zeroAddress } from 'viem'
 import { SIMPLEX_LINK_SEPARATOR } from '@app/constants/simplex'
 
 import {
-  ACCOUNTS,
+  accountOf,
   advance,
   createSubname,
   expiryOf,
@@ -15,18 +15,22 @@ import {
   subnameHolderOf,
   textOf,
   TLD,
+  type User,
 } from './chain'
 import {
+  closeTransactionDialog,
   completeTransactions,
   expect,
+  matchCompleteStage,
   matchDialog,
   matchScreen,
   matchTransactionDialog,
   showTab,
   test,
+  transactionDialog,
 } from './fixtures'
 
-const HOLDER = 1
+const HOLDER: User = 'user2'
 const LABEL = 'holdername'
 const NAME = `${LABEL}.${TLD}`
 const CONTACTS = [
@@ -118,6 +122,8 @@ test('editing the SimpleX links', async ({ page, app }) => {
   await page.getByTestId('profile-submit-button').click()
   await matchTransactionDialog(page, 'editor-confirm')
   await completeTransactions(page)
+  await matchCompleteStage(page, 'editor-complete')
+  await closeTransactionDialog(page)
   expect(await textOf(NAME, 'simplex.channel')).toBe(SECOND_CHANNEL)
   expect(await textOf(NAME, 'simplex.contact')).toBe(CONTACTS.join(SIMPLEX_LINK_SEPARATOR))
   await expect(page.getByTestId('profile-section-simplex')).toContainText('smp7.simplex.im')
@@ -139,6 +145,8 @@ test('editing a record in the advanced editor', async ({ page, app }) => {
   await page.getByRole('button', { name: 'Save', exact: true }).click()
   await matchTransactionDialog(page, 'advanced-editor-confirm')
   await completeTransactions(page)
+  await matchCompleteStage(page, 'advanced-editor-complete')
+  await closeTransactionDialog(page)
   expect(await textOf(NAME, 'simplex.channel')).toBe(SECOND_CHANNEL)
   await expect(page.locator('div[data-testid="records-tab"]')).toContainText(SECOND_CHANNEL)
   await matchScreen(page, 'edited-records.png')
@@ -156,8 +164,9 @@ test('creating, listing and deleting a subname', async ({ page, app }) => {
   await matchDialog(page, 'subname-profile')
   await page.getByTestId('create-subname-profile-next').click()
   await matchTransactionDialog(page, 'subname-create-confirm')
-  await completeTransactions(page, { count: 2 })
-  expect(await subnameHolderOf(`shop.${NAME}`)).toBe(ACCOUNTS[HOLDER].address)
+  await completeTransactions(page, 2)
+  await expect(transactionDialog(page)).toBeHidden()
+  expect(await subnameHolderOf(`shop.${NAME}`)).toBe(accountOf(HOLDER).address)
   expect(await textOf(`shop.${NAME}`, 'simplex.contact')).toBe(CONTACTS[0])
   await expect(page.getByTestId('profile-snippet-name')).toHaveText(`shop.${NAME}`)
   await matchScreen(page, 'subname-created.png')
@@ -170,5 +179,7 @@ test('creating, listing and deleting a subname', async ({ page, app }) => {
   await page.getByTestId('profile-action-Delete subname').click()
   await matchTransactionDialog(page, 'subname-delete-confirm')
   await completeTransactions(page)
+  await matchCompleteStage(page, 'subname-delete-complete')
+  await closeTransactionDialog(page)
   expect(await subnameHolderOf(`mobile.${NAME}`)).toBe(zeroAddress)
 })

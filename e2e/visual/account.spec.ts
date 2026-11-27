@@ -1,7 +1,9 @@
 import { type Page } from '@playwright/test'
 
+import { REASONS } from '@app/utils/snrcNamePolicy'
+
 import {
-  ACCOUNTS,
+  accountOf,
   generalTermsLink,
   holderOf,
   isCommunityName,
@@ -12,16 +14,13 @@ import {
   setAllowance,
   TLD,
   unregister,
+  type User,
 } from './chain'
-import { expect, matchScreen, matchSection, test } from './fixtures'
+import { expect, matchScreen, test } from './fixtures'
 
-const HOLDER = 3
-const RECEIVER = 2
-const TRADEMARK = 2
+const HOLDER: User = 'user4'
+const RECEIVER: User = 'user3'
 const OTHER_COMMIT = '1'.repeat(40)
-
-const matchCard = (page: Page, title: string, name: string) =>
-  matchSection(page, page.getByText(title, { exact: true }), name)
 
 const settled = async (page: Page) =>
   expect(page.getByText(/^(Sending \w+\.\.\.|Tx sent: .*|\w+ confirmed)$/)).toHaveCount(0)
@@ -51,10 +50,7 @@ test.describe('admin page', () => {
     await page.getByLabel('Check name', { exact: true }).fill('simplex-chat')
     await page.getByRole('button', { name: 'Check', exact: true }).click()
     await expect(page.getByText('RESERVED (Internal)')).toBeVisible()
-    await matchCard(page, 'Check Reserved Name', 'admin-check.png')
-    await matchCard(page, 'General Terms', 'admin-general-terms.png')
-    await matchCard(page, 'Community Names', 'admin-community-names.png')
-    await matchCard(page, 'Register Reserved Name', 'admin-register-reserved.png')
+    await matchScreen(page, 'admin-check.png')
   })
 
   test('admin actions of the owner and guardian', async ({ page, app }) => {
@@ -65,17 +61,17 @@ test.describe('admin page', () => {
     await page.getByTestId('admin-set-min-char-button').click()
     await expect.poll(minCharLength).toBe(5)
     await settled(page)
-    await matchCard(page, 'Min Character Length', 'admin-min-length-set.png')
+    await matchScreen(page, 'admin-min-length-set.png')
 
     await page.getByLabel('Reserve name(s)', { exact: true }).fill('brandname')
     await page.getByRole('button', { name: 'Reserve', exact: true }).click()
-    await expect.poll(() => reservationOf('brandname')).toBe(TRADEMARK)
+    await expect.poll(() => reservationOf('brandname')).toBe(REASONS.indexOf('Trademark'))
     await settled(page)
     await page.getByLabel('Unreserve name(s)', { exact: true }).fill('simplex-chat')
     await page.getByRole('button', { name: 'Unreserve', exact: true }).click()
-    await expect.poll(() => reservationOf('simplex-chat')).toBe(0)
+    await expect.poll(() => reservationOf('simplex-chat')).toBe(REASONS.indexOf('None'))
     await settled(page)
-    await matchCard(page, 'Reserved Names', 'admin-reserved-changed.png')
+    await matchScreen(page, 'admin-reserved-changed.png')
 
     const newTermsLink = (await generalTermsLink()).replace(/[0-9a-f]{40}/, OTHER_COMMIT)
     await page.getByTestId('admin-general-terms-input').fill(newTermsLink)
@@ -83,7 +79,7 @@ test.describe('admin page', () => {
     await expect.poll(generalTermsLink).toBe(newTermsLink)
     await settled(page)
     await expect(page.getByTestId('admin-general-terms-link')).toContainText(newTermsLink)
-    await matchCard(page, 'General Terms', 'admin-general-terms-set.png')
+    await matchScreen(page, 'admin-general-terms-set.png')
 
     await page.getByLabel('List name(s)', { exact: true }).fill('cityname')
     await page.getByTestId('admin-list-community').click()
@@ -93,16 +89,16 @@ test.describe('admin page', () => {
     await page.getByRole('button', { name: 'Unlist', exact: true }).click()
     await expect.poll(() => isCommunityName('communityclaim')).toBe(false)
     await settled(page)
-    await matchCard(page, 'Community Names', 'admin-community-names-changed.png')
+    await matchScreen(page, 'admin-community-names-changed.png')
 
     await page.getByLabel('Label', { exact: true }).fill('simplex')
-    await page.getByLabel('Owner address', { exact: true }).fill(ACCOUNTS[RECEIVER].address)
+    await page.getByLabel('Owner address', { exact: true }).fill(accountOf(RECEIVER).address)
     await page.getByRole('button', { name: 'Register', exact: true }).click()
     await expect
       .poll(() => holderOf('simplex').catch(() => undefined))
-      .toBe(ACCOUNTS[RECEIVER].address)
+      .toBe(accountOf(RECEIVER).address)
     await settled(page)
-    await matchCard(page, 'Register Reserved Name', 'admin-reserved-registered.png')
+    await matchScreen(page, 'admin-reserved-registered.png')
   })
 })
 
@@ -110,10 +106,12 @@ test('name policy page', async ({ page, app }) => {
   await app.open('/namepolicy')
   await expect(page.getByTestId('name-policy-reserved')).toContainText(`simplex-chat.${TLD}`)
   await expect(page.getByTestId('name-policy-community')).toContainText(`communityname.${TLD}`)
+  await expect(page.getByTestId('name-policy-reserved-count')).toHaveText('841')
+  await expect(page.getByTestId('name-policy-community-count')).toHaveText('459')
   await matchScreen(page, 'name-policy.png')
 
   await page.getByLabel('Search names', { exact: true }).fill('claim')
-  await expect(page.getByTestId('name-policy-community-count')).toHaveText('1 of 2')
-  await expect(page.getByTestId('name-policy-reserved-count')).toHaveText('0 of 2')
+  await expect(page.getByTestId('name-policy-community-count')).toHaveText('1 of 459')
+  await expect(page.getByTestId('name-policy-reserved-count')).toHaveText('0 of 841')
   await matchScreen(page, 'name-policy-search.png')
 })

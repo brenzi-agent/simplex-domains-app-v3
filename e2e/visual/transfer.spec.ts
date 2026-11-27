@@ -1,7 +1,7 @@
 import { type Page } from '@playwright/test'
 
 import {
-  ACCOUNTS,
+  accountOf,
   expiryOf,
   holderOf,
   offer,
@@ -11,28 +11,32 @@ import {
   registerWithAllowance,
   setAllowance,
   TLD,
+  type User,
 } from './chain'
 import {
+  closeTransactionDialog,
   completeTransactions,
   expect,
+  matchCompleteStage,
   matchDialog,
   matchScreen,
   matchTransactionDialog,
   test,
 } from './fixtures'
 
-const HOLDER = 1
-const RECIPIENT = 2
-const SELECTED = 1
-const TEMPORARY_OWNER = 2
-const OTHER = 3
+const HOLDER: User = 'user2'
+const RECIPIENT: User = 'user3'
+const SELECTED: User = 'user2'
+const TEMPORARY_OWNER: User = 'user3'
+const OTHER: User = 'user4'
 const ONE_YEAR = 365n * ONE_DAY
 const TERMS_TITLE = 'SimpleX Names Conditions of Use'
 
-const offerTo = async (page: Page, recipient: number) => {
+const offerTo = async (page: Page, recipient: User) => {
+  const { address } = accountOf(recipient)
   await page.getByTestId('role-action-offer-name').click()
-  await page.getByTestId('send-name-search-input').fill(ACCOUNTS[recipient].address)
-  await page.getByTestId(`search-result-${ACCOUNTS[recipient].address}`).click()
+  await page.getByTestId('send-name-search-input').fill(address)
+  await page.getByTestId(`search-result-${address}`).click()
   await expect(page.getByTestId('offer-name-confirm')).toBeEnabled()
 }
 
@@ -52,8 +56,10 @@ const claim = async (page: Page, label: string, screens: string) => {
   await matchDialog(page, `${screens}-accepted`)
   await page.getByTestId('claim-name-confirm').click()
   await matchTransactionDialog(page, `${screens}-confirm`)
-  await completeTransactions(page, { count: 2 })
-  expect(await holderOf(label)).toBe(ACCOUNTS[RECIPIENT].address)
+  await completeTransactions(page, 2)
+  await matchCompleteStage(page, `${screens}-complete`)
+  await closeTransactionDialog(page)
+  expect(await holderOf(label)).toBe(accountOf(RECIPIENT).address)
 }
 
 const extendAsHolder = async (page: Page, label: string, screens: string) => {
@@ -66,7 +72,9 @@ const extendAsHolder = async (page: Page, label: string, screens: string) => {
   await matchDialog(page, screens)
   await page.getByTestId('extend-names-confirm').click()
   await matchTransactionDialog(page, `${screens}-confirm`)
-  await completeTransactions(page, { count: 2 })
+  await completeTransactions(page, 2)
+  await matchCompleteStage(page, `${screens}-complete`)
+  await closeTransactionDialog(page)
   expect(await expiryOf(label)).toBe(expiry + ONE_YEAR)
 }
 
@@ -79,21 +87,24 @@ test('offering a name and withdrawing the offer', async ({ page, app }) => {
   await page.getByTestId('offer-name-confirm').click()
   await matchTransactionDialog(page, 'offer-confirm')
   await completeTransactions(page)
-  expect(await offeredTo(label)).toBe(ACCOUNTS[RECIPIENT].address)
-  expect(await holderOf(label)).toBe(ACCOUNTS[HOLDER].address)
+  await matchCompleteStage(page, 'offer-complete')
+  await closeTransactionDialog(page)
+  expect(await offeredTo(label)).toBe(accountOf(RECIPIENT).address)
+  expect(await holderOf(label)).toBe(accountOf(HOLDER).address)
 
   await expect(page.getByText('Offer pending', { exact: true })).toBeVisible()
   await matchScreen(page, 'offer-pending.png')
   await withdrawOffer(page).click()
   await matchTransactionDialog(page, 'withdraw-confirm')
   await completeTransactions(page)
+  await closeTransactionDialog(page)
   expect(await offeredTo(label)).toBeUndefined()
   await expect(page.getByText('Offer pending', { exact: true })).toHaveCount(0)
 })
 
 test('relaying an offer and its withdrawal for a temporary owner', async ({ page, app }) => {
   const label = 'relayedname'
-  const holder = ACCOUNTS[TEMPORARY_OWNER].address
+  const holder = accountOf(TEMPORARY_OWNER).address
   await register(label, TEMPORARY_OWNER)
   await setAllowance(SELECTED, 1000)
   const { typedData } = await app.open(`/${label}.${TLD}?tab=ownership`, {
@@ -105,13 +116,16 @@ test('relaying an offer and its withdrawal for a temporary owner', async ({ page
   await page.getByTestId('offer-name-confirm').click()
   await matchTransactionDialog(page, 'relayed-offer-confirm')
   await completeTransactions(page)
-  expect(await offeredTo(label)).toBe(ACCOUNTS[OTHER].address)
+  await matchCompleteStage(page, 'relayed-offer-complete')
+  await closeTransactionDialog(page)
+  expect(await offeredTo(label)).toBe(accountOf(OTHER).address)
 
   await expect(page.getByText('Offer pending', { exact: true })).toBeVisible()
   await matchScreen(page, 'relayed-offer-pending.png')
   await withdrawOffer(page).click()
   await matchTransactionDialog(page, 'relayed-withdraw-confirm')
   await completeTransactions(page)
+  await closeTransactionDialog(page)
   expect(await offeredTo(label)).toBeUndefined()
   expect(typedData.map(({ signer, typedData: { primaryType } }) => [signer, primaryType])).toEqual([
     [holder, 'ApproveName'],

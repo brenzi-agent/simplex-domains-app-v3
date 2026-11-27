@@ -1,9 +1,9 @@
 import { type Page } from '@playwright/test'
 
-import { register, TLD } from './chain'
+import { register, TLD, type User } from './chain'
 import { expect, matchScreen, test } from './fixtures'
 
-const HOLDER = 1
+const HOLDER: User = 'user2'
 
 const searchBox = (page: Page, isMobile: boolean) =>
   page.getByTestId(isMobile ? 'search-input-box-fake' : 'search-input-box')

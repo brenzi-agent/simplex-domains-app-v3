@@ -2,7 +2,7 @@ import { type Page } from '@playwright/test'
 import { type Hex } from 'viem'
 
 import {
-  ACCOUNTS,
+  accountOf,
   advance,
   committedAt,
   holderOf,
@@ -10,6 +10,7 @@ import {
   setPublicSalesOpen,
   textOf,
   TLD,
+  type User,
 } from './chain'
 import {
   completeTransactions,
@@ -18,16 +19,21 @@ import {
   matchScreen,
   matchTransactionDialog,
   test,
+  transactionDialog,
+  type App,
 } from './fixtures'
 
-const BUYER = 1
-const PARTNER = 1
-const TEMPORARY_OWNER = 2
+const BUYER: User = 'user2'
+const PARTNER: User = 'user2'
+const TEMPORARY_OWNER: User = 'user3'
 const CONTACT = 'https://smp4.simplex.im/a#visualtestcontactlinkaaaaaaaaaaaaaaaaaaaaaaaa'
 
-type App = { syncClock: () => Promise<void> }
-
 const countdown = (page: Page) => [page.getByTestId('countdown-circle')]
+
+const completeRegistrationStep = async (page: Page) => {
+  await completeTransactions(page)
+  await expect(transactionDialog(page)).toBeHidden()
+}
 
 const waitOutCommitment = async (page: Page, app: App) => {
   await expect(page.getByTestId('wait-button')).toBeVisible()
@@ -60,7 +66,7 @@ const registerOnPayablePath = async (page: Page, app: App, label: string, terms:
   await expect(page.getByTestId('start-timer-button')).toBeEnabled()
   await matchScreen(page, `${terms}-commit.png`)
   await page.getByTestId('start-timer-button').click()
-  await completeTransactions(page, { autoClose: true })
+  await completeRegistrationStep(page)
 
   await expect(page.getByTestId('wait-button')).toBeVisible()
   await app.syncClock()
@@ -71,11 +77,11 @@ const registerOnPayablePath = async (page: Page, app: App, label: string, terms:
   await matchScreen(page, `${terms}-register.png`, countdown(page))
   await page.getByTestId('finish-button').click()
   await matchTransactionDialog(page, `${terms}-register-confirm`, countdown(page))
-  await completeTransactions(page, { autoClose: true })
+  await completeRegistrationStep(page)
 
   await expect(page.getByTestId('invoice-item-expiry-date')).toBeVisible()
   await matchLastingScreen(page, `${terms}-complete.png`)
-  expect(await holderOf(label)).toBe(ACCOUNTS[BUYER].address)
+  expect(await holderOf(label)).toBe(accountOf(BUYER).address)
   expect(await textOf(`${label}.${TLD}`, 'simplex.contact')).toBe(CONTACT)
 }
 
@@ -117,15 +123,15 @@ test('registration from a registrar allowance while sales are closed', async ({ 
   await matchScreen(page, 'allowance-info.png')
   await page.getByTestId('next-button').click()
   await matchTransactionDialog(page, 'allowance-commit-confirm')
-  await completeTransactions(page, { autoClose: true })
+  await completeRegistrationStep(page)
   await waitOutCommitment(page, app)
   await page.getByTestId('finish-button').click()
   await matchTransactionDialog(page, 'allowance-register-confirm', countdown(page))
-  await completeTransactions(page, { autoClose: true })
+  await completeRegistrationStep(page)
 
   await expect(page.getByTestId('invoice-item-0-amount-usd')).toHaveText('$100.00')
   await matchLastingScreen(page, 'allowance-complete.png')
-  expect(await holderOf(label)).toBe(ACCOUNTS[PARTNER].address)
+  expect(await holderOf(label)).toBe(accountOf(PARTNER).address)
 })
 
 test('registration from an allowance that is too low', async ({ page, app }) => {
@@ -139,7 +145,7 @@ test('registration from an allowance that is too low', async ({ page, app }) => 
 
 test('registration from an allowance to a temporary owner', async ({ page, app }) => {
   const label = 'ownername'
-  const owner = ACCOUNTS[TEMPORARY_OWNER].address
+  const owner = accountOf(TEMPORARY_OWNER).address
   await setAllowance(PARTNER, 1000)
   const { typedData } = await app.open(`/${label}.${TLD}/register`, {
     accounts: [PARTNER, TEMPORARY_OWNER],
@@ -164,13 +170,13 @@ test('registration from an allowance to a temporary owner', async ({ page, app }
   expect(
     JSON.stringify(typedData, (key, value) => (key === 'commitment' ? '<random>' : value), 2),
   ).toMatchSnapshot('owner-typed-data.json')
-  await completeTransactions(page, { autoClose: true })
+  await completeRegistrationStep(page)
   expect(await committedAt(terms.message.commitment as Hex)).toBeGreaterThan(0n)
   await waitOutCommitment(page, app)
   await page.getByTestId('finish-button').click()
   await matchTransactionDialog(page, 'owner-register-confirm', countdown(page))
 
-  await completeTransactions(page, { autoClose: true })
+  await completeRegistrationStep(page)
   await expect(page.getByText(`${label}.${TLD} is registered to ${owner}.`)).toBeVisible()
   await matchLastingScreen(page, 'owner-complete.png')
   expect(await holderOf(label)).toBe(owner)

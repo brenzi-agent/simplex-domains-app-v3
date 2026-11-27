@@ -1,30 +1,101 @@
 import { execFileSync, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { copyFileSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
-import { basename, dirname, join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { createPublicClient, createWalletClient, http, parseAbi } from 'viem'
-import { localhost } from 'viem/chains'
+import { localhost, mainnet } from 'viem/chains'
 
 const GENESIS_TIMESTAMP = '1767225600'
 const ETH_USD = 169664538978n
+const BATCH = 200
+const POLICY_EVENTS = parseAbi([
+  'event ReservedNameAdded(string name, uint8 reason)',
+  'event ReservedNameReasonChanged(string name, uint8 reason)',
+  'event ReservedNameRemoved(string name)',
+  'event CommunityNameAdded(string name)',
+  'event CommunityNameRemoved(string name)',
+])
 
 const here = dirname(fileURLToPath(import.meta.url))
-const [namespace] = process.argv.slice(2)
-if (!namespace) throw new Error('usage: node dump-state.mjs <simplex-namespace-contract>')
+const [namespace, mainnetRpc] = process.argv.slice(2)
+if (!mainnetRpc)
+  throw new Error('usage: node dump-state.mjs <simplex-namespace-contract> <mainnet RPC URL>')
 
-const git = (...args) => execFileSync('git', ['-C', namespace, ...args], { encoding: 'utf8' }).trim()
+const git = (...args) =>
+  execFileSync('git', ['-C', namespace, ...args], { encoding: 'utf8' }).trim()
 const termsLinks = JSON.parse(readFileSync(join(namespace, 'terms.simplex.json'), 'utf8'))
 
 const termsFile = async (link) => {
-  const url = link.slice(0, link.indexOf('#'))
+  const url = new URL(link.slice(0, link.indexOf('#')))
   const text = Buffer.from(await (await fetch(url)).arrayBuffer())
   const digest = createHash('sha256').update(text).digest('hex')
   if (!link.endsWith(`#sha256=${digest}`)) throw new Error(`${url}: sha256 ${digest}`)
-  writeFileSync(join(here, 'terms', basename(new URL(url).pathname)), text)
+  const file = join(here, 'terms', url.host, url.pathname)
+  mkdirSync(dirname(file), { recursive: true })
+  writeFileSync(file, text)
 }
+
+const policyDeployment = readFileSync(
+  join(namespace, 'deployments.mainnet.simplex.journal.jsonl'),
+  'utf8',
+)
+  .trim()
+  .split('\n')
+  .map((line) => JSON.parse(line))
+  .findLast(({ step }) => step === 'deploy:SimplexNamePolicyProxy')
+const mainnetClient = createPublicClient({ chain: mainnet, transport: http(mainnetRpc) })
+
+const policyLogsBetween = async (fromBlock, toBlock) => {
+  try {
+    return await mainnetClient.getLogs({
+      address: policyDeployment.address,
+      events: POLICY_EVENTS,
+      fromBlock,
+      toBlock,
+      strict: true,
+    })
+  } catch (error) {
+    if (fromBlock === toBlock) throw error
+    const middle = (fromBlock + toBlock) / 2n
+    return [
+      ...(await policyLogsBetween(fromBlock, middle)),
+      ...(await policyLogsBetween(middle + 1n, toBlock)),
+    ]
+  }
+}
+
+const mainnetPolicyNames = async (block) => {
+  const logs = await policyLogsBetween(BigInt(policyDeployment.blockNumber), block)
+  const reserved = new Map()
+  const community = new Set()
+  for (const { eventName, args } of logs) {
+    switch (eventName) {
+      case 'ReservedNameAdded':
+      case 'ReservedNameReasonChanged':
+        reserved.set(args.name, args.reason)
+        break
+      case 'ReservedNameRemoved':
+        reserved.delete(args.name)
+        break
+      case 'CommunityNameAdded':
+        community.add(args.name)
+        break
+      case 'CommunityNameRemoved':
+        community.delete(args.name)
+        break
+      default:
+    }
+  }
+  return { reserved, community }
+}
+
+const batches = (names) =>
+  Array.from({ length: Math.ceil(names.length / BATCH) }, (_, index) =>
+    names.slice(index * BATCH, (index + 1) * BATCH),
+  )
 
 const freePort = () =>
   new Promise((resolve) => {
@@ -35,6 +106,8 @@ const freePort = () =>
     })
   })
 
+const mainnetBlock = await mainnetClient.getBlockNumber()
+const { reserved, community } = await mainnetPolicyNames(mainnetBlock)
 const port = await freePort()
 const transport = http(`http://127.0.0.1:${port}`)
 const client = createPublicClient({ chain: localhost, transport })
@@ -73,8 +146,22 @@ try {
   await send(addresses.SimplexNamePolicy, 'function setCommunityTerms(string link)', [
     termsLinks.communityTerms,
   ])
-  for (const link of new Set([termsLinks.generalTerms, termsLinks.communityTerms]))
+  for (const reason of new Set(reserved.values())) {
+    const names = [...reserved.keys()].filter((name) => reserved.get(name) === reason)
+    for (const batch of batches(names)) {
+      await send(
+        addresses.SimplexNamePolicy,
+        'function addReservedNames(string[] names, uint8 reason)',
+        [batch, reason],
+      )
+    }
+  }
+  for (const batch of batches([...community])) {
+    await send(addresses.SimplexNamePolicy, 'function addCommunityNames(string[] names)', [batch])
+  }
+  for (const link of new Set([termsLinks.generalTerms, termsLinks.communityTerms])) {
     await termsFile(link)
+  }
   const state = await client.request({ method: 'anvil_dumpState' })
   writeFileSync(join(here, 'state.json.gz'), Buffer.from(state.slice(2), 'hex'))
   copyFileSync(join(namespace, 'deployments.local.json'), join(here, 'addresses.json'))
@@ -85,6 +172,7 @@ try {
         namespace: git('rev-parse', 'HEAD'),
         ensContracts: git('rev-parse', 'HEAD:ens-contracts'),
         anvil: execFileSync('anvil', ['--version'], { encoding: 'utf8' }).split('\n')[0],
+        mainnetNamesBlock: `${mainnetBlock}`,
       },
       null,
       2,

@@ -20,15 +20,17 @@ import {
   type Hex,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { localhost } from 'viem/chains'
+import { mainnet } from 'viem/chains'
 
 import { MIN_DISPUTE_DAYS, MIN_REGISTRATION_DURATION } from '@app/constants/simplex'
 import { namePolicyTermsAbi } from '@app/utils/snrcNameTerms'
 import { sponsorAbi } from '@app/utils/snrcSponsor'
 
-import { createAccounts } from '../../playwright/fixtures/accounts'
+import { createAccounts, type User } from '../../playwright/fixtures/accounts'
 
-export const RPC_URL = process.env.NEXT_PUBLIC_PROVIDER ?? 'http://127.0.0.1:8545'
+export type { User }
+
+export const RPC_URL = process.env.NEXT_PUBLIC_MAINNET_RPC_URL ?? 'http://127.0.0.1:8545'
 export const APP_URL = `http://127.0.0.1:${process.env.E2E_PORT ?? 3000}`
 export const TLD = 'simplex'
 export const DISPUTE_DAYS = BigInt(MIN_DISPUTE_DAYS)
@@ -39,9 +41,10 @@ const STATE = bytesToHex(readFileSync(join(__dirname, 'chain', 'state.json.gz'))
 const TWO_YEARS = BigInt(MIN_REGISTRATION_DURATION)
 const MIN_COMMITMENT_AGE = 60n
 
-export const KEYS = createAccounts().getAllPrivateKeys()
-export const ACCOUNTS = KEYS.map((key) => privateKeyToAccount(key))
-export const OWNER = 0
+const accounts = createAccounts()
+export const keyOf = (user: User) => accounts.getPrivateKey(user)
+export const accountOf = (user: User) => privateKeyToAccount(keyOf(user))
+export const OWNER: User = 'user'
 
 const CONTRACT_NAMES = [
   'BaseRegistrarImplementation',
@@ -67,12 +70,11 @@ const CONTRACTS = parseContracts(
   JSON.parse(readFileSync(join(__dirname, 'chain', 'addresses.json'), 'utf8')),
 )
 
-export const chain = { ...localhost, rpcUrls: { default: { http: [RPC_URL] } } }
+export const chain = { ...mainnet, rpcUrls: { default: { http: [RPC_URL] } } }
 const transport = http(RPC_URL)
 const client = createPublicClient({ chain, transport })
 const anvil = createTestClient({ chain, transport, mode: 'anvil' })
-const walletOf = (account: number) =>
-  createWalletClient({ account: ACCOUNTS[account], chain, transport })
+const walletOf = (user: User) => createWalletClient({ account: accountOf(user), chain, transport })
 
 const registrationStruct =
   'struct Registration { string label; address owner; uint256 duration; bytes32 secret; address resolver; bytes[] data; uint8 reverseRecord; bytes32 referrer; }'
@@ -164,7 +166,7 @@ export const reservationOf = (label: string) =>
     address: CONTRACTS.SimplexNamePolicy,
     abi: policyAdminAbi,
     functionName: 'reservedNames',
-    args: [keccak256(toBytes(label))],
+    args: [labelhash(label)],
   })
 
 export const minCharLength = () =>
@@ -174,10 +176,10 @@ export const minCharLength = () =>
     functionName: 'minCharLength',
   })
 
-const commit = async (label: string, owner: number) => {
+const commit = async (label: string, owner: User) => {
   const request = {
     label,
-    owner: ACCOUNTS[owner].address,
+    owner: accountOf(owner).address,
     duration: TWO_YEARS,
     secret: keccak256(toBytes(label)),
     resolver: CONTRACTS.PublicResolver,
@@ -217,7 +219,7 @@ export const committedAt = (commitment: Hex) =>
     args: [commitment],
   })
 
-export const register = async (label: string, owner: number) => {
+export const register = async (label: string, owner: User) => {
   const request = await commit(label, owner)
   const { base, premium } = await client.readContract({
     address: CONTRACTS.ETHRegistrarController,
@@ -238,17 +240,17 @@ export const register = async (label: string, owner: number) => {
   await setPublicSalesOpen(false)
 }
 
-export const setAllowance = async (account: number, dollars: number) =>
+export const setAllowance = async (registrar: User, dollars: number) =>
   confirm(
     await walletOf(OWNER).writeContract({
       address: CONTRACTS.SimplexSponsor,
       abi: sponsorAdminAbi,
       functionName: 'setRegistrarAllowance',
-      args: [ACCOUNTS[account].address, BigInt(dollars) * 10n ** 18n],
+      args: [accountOf(registrar).address, BigInt(dollars) * 10n ** 18n],
     }),
   )
 
-export const registerWithAllowance = async (label: string, owner: number) => {
+export const registerWithAllowance = async (label: string, owner: User) => {
   const request = await commit(label, owner)
   await confirm(
     await walletOf(owner).writeContract({
@@ -280,13 +282,13 @@ export const unregister = async (label: string) =>
     }),
   )
 
-export const offer = async (label: string, holder: number, recipient: number) =>
+export const offer = async (label: string, holder: User, recipient: User) =>
   confirm(
     await walletOf(holder).writeContract({
       address: CONTRACTS.BaseRegistrarImplementation,
       abi: registrarAbi,
       functionName: 'approve',
-      args: [ACCOUNTS[recipient].address, tokenOf(label)],
+      args: [accountOf(recipient).address, tokenOf(label)],
     }),
   )
 
@@ -316,7 +318,7 @@ export const expiryOf = (label: string) =>
     args: [tokenOf(label)],
   })
 
-export const setText = async (name: string, holder: number, key: string, value: string) =>
+export const setText = async (name: string, holder: User, key: string, value: string) =>
   confirm(
     await walletOf(holder).writeContract({
       address: CONTRACTS.PublicResolver,
@@ -334,7 +336,7 @@ export const textOf = (name: string, key: string) =>
     args: [namehash(name), key],
   })
 
-export const createSubname = async (parent: string, label: string, holder: number) => {
+export const createSubname = async (parent: string, label: string, holder: User) => {
   await confirm(
     await walletOf(holder).writeContract({
       address: CONTRACTS.ENSRegistry,

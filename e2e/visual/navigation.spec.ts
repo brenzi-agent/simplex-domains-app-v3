@@ -1,7 +1,7 @@
 import { type Page } from '@playwright/test'
 
 import { OWNER } from './chain'
-import { connectButton, expect, matchScreen, test } from './fixtures'
+import { connectButton, expect, matchDialog, test, walletOption } from './fixtures'
 
 const hamburger = (page: Page, isMobile: boolean) =>
   isMobile
@@ -11,15 +11,15 @@ const hamburger = (page: Page, isMobile: boolean) =>
 test('menu with the TLD entry', async ({ page, app, isMobile }) => {
   await app.open('/', { accounts: [OWNER] })
   await hamburger(page, isMobile).click()
-  await expect(page.locator('#chain-name:visible')).toHaveText('localhost')
-  await matchScreen(page, 'menu.png')
+  await expect(page.locator('#chain-name:visible')).toHaveText('mainnet')
+  await matchDialog(page, 'menu')
   await page.locator(':text-is(".simplex TLD"):visible').click()
   await expect(page).toHaveURL(/\/admin$/)
 })
 
-test('connect modal', async ({ page, app }) => {
+test('connect modal', async ({ page, app, isMobile }) => {
   await app.open('/', { accounts: [OWNER], connected: false })
   await connectButton(page).click()
-  await expect(page.getByRole('dialog').getByText('Headless Web3 Provider')).toBeVisible()
-  await matchScreen(page, 'connect-modal.png')
+  await expect(walletOption(page, isMobile)).toBeVisible()
+  await matchDialog(page, 'connect-modal')
 })

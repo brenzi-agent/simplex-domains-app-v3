@@ -1,17 +1,15 @@
 import { join } from 'node:path'
 
-import { defineConfig } from '@playwright/test'
+import { defineConfig, devices } from '@playwright/test'
 
 import { APP_URL, RPC_URL } from './chain'
 
 const REPOSITORY = join(__dirname, '..', '..')
-const DESKTOP = { width: 1280, height: 1000 }
-const PHONE = { width: 390, height: 1400 }
 
 export default defineConfig({
   testDir: '.',
   testMatch: '*.spec.ts',
-  snapshotPathTemplate: '{testDir}/screenshots/{projectName}/{testFileName}/{arg}{ext}',
+  snapshotPathTemplate: '{testDir}/screenshots/{testFileName}/{arg}{ext}',
   outputDir: '../../test-results/visual',
   timeout: 90_000,
   workers: 1,
@@ -22,6 +20,7 @@ export default defineConfig({
   expect: {
     timeout: 30_000,
     toHaveScreenshot: {
+      pathTemplate: '{testDir}/screenshots/{projectName}/{testFileName}/{arg}{ext}',
       animations: 'disabled',
       caret: 'hide',
       scale: 'css',
@@ -32,6 +31,7 @@ export default defineConfig({
   },
   use: {
     baseURL: APP_URL,
+    colorScheme: 'light',
     deviceScaleFactor: 1,
     locale: 'en-US',
     timezoneId: 'UTC',
@@ -42,15 +42,20 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [
-    { name: 'desktop', use: { viewport: DESKTOP, colorScheme: 'light' } },
+    { name: 'desktop', use: { viewport: { width: 1280, height: 1000 } } },
     {
       name: 'phone',
-      use: { viewport: PHONE, colorScheme: 'light', isMobile: true, hasTouch: true },
+      use: {
+        ...devices['iPhone 13'],
+        browserName: 'chromium',
+        viewport: { width: 390, height: 844 },
+        deviceScaleFactor: 1,
+      },
     },
   ],
   webServer: [
     {
-      command: `anvil --chain-id 1337 --port ${new URL(RPC_URL).port} --silent`,
+      command: `anvil --chain-id 1 --port ${new URL(RPC_URL).port} --silent`,
       url: RPC_URL,
       reuseExistingServer: false,
     },

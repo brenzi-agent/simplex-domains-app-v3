@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs'
-import { basename, join } from 'node:path'
+import { readFileSync, statSync } from 'node:fs'
+import { join } from 'node:path'
 
 import {
   test as base,
@@ -9,25 +9,35 @@ import {
   type Page,
   type Route,
 } from '@playwright/test'
-import { isAddressEqual, type Address, type TypedDataDefinition } from 'viem'
+import { isAddress, isAddressEqual, type Address, type TypedDataDefinition } from 'viem'
 
 import { injectHeadlessWeb3Provider, Web3RequestKind } from '@ensdomains/headless-web3-provider'
 
-import { ACCOUNTS, APP_URL, chain, KEYS, latestTimestamp, resetChain, RPC_URL } from './chain'
+import {
+  accountOf,
+  APP_URL,
+  chain,
+  keyOf,
+  latestTimestamp,
+  resetChain,
+  RPC_URL,
+  type User,
+} from './chain'
 
 const LOCAL_ORIGINS = [new URL(APP_URL).origin, new URL(RPC_URL).origin]
-const TERMS_ORIGIN = 'https://raw.githubusercontent.com'
+const TERMS = join(__dirname, 'chain', 'terms')
 const DNS_OVER_HTTPS = 'https://1.1.1.1/dns-query'
 const NXDOMAIN = { Status: 3, TC: false, RD: true, RA: true, AD: true, CD: false }
 const LASTING_SCREEN_MS = 3_000
+const TRANSACTION_SUCCESSFUL = 'Transaction Successful'
+
+const isFile = (path: string) => statSync(path, { throwIfNoEntry: false })?.isFile() ?? false
 
 const serveExternal = (route: Route) => {
   const url = new URL(route.request().url())
-  if (url.origin === TERMS_ORIGIN)
-    return route.fulfill({
-      contentType: 'text/markdown; charset=utf-8',
-      body: readFileSync(join(__dirname, 'chain', 'terms', basename(url.pathname))),
-    })
+  const terms = join(TERMS, url.host, url.pathname)
+  if (url.protocol === 'https:' && !url.search && isFile(terms))
+    return route.fulfill({ contentType: 'text/markdown; charset=utf-8', body: readFileSync(terms) })
   if (`${url.origin}${url.pathname}` === DNS_OVER_HTTPS)
     return route.fulfill({
       contentType: 'application/dns-json',
@@ -36,15 +46,48 @@ const serveExternal = (route: Route) => {
   return route.abort('blockedbyclient')
 }
 
-export type SignedTypedData = { signer: Address; typedData: TypedDataDefinition }
+export type SignedTypedData = {
+  signer: Address
+  typedData: TypedDataDefinition<Record<string, unknown>, string>
+}
 
-export type Wallet = { accounts: readonly [number, ...number[]]; connected?: boolean }
+export type Wallet = { accounts: readonly [User, ...User[]]; connected?: boolean }
 
-const injectWallet = async (page: Page, accounts: Wallet['accounts']) => {
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const parseTypedData = (json: string): SignedTypedData['typedData'] => {
+  const { domain, types, primaryType, message }: Partial<Record<string, unknown>> = JSON.parse(json)
+  if (
+    !isRecord(domain) ||
+    !isRecord(types) ||
+    typeof primaryType !== 'string' ||
+    !isRecord(message)
+  )
+    throw new Error(`not EIP-712 typed data: ${json}`)
+  const { name, version, chainId, verifyingContract } = domain
+  if (
+    typeof name !== 'string' ||
+    typeof version !== 'string' ||
+    typeof chainId !== 'number' ||
+    typeof verifyingContract !== 'string' ||
+    !isAddress(verifyingContract)
+  )
+    throw new Error(`not an EIP-712 domain: ${json}`)
+  const { EIP712Domain, ...messageTypes } = types
+  return {
+    domain: { name, version, chainId, verifyingContract },
+    types: messageTypes,
+    primaryType,
+    message,
+  }
+}
+
+const injectWallet = async (page: Page, users: Wallet['accounts']) => {
   const typedData: SignedTypedData[] = []
   const wallet = await injectHeadlessWeb3Provider({
     page,
-    privateKeys: accounts.map((account) => KEYS[account]),
+    privateKeys: users.map(keyOf),
     chains: [chain],
     permitted: [
       Web3RequestKind.RequestPermissions,
@@ -57,13 +100,9 @@ const injectWallet = async (page: Page, accounts: Wallet['accounts']) => {
   wallet.request = async (req) => {
     if (req.method !== 'eth_signTypedData_v4') return request(req)
     const [from, json] = req.params as readonly [Address, string]
-    const signer = accounts
-      .map((account) => ACCOUNTS[account])
-      .find((account) => isAddressEqual(account.address, from))
+    const signer = users.map(accountOf).find(({ address }) => isAddressEqual(address, from))
     if (!signer) throw new Error(`the wallet holds no account ${from}`)
-    const { types, ...definition } = JSON.parse(json)
-    const { EIP712Domain, ...messageTypes } = types
-    const signed = { ...definition, types: messageTypes } as TypedDataDefinition
+    const signed = parseTypedData(json)
     typedData.push({ signer: signer.address, typedData: signed })
     return signer.signTypedData(signed)
   }
@@ -75,20 +114,25 @@ export const connectButton = (page: Page) =>
     '[data-testid="connect-button"]:visible, [data-testid="tabbar-connect-button"]:visible',
   )
 
-const connect = async (page: Page) => {
+export const walletOption = (page: Page, isMobile: boolean) =>
+  page.getByTestId(
+    isMobile ? 'rk-wallet-option-injected' : 'rk-wallet-option-headless-web3-provider',
+  )
+
+const connect = async (page: Page, isMobile: boolean) => {
   await connectButton(page).click()
-  await page.getByText('Headless Web3 Provider').click()
+  await walletOption(page, isMobile).click()
   await expect(connectButton(page)).toHaveCount(0)
 }
 
-type App = {
+export type App = {
   open: (path: string, wallet?: Wallet) => Promise<{ typedData: SignedTypedData[] }>
   goto: (path: string) => Promise<void>
   syncClock: () => Promise<void>
 }
 
 export const test = base.extend<{ app: App }>({
-  app: async ({ page }, use) => {
+  app: async ({ page, isMobile }, use) => {
     await resetChain()
     const context = page.context()
     await context.route((url) => !LOCAL_ORIGINS.includes(url.origin), serveExternal)
@@ -105,30 +149,25 @@ export const test = base.extend<{ app: App }>({
         await syncClock()
         const typedData = wallet ? await injectWallet(page, wallet.accounts) : []
         await page.goto(path)
-        if (wallet && (wallet.connected ?? true)) await connect(page)
+        if (wallet && (wallet.connected ?? true)) await connect(page, isMobile)
         return { typedData }
       },
     })
   },
 })
 
-const matchViewport = async (page: Page, name: string, mask: Locator[]) => {
+const matchAtTop = async (
+  page: Page,
+  name: string,
+  options: { fullPage?: boolean; mask: Locator[] },
+) => {
+  await page.evaluate(() => window.scrollTo(0, 0))
   await page.mouse.move(0, 0)
-  await expect(page).toHaveScreenshot(name, { mask })
+  await expect(page).toHaveScreenshot(name, options)
 }
 
-const scrollToTop = (page: Page) => page.evaluate(() => window.scrollTo(0, 0))
-
-export const matchScreen = async (page: Page, name: string, mask: Locator[] = []) => {
-  await scrollToTop(page)
-  await matchViewport(page, name, mask)
-}
-
-export const matchSection = async (page: Page, section: Locator, name: string) => {
-  await scrollToTop(page)
-  await section.scrollIntoViewIfNeeded()
-  await matchViewport(page, name, [])
-}
+export const matchScreen = (page: Page, name: string, mask: Locator[] = []) =>
+  matchAtTop(page, name, { fullPage: true, mask })
 
 export const matchLastingScreen = async (page: Page, name: string) => {
   await matchScreen(page, name)
@@ -143,8 +182,8 @@ export const matchLastingScreen = async (page: Page, name: string) => {
   await matchScreen(page, name)
 }
 
-const scrollDialogToEnd = (page: Page) =>
-  page.evaluate(() => {
+const scrollDialog = (page: Page, edge: 'top' | 'end') =>
+  page.evaluate((to) => {
     const isInFixedLayer = (element: Element | null): boolean =>
       !!element &&
       (getComputedStyle(element).position === 'fixed' || isInFixedLayer(element.parentElement))
@@ -158,32 +197,57 @@ const scrollDialogToEnd = (page: Page) =>
       )
     })
     if (!dialogBody) return false
-    dialogBody.scrollTop = dialogBody.scrollHeight
+    dialogBody.scrollTop = to === 'top' ? 0 : dialogBody.scrollHeight
     return true
-  })
+  }, edge)
 
 export const matchDialog = async (page: Page, name: string, mask: Locator[] = []) => {
-  await matchScreen(page, `${name}.png`, mask)
-  if (await scrollDialogToEnd(page)) await matchScreen(page, `${name}-end.png`, mask)
+  const scrollable = await scrollDialog(page, 'top')
+  await matchAtTop(page, `${name}.png`, { mask })
+  if (scrollable) {
+    await scrollDialog(page, 'end')
+    await matchAtTop(page, `${name}-end.png`, { mask })
+  }
 }
 
-export const transactionConfirm = (page: Page) =>
-  page.getByTestId('transaction-modal-confirm-button')
+const transactionConfirm = (page: Page) => page.getByTestId('transaction-modal-confirm-button')
+
+const transactionDone = (page: Page) => page.getByTestId('transaction-modal-complete-button')
+
+export const transactionDialog = (page: Page) => page.getByTestId('transaction-modal-inner')
+
+const toast = (page: Page) =>
+  page.locator('[data-testid="toast-desktop"], [data-testid="toast-touch"]')
 
 export const matchTransactionDialog = async (page: Page, name: string, mask: Locator[] = []) => {
   await expect(transactionConfirm(page)).toBeEnabled()
   await matchDialog(page, name, mask)
 }
 
-export const completeTransactions = async (
-  page: Page,
-  { count = 1, autoClose = false }: { count?: number; autoClose?: boolean } = {},
-): Promise<void> => {
+const confirmTransaction = async (page: Page) => {
   await expect(transactionConfirm(page)).toBeEnabled()
   await transactionConfirm(page).click()
-  if (count > 1 || !autoClose) await page.getByTestId('transaction-modal-complete-button').click()
-  if (count > 1) return completeTransactions(page, { count: count - 1, autoClose })
-  await expect(page.getByTestId('transaction-modal-inner')).toBeHidden()
+  await expect(toast(page)).toContainText(TRANSACTION_SUCCESSFUL)
+  await toast(page).getByText(TRANSACTION_SUCCESSFUL).click()
+  await page.getByTestId('toast-close-icon').click()
+  await expect(toast(page)).toHaveCount(0)
+}
+
+export const completeTransactions = async (page: Page, count = 1): Promise<void> => {
+  await confirmTransaction(page)
+  if (count === 1) return
+  await transactionDone(page).click()
+  return completeTransactions(page, count - 1)
+}
+
+export const matchCompleteStage = async (page: Page, name: string) => {
+  await expect(transactionDone(page)).toBeVisible()
+  await matchDialog(page, name)
+}
+
+export const closeTransactionDialog = async (page: Page) => {
+  await transactionDone(page).click()
+  await expect(transactionDialog(page)).toBeHidden()
 }
 
 export const showTab = async (page: Page, tab: string) => {
