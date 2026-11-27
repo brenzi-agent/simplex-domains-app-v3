@@ -32,7 +32,7 @@ const ButtonContainer = styled.div(
     flex-shrink: 0;
     margin-top: -25px;
 
-    @media (max-width: ${theme.breakpoints.sm}px) {
+    @media (max-width: ${theme.breakpoints.md}px) {
       width: 100%;
       margin-top: 0;
 
