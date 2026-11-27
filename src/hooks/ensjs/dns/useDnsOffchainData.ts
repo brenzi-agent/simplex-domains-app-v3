@@ -53,7 +53,7 @@ export const getDnsOffchainDataQueryFn =
 
 export const useDnsOffchainData = <TParams extends UseDnsOffchainDataParameters>({
   // config
-  enabled = true,
+  enabled,
   gcTime,
   staleTime,
   scopeKey,

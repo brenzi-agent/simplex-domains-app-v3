@@ -47,7 +47,7 @@ export const getDnsOwnerQueryFn = async <TParams extends UseDnsOwnerParameters>(
 
 export const useDnsOwner = <TParams extends UseDnsOwnerParameters>({
   // config
-  enabled = true,
+  enabled,
   gcTime,
   staleTime,
   scopeKey,

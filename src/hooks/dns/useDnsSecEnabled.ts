@@ -70,7 +70,7 @@ export const getDnsSecEnabledQueryFn = async <TParams extends UseDnsSecEnabledPa
 
 export const useDnsSecEnabled = <TParams extends UseDnsSecEnabledParameters>({
   // config
-  enabled = true,
+  enabled,
   gcTime,
   staleTime,
   scopeKey,
