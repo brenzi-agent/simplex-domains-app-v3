@@ -19,6 +19,7 @@ import {
   type User,
 } from './chain'
 import {
+  acceptTerms,
   completeTransactions,
   connectButton,
   expect,
@@ -58,7 +59,7 @@ const registerOnPayablePath = async (page: Page, app: App, label: string, screen
   await expect(page.getByTestId('next-button')).toHaveText('Accept the terms to continue')
   await matchScreen(page, `${screens}-pricing.png`)
 
-  await page.getByTestId('terms-accept').check()
+  await acceptTerms(page)
   await app.rpcSettled()
   await expect(page.getByTestId('next-button')).toHaveText('Next')
   await networkFeeEstimated(page)
@@ -146,7 +147,7 @@ test('registration from a registrar allowance while sales are closed', async ({ 
   const label = 'partnername'
   await setAllowance(PARTNER, 1000)
   await app.open(`/${label}.${TLD}/register`, { accounts: [PARTNER] })
-  await page.getByTestId('terms-accept').check()
+  await acceptTerms(page)
   await app.rpcSettled()
   await expect(page.getByTestId('next-button')).toHaveText('Register with allowance')
   await expect(page.getByTestId('next-button')).toBeEnabled()
@@ -174,7 +175,7 @@ test('registration from a registrar allowance while sales are closed', async ({ 
 test('registration from an allowance that is too low', async ({ page, app }) => {
   await setAllowance(PARTNER, 10)
   await app.open(`/partnername.${TLD}/register`, { accounts: [PARTNER] })
-  await page.getByTestId('terms-accept').check()
+  await acceptTerms(page)
   await app.rpcSettled()
   await expect(page.getByTestId('next-button')).toHaveText('Allowance too low')
   await expect(page.getByText('-$90.00')).toBeVisible()
@@ -188,7 +189,7 @@ test('registration from an allowance to a temporary owner', async ({ page, app }
   const { typedData } = await app.open(`/${label}.${TLD}/register`, {
     accounts: [PARTNER, TEMPORARY_OWNER],
   })
-  await page.getByTestId('terms-accept').check()
+  await acceptTerms(page)
   await app.rpcSettled()
   await expect(page.getByTestId(`owner-${owner}`)).toBeVisible()
   await expect(page.getByTestId('next-button')).toBeEnabled()

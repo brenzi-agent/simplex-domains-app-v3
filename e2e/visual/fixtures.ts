@@ -284,6 +284,11 @@ export const matchDialog = async (page: Page, name: string, mask: Locator[] = []
   }
 }
 
+export const acceptTerms = async (page: Page) => {
+  await page.getByTestId('terms-accept').dispatchEvent('click')
+  await expect(page.getByTestId('terms-accept')).toBeChecked()
+}
+
 export const scrollTermsToEnd = (page: Page) =>
   page.getByTestId('terms-text').evaluate((terms) => terms.scrollTo(0, terms.scrollHeight))
 

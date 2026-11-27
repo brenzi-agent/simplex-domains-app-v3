@@ -16,6 +16,7 @@ import {
   type User,
 } from './chain'
 import {
+  acceptTerms,
   closeTransactionDialog,
   completeTransactions,
   expect,
@@ -57,7 +58,7 @@ const openClaim = async (page: Page, label: string, screens: string) => {
 }
 
 const claim = async (page: Page, label: string, screens: string) => {
-  await page.getByTestId('terms-accept').check()
+  await acceptTerms(page)
   await expect(page.getByTestId('claim-name-confirm')).toBeEnabled()
   await matchDialog(page, `${screens}-accepted`)
   await page.getByTestId('claim-name-confirm').click()
@@ -72,7 +73,7 @@ const extendAsHolder = async (page: Page, app: App, label: string, screens: stri
   const expiry = await expiryOf(label)
   await expect(page.getByTestId('terms-text')).toContainText(TERMS_TITLE)
   await matchDialog(page, `${screens}-terms`)
-  await page.getByTestId('terms-accept').check()
+  await acceptTerms(page)
   await app.rpcSettled()
   await expect(page.getByTestId('extend-names-confirm')).toBeEnabled()
   await networkFeeEstimated(page)
