@@ -9,6 +9,7 @@ import {
   isCommunityName,
   minCharLength,
   OWNER,
+  register,
   registerWithAllowance,
   reservationOf,
   setAllowance,
@@ -37,6 +38,18 @@ test('my names without a name ended in its dispute period', async ({ page, app }
   await expect(names).not.toContainText(`endedname.${TLD}`)
   await matchScreen(page, 'my-names.png')
 })
+
+for (const { viewer, wallet } of [
+  { viewer: 'holder', wallet: { accounts: [HOLDER] } },
+  { viewer: 'visitor', wallet: undefined },
+] as const) {
+  test(`address page of a name's holder, opened by its ${viewer}`, async ({ page, app }) => {
+    await register('addressname', HOLDER)
+    await app.open(`/address?address=${accountOf(HOLDER).address}`, wallet)
+    await expect(page.getByTestId('names-list')).toContainText(`addressname.${TLD}`)
+    await matchScreen(page, `address-${viewer}.png`)
+  })
+}
 
 test.describe('admin page', () => {
   test.skip(({ isMobile }) => isMobile, '/admin is desktop-only')
@@ -106,12 +119,12 @@ test('name policy page', async ({ page, app }) => {
   await app.open('/namepolicy')
   await expect(page.getByTestId('name-policy-reserved')).toContainText(`simplex-chat.${TLD}`)
   await expect(page.getByTestId('name-policy-community')).toContainText(`communityname.${TLD}`)
-  await expect(page.getByTestId('name-policy-reserved-count')).toHaveText('841')
+  await expect(page.getByTestId('name-policy-reserved-count')).toHaveText('840')
   await expect(page.getByTestId('name-policy-community-count')).toHaveText('459')
   await matchScreen(page, 'name-policy.png')
 
   await page.getByLabel('Search names', { exact: true }).fill('claim')
   await expect(page.getByTestId('name-policy-community-count')).toHaveText('1 of 459')
-  await expect(page.getByTestId('name-policy-reserved-count')).toHaveText('0 of 841')
+  await expect(page.getByTestId('name-policy-reserved-count')).toHaveText('0 of 840')
   await matchScreen(page, 'name-policy-search.png')
 })

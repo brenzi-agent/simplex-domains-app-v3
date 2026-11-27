@@ -1,24 +1,33 @@
 import { type Page } from '@playwright/test'
-import { type Hex } from 'viem'
+import { isHex, zeroAddress } from 'viem'
 
 import {
   accountOf,
   advance,
+  advancePastExpiry,
   committedAt,
+  CONTACT_LINKS,
+  createSubname,
+  GRACE_PERIOD_DAYS,
   holderOf,
+  register,
   setAllowance,
   setPublicSalesOpen,
+  subnameHolderOf,
   textOf,
   TLD,
   type User,
 } from './chain'
 import {
   completeTransactions,
+  connectButton,
   expect,
   matchLastingScreen,
   matchScreen,
   matchTransactionDialog,
   networkFeeEstimated,
+  scrollTermsToEnd,
+  TERMS_TITLE,
   test,
   transactionDialog,
   type App,
@@ -27,7 +36,8 @@ import {
 const BUYER: User = 'user2'
 const PARTNER: User = 'user2'
 const TEMPORARY_OWNER: User = 'user3'
-const CONTACT = 'https://smp4.simplex.im/a#visualtestcontactlinkaaaaaaaaaaaaaaaaaaaaaaaa'
+const PREVIOUS_HOLDER: User = 'user3'
+const [CONTACT] = CONTACT_LINKS
 
 const countdown = (page: Page) => [page.getByTestId('countdown-circle')]
 
@@ -42,47 +52,49 @@ const waitOutCommitment = async (page: Page, app: App) => {
   await app.syncClock()
 }
 
-const registerOnPayablePath = async (page: Page, app: App, label: string, terms: string) => {
-  await expect(page.getByTestId('terms-text')).toContainText('SimpleX Names Conditions of Use')
+const registerOnPayablePath = async (page: Page, app: App, label: string, screens: string) => {
+  await expect(page.getByTestId('terms-text')).toContainText(TERMS_TITLE)
   await networkFeeEstimated(page)
   await expect(page.getByTestId('next-button')).toHaveText('Accept the terms to continue')
-  await matchScreen(page, `${terms}-pricing.png`)
+  await matchScreen(page, `${screens}-pricing.png`)
 
   await page.getByTestId('terms-accept').check()
   await app.rpcSettled()
   await expect(page.getByTestId('next-button')).toHaveText('Next')
   await networkFeeEstimated(page)
-  await matchScreen(page, `${terms}-pricing-accepted.png`)
+  await matchScreen(page, `${screens}-pricing-accepted.png`)
+  await scrollTermsToEnd(page)
+  await matchScreen(page, `${screens}-pricing-terms-end.png`)
   await page.getByTestId('next-button').click()
 
   await page.getByTestId('multi-url-field-simplex.contact-input-0').fill(CONTACT)
-  await matchScreen(page, `${terms}-profile.png`)
+  await matchScreen(page, `${screens}-profile.png`)
   await page.getByTestId('profile-submit-button').click()
 
   await networkFeeEstimated(page)
-  await matchScreen(page, `${terms}-info.png`)
+  await matchScreen(page, `${screens}-info.png`)
   await page.getByTestId('next-button').click()
 
-  await matchTransactionDialog(page, `${terms}-commit-confirm`)
+  await matchTransactionDialog(page, `${screens}-commit-confirm`)
   await page.getByTestId('close-icon').click()
   await expect(page.getByTestId('start-timer-button')).toBeEnabled()
-  await matchScreen(page, `${terms}-commit.png`)
+  await matchScreen(page, `${screens}-commit.png`)
   await page.getByTestId('start-timer-button').click()
   await completeRegistrationStep(page)
 
   await expect(page.getByTestId('wait-button')).toBeVisible()
   await app.syncClock()
   await expect(page.getByTestId('countdown-circle')).toHaveText('60')
-  await matchScreen(page, `${terms}-wait.png`)
+  await matchScreen(page, `${screens}-wait.png`)
   await waitOutCommitment(page, app)
   await expect(page.getByTestId('finish-button')).toBeEnabled()
-  await matchScreen(page, `${terms}-register.png`, countdown(page))
+  await matchScreen(page, `${screens}-register.png`, countdown(page))
   await page.getByTestId('finish-button').click()
-  await matchTransactionDialog(page, `${terms}-register-confirm`, countdown(page))
+  await matchTransactionDialog(page, `${screens}-register-confirm`, countdown(page))
   await completeRegistrationStep(page)
 
   await expect(page.getByTestId('invoice-item-expiry-date')).toBeVisible()
-  await matchLastingScreen(page, `${terms}-complete.png`)
+  await matchLastingScreen(page, `${screens}-complete.png`)
   expect(await holderOf(label)).toBe(accountOf(BUYER).address)
   expect(await textOf(`${label}.${TLD}`, 'simplex.contact')).toBe(CONTACT)
 }
@@ -101,12 +113,33 @@ test('registration on the payable path under the community terms', async ({ page
   await registerOnPayablePath(page, app, 'communityname', 'community')
 })
 
+test('re-registration of a name after its grace period', async ({ page, app }) => {
+  const label = 'lapsedname'
+  await register(label, PREVIOUS_HOLDER)
+  await createSubname(`${label}.${TLD}`, 'mobile', PREVIOUS_HOLDER)
+  await advancePastExpiry(label, GRACE_PERIOD_DAYS + 1n)
+  await setPublicSalesOpen(true)
+  await app.open(`/${label}.${TLD}`, { accounts: [BUYER] })
+  await expect(page.getByText(`Register ${label}.${TLD}`, { exact: true })).toBeVisible()
+  await registerOnPayablePath(page, app, label, 'reregistration')
+  expect(await subnameHolderOf(`mobile.${label}.${TLD}`)).toBe(zeroAddress)
+})
+
 test('pricing while public sales are closed', async ({ page, app }) => {
   await app.open(`/freshname.${TLD}/register`, { accounts: [BUYER] })
   await expect(page.getByTestId('public-sales-closed')).toContainText(
     'Public sales are not open yet',
   )
   await matchScreen(page, 'sales-closed.png')
+})
+
+test('pricing without a connected wallet', async ({ page, app }) => {
+  await setPublicSalesOpen(true)
+  await app.open(`/freshname.${TLD}/register`)
+  await expect(page.getByTestId('terms-text')).toContainText(TERMS_TITLE)
+  await expect(connectButton(page)).toBeVisible()
+  await networkFeeEstimated(page)
+  await matchScreen(page, 'no-wallet-pricing.png')
 })
 
 test('registration from a registrar allowance while sales are closed', async ({ page, app }) => {
@@ -173,12 +206,19 @@ test('registration from an allowance to a temporary owner', async ({ page, app }
     [owner, 'AcceptGeneralTerms'],
     [owner, 'RegisterName'],
   ])
-  const [{ typedData: terms }] = typedData
+  const [
+    {
+      typedData: {
+        message: { commitment },
+      },
+    },
+  ] = typedData
+  if (!isHex(commitment)) throw new Error(`AcceptGeneralTerms without a commitment: ${commitment}`)
   expect(
     JSON.stringify(typedData, (key, value) => (key === 'commitment' ? '<random>' : value), 2),
   ).toMatchSnapshot('owner-typed-data.json')
   await completeRegistrationStep(page)
-  expect(await committedAt(terms.message.commitment as Hex)).toBeGreaterThan(0n)
+  expect(await committedAt(commitment)).toBeGreaterThan(0n)
   await waitOutCommitment(page, app)
   await page.getByTestId('finish-button').click()
   await matchTransactionDialog(page, 'owner-register-confirm', countdown(page))

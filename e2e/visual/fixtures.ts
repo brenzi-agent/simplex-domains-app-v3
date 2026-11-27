@@ -1,4 +1,4 @@
-import { readFileSync, statSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import {
@@ -26,20 +26,55 @@ import {
 } from './chain'
 
 const LOCAL_ORIGINS = [new URL(APP_URL).origin, new URL(RPC_URL).origin]
-const TERMS = join(__dirname, 'chain', 'terms')
+const RPC_FALLBACK_HOSTS = ['lb.drpc.org', 'mainnet.gateway.tenderly.co']
 const DNS_OVER_HTTPS = 'https://1.1.1.1/dns-query'
 const NXDOMAIN = { Status: 3, TC: false, RD: true, RA: true, AD: true, CD: false }
+const SCREENSHOT_CSS = join(__dirname, 'screenshot.css')
+const WHOLE_PAGE_CSS = join(__dirname, 'whole-page.css')
 const LASTING_SCREEN_MS = 3_000
 const RPC_QUIET_MS = 500
 const TRANSACTION_SUCCESSFUL = 'Transaction Successful'
+export const TERMS_TITLE = 'SimpleX Names Conditions of Use'
+export const USER_REJECTED = 'User rejected the request.'
+const USER_REJECTION = { code: 4001, message: USER_REJECTED }
 
-const isFile = (path: string) => statSync(path, { throwIfNoEntry: false })?.isFile() ?? false
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
 
-const serveExternal = (route: Route) => {
-  const url = new URL(route.request().url())
-  const terms = join(TERMS, url.host, url.pathname)
-  if (url.protocol === 'https:' && !url.search && isFile(terms))
-    return route.fulfill({ contentType: 'text/markdown; charset=utf-8', body: readFileSync(terms) })
+type TermsFile = { file: string; contentType: string }
+
+const parseTermsFiles = (json: unknown) => {
+  if (!isRecord(json)) throw new Error('terms.json: not an object')
+  return new Map(
+    Object.entries(json).map(([url, entry]): [string, TermsFile] => {
+      if (
+        !isRecord(entry) ||
+        typeof entry.file !== 'string' ||
+        typeof entry.contentType !== 'string'
+      )
+        throw new Error(`terms.json: ${url} has no file and content type`)
+      return [url, { file: entry.file, contentType: entry.contentType }]
+    }),
+  )
+}
+
+const TERMS_FILES = parseTermsFiles(
+  JSON.parse(readFileSync(join(__dirname, 'chain', 'terms.json'), 'utf8')),
+)
+
+const isRpc = (url: URL) =>
+  url.origin === new URL(RPC_URL).origin || RPC_FALLBACK_HOSTS.includes(url.host)
+
+const serveExternal = async (route: Route) => {
+  const request = route.request()
+  const url = new URL(request.url())
+  const terms = TERMS_FILES.get(request.url())
+  if (terms)
+    return route.fulfill({
+      contentType: terms.contentType,
+      body: readFileSync(join(__dirname, 'chain', terms.file)),
+    })
+  if (isRpc(url)) return route.fulfill({ response: await route.fetch({ url: RPC_URL }) })
   if (`${url.origin}${url.pathname}` === DNS_OVER_HTTPS)
     return route.fulfill({
       contentType: 'application/dns-json',
@@ -48,15 +83,14 @@ const serveExternal = (route: Route) => {
   return route.abort('blockedbyclient')
 }
 
-export type SignedTypedData = {
+type SignedTypedData = {
   signer: Address
   typedData: TypedDataDefinition<Record<string, unknown>, string>
 }
 
 export type Wallet = { accounts: readonly [User, ...User[]]; connected?: boolean }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
+type RefusableRequest = Web3RequestKind.SendTransaction | Web3RequestKind.SignTypedDataV4
 
 const parseTypedData = (json: string): SignedTypedData['typedData'] => {
   const { domain, types, primaryType, message }: Partial<Record<string, unknown>> = JSON.parse(json)
@@ -85,8 +119,16 @@ const parseTypedData = (json: string): SignedTypedData['typedData'] => {
   }
 }
 
+const parseSignRequest = (params: unknown) => {
+  const [from, json] = Array.isArray(params) ? params : []
+  if (typeof from !== 'string' || !isAddress(from) || typeof json !== 'string')
+    throw new Error(`eth_signTypedData_v4 without an address and typed data: ${params}`)
+  return { from, typedData: parseTypedData(json) }
+}
+
 const injectWallet = async (page: Page, users: Wallet['accounts']) => {
   const typedData: SignedTypedData[] = []
+  let refusal: RefusableRequest | undefined
   const wallet = await injectHeadlessWeb3Provider({
     page,
     privateKeys: users.map(keyOf),
@@ -100,15 +142,23 @@ const injectWallet = async (page: Page, users: Wallet['accounts']) => {
   })
   const request = wallet.request.bind(wallet)
   wallet.request = async (req) => {
-    if (req.method !== 'eth_signTypedData_v4') return request(req)
-    const [from, json] = req.params as readonly [Address, string]
+    if (req.method === refusal) {
+      refusal = undefined
+      return Promise.reject(USER_REJECTION)
+    }
+    if (req.method !== Web3RequestKind.SignTypedDataV4) return request(req)
+    const { from, typedData: signed } = parseSignRequest(req.params)
     const signer = users.map(accountOf).find(({ address }) => isAddressEqual(address, from))
     if (!signer) throw new Error(`the wallet holds no account ${from}`)
-    const signed = parseTypedData(json)
     typedData.push({ signer: signer.address, typedData: signed })
     return signer.signTypedData(signed)
   }
-  return typedData
+  return {
+    typedData,
+    refuse: (refused: RefusableRequest) => {
+      refusal = refused
+    },
+  }
 }
 
 export const connectButton = (page: Page) =>
@@ -128,7 +178,7 @@ const connect = async (page: Page, isMobile: boolean) => {
 }
 
 export type App = {
-  open: (path: string, wallet?: Wallet) => Promise<{ typedData: SignedTypedData[] }>
+  open: (path: string, wallet?: Wallet) => ReturnType<typeof injectWallet>
   goto: (path: string) => Promise<void>
   syncClock: () => Promise<void>
   rpcSettled: () => Promise<void>
@@ -143,14 +193,13 @@ export const test = base.extend<{ app: App }>({
     const syncClock = async () =>
       page.clock.setFixedTime(new Date(Number(await latestTimestamp()) * 1000))
     const rpc = { pending: 0, lastActivity: 0 }
-    const isRpc = (request: Request) => new URL(request.url()).origin === new URL(RPC_URL).origin
     page.on('request', (request) => {
-      if (!isRpc(request)) return
+      if (!isRpc(new URL(request.url()))) return
       rpc.pending += 1
       rpc.lastActivity = Date.now()
     })
     const settle = (request: Request) => {
-      if (!isRpc(request)) return
+      if (!isRpc(new URL(request.url()))) return
       rpc.pending -= 1
       rpc.lastActivity = Date.now()
     }
@@ -170,10 +219,12 @@ export const test = base.extend<{ app: App }>({
       },
       open: async (path, wallet) => {
         await syncClock()
-        const typedData = wallet ? await injectWallet(page, wallet.accounts) : []
+        const injected = wallet
+          ? await injectWallet(page, wallet.accounts)
+          : { typedData: [], refuse: () => {} }
         await page.goto(path)
         if (wallet && (wallet.connected ?? true)) await connect(page, isMobile)
-        return { typedData }
+        return injected
       },
     })
   },
@@ -182,7 +233,7 @@ export const test = base.extend<{ app: App }>({
 const matchAtTop = async (
   page: Page,
   name: string,
-  options: { fullPage?: boolean; mask: Locator[] },
+  options: { fullPage?: boolean; mask: Locator[]; stylePath?: string[] },
 ) => {
   await page.evaluate(() => {
     window.scrollTo(0, 0)
@@ -193,7 +244,7 @@ const matchAtTop = async (
 }
 
 export const matchScreen = (page: Page, name: string, mask: Locator[] = []) =>
-  matchAtTop(page, name, { fullPage: true, mask })
+  matchAtTop(page, name, { fullPage: true, mask, stylePath: [SCREENSHOT_CSS, WHOLE_PAGE_CSS] })
 
 export const matchLastingScreen = async (page: Page, name: string) => {
   await matchScreen(page, name)
@@ -210,16 +261,13 @@ export const matchLastingScreen = async (page: Page, name: string) => {
 
 const scrollDialog = (page: Page, edge: 'top' | 'end') =>
   page.evaluate((to) => {
-    const isInFixedLayer = (element: Element | null): boolean =>
-      !!element &&
-      (getComputedStyle(element).position === 'fixed' || isInFixedLayer(element.parentElement))
-    const dialogBody = [...document.querySelectorAll('body *')].find((element) => {
+    const dialog = [...document.querySelectorAll('body > div.modal, [role="dialog"]')].at(-1)
+    const dialogBody = [...(dialog?.querySelectorAll('*') ?? [])].find((element) => {
       const { overflowY } = getComputedStyle(element)
       return (
         ['auto', 'scroll'].includes(overflowY) &&
         element.scrollHeight > element.clientHeight + 1 &&
-        element.getAttribute('data-testid') !== 'terms-text' &&
-        isInFixedLayer(element)
+        element.getAttribute('data-testid') !== 'terms-text'
       )
     })
     if (!dialogBody) return false
@@ -235,6 +283,9 @@ export const matchDialog = async (page: Page, name: string, mask: Locator[] = []
     await matchAtTop(page, `${name}-end.png`, { mask })
   }
 }
+
+export const scrollTermsToEnd = (page: Page) =>
+  page.getByTestId('terms-text').evaluate((terms) => terms.scrollTo(0, terms.scrollHeight))
 
 const transactionConfirm = (page: Page) => page.getByTestId('transaction-modal-confirm-button')
 
@@ -267,6 +318,12 @@ export const completeTransactions = async (page: Page, count = 1): Promise<void>
   if (count === 1) return
   await transactionDone(page).click()
   return completeTransactions(page, count - 1)
+}
+
+export const refuseTransaction = async (page: Page) => {
+  await expect(transactionConfirm(page)).toBeEnabled()
+  await transactionConfirm(page).click()
+  await expect(transactionDialog(page)).toContainText(USER_REJECTED)
 }
 
 export const matchCompleteStage = async (page: Page, name: string) => {

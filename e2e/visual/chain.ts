@@ -34,12 +34,18 @@ export const RPC_URL = process.env.NEXT_PUBLIC_MAINNET_RPC_URL ?? 'http://127.0.
 export const APP_URL = `http://127.0.0.1:${process.env.E2E_PORT ?? 3000}`
 export const TLD = 'simplex'
 export const DISPUTE_DAYS = BigInt(MIN_DISPUTE_DAYS)
+export const GRACE_PERIOD_DAYS = 90n
 export const ONE_DAY = 86400n
+export const CONTACT_LINKS = [
+  'https://smp4.simplex.im/a#visualtestcontactlinkaaaaaaaaaaaaaaaaaaaaaaaa',
+  'https://smp5.simplex.im/a#visualtestcontactlinkbbbbbbbbbbbbbbbbbbbbbbbb',
+] as const
 
 const START = Date.UTC(2026, 2, 2, 12) / 1000
 const STATE = bytesToHex(readFileSync(join(__dirname, 'chain', 'state.json.gz')))
 const TWO_YEARS = BigInt(MIN_REGISTRATION_DURATION)
 const MIN_COMMITMENT_AGE = 60n
+const RECEIPT_POLLING_MS = 100
 
 const accounts = createAccounts()
 export const keyOf = (user: User) => accounts.getPrivateKey(user)
@@ -72,7 +78,7 @@ const CONTRACTS = parseContracts(
 
 export const chain = { ...mainnet, rpcUrls: { default: { http: [RPC_URL] } } }
 const transport = http(RPC_URL)
-const client = createPublicClient({ chain, transport })
+const client = createPublicClient({ chain, transport, pollingInterval: RECEIPT_POLLING_MS })
 const anvil = createTestClient({ chain, transport, mode: 'anvil' })
 const walletOf = (user: User) => createWalletClient({ account: accountOf(user), chain, transport })
 
@@ -317,6 +323,9 @@ export const expiryOf = (label: string) =>
     functionName: 'nameExpires',
     args: [tokenOf(label)],
   })
+
+export const advancePastExpiry = async (label: string, days: bigint) =>
+  advance((await expiryOf(label)) - (await latestTimestamp()) + days * ONE_DAY)
 
 export const setText = async (name: string, holder: User, key: string, value: string) =>
   confirm(

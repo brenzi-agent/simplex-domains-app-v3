@@ -1,15 +1,12 @@
 import { type Page } from '@playwright/test'
 import { zeroAddress } from 'viem'
 
-import { SIMPLEX_LINK_SEPARATOR } from '@app/constants/simplex'
-
 import {
   accountOf,
-  advance,
+  advancePastExpiry,
+  CONTACT_LINKS,
   createSubname,
-  expiryOf,
-  latestTimestamp,
-  ONE_DAY,
+  GRACE_PERIOD_DAYS,
   register,
   setText,
   subnameHolderOf,
@@ -33,43 +30,39 @@ import {
 const HOLDER: User = 'user2'
 const LABEL = 'holdername'
 const NAME = `${LABEL}.${TLD}`
-const CONTACTS = [
-  'https://smp4.simplex.im/a#visualtestcontactlinkaaaaaaaaaaaaaaaaaaaaaaaa',
-  'https://smp5.simplex.im/a#visualtestcontactlinkbbbbbbbbbbbbbbbbbbbbbbbb',
-]
 const CHANNEL = 'https://smp6.simplex.im/c#visualtestchannellinkcccccccccccccccccccccccc'
 const SECOND_CHANNEL = 'https://smp7.simplex.im/c#visualtestchannellinkdddddddddddddddddddddddd'
-const GRACE_PERIOD_DAYS = 90n
+const CONTACTS_RECORD = CONTACT_LINKS.join(';')
 
 const seedName = async () => {
   await register(LABEL, HOLDER)
-  await setText(NAME, HOLDER, 'simplex.contact', CONTACTS.join(SIMPLEX_LINK_SEPARATOR))
+  await setText(NAME, HOLDER, 'simplex.contact', CONTACTS_RECORD)
   await setText(NAME, HOLDER, 'simplex.channel', CHANNEL)
   await createSubname(NAME, 'mobile', HOLDER)
 }
 
-const advancePastExpiry = async (days: bigint) =>
-  advance((await expiryOf(LABEL)) - (await latestTimestamp()) + days * ONE_DAY)
-
-const matchTabs = async (page: Page, visitor: string) => {
+const matchTabs = async (page: Page, viewer: 'holder' | 'visitor') => {
+  const editors = viewer === 'holder' ? 1 : 0
   await expect(page.getByTestId('profile-section-simplex')).toContainText('SimpleX Channel')
-  await matchScreen(page, `${visitor}-profile.png`)
+  await matchScreen(page, `${viewer}-profile.png`)
 
   await showTab(page, 'Records')
   await expect(page.getByTestId('text-amount')).toHaveText(/^2 /)
-  await matchScreen(page, `${visitor}-records.png`)
+  await expect(page.getByRole('button', { name: 'Edit Records' })).toHaveCount(editors)
+  await matchScreen(page, `${viewer}-records.png`)
 
   await showTab(page, 'Ownership')
   await expect(page.getByTestId('expiry-panel-grace-period')).toBeVisible()
-  await matchScreen(page, `${visitor}-ownership.png`)
+  await matchScreen(page, `${viewer}-ownership.png`)
 
   await showTab(page, 'Subnames')
   await expect(page.getByTestId(`name-item-mobile.${NAME}`)).toBeVisible()
-  await matchScreen(page, `${visitor}-subnames.png`)
+  await expect(page.getByTestId('add-subname-action')).toHaveCount(editors)
+  await matchScreen(page, `${viewer}-subnames.png`)
 
   await showTab(page, 'More')
   await expect(page.getByText('Resolver', { exact: true })).toBeVisible()
-  await matchScreen(page, `${visitor}-more.png`)
+  await matchScreen(page, `${viewer}-more.png`)
 }
 
 test('name page of the holder', async ({ page, app }) => {
@@ -84,13 +77,11 @@ test('name page of a visitor', async ({ page, app }) => {
   await app.open(`/${NAME}`)
   await expect(page.getByTestId('profile-actions')).toHaveCount(0)
   await matchTabs(page, 'visitor')
-  await expect(page.getByRole('button', { name: 'Edit Records' })).toHaveCount(0)
-  await expect(page.getByTestId('add-subname-action')).toHaveCount(0)
 })
 
 test('name page in its grace period', async ({ page, app }) => {
   await seedName()
-  await advancePastExpiry(1n)
+  await advancePastExpiry(LABEL, 1n)
   await app.open(`/${NAME}`, { accounts: [HOLDER] })
   await expect(page.getByTestId('profile-section-simplex')).toContainText('SimpleX Channel')
   await matchScreen(page, 'grace-period-profile.png')
@@ -101,7 +92,7 @@ test('name page in its grace period', async ({ page, app }) => {
 
 test('name page after its grace period', async ({ page, app }) => {
   await seedName()
-  await advancePastExpiry(GRACE_PERIOD_DAYS + 1n)
+  await advancePastExpiry(LABEL, GRACE_PERIOD_DAYS + 1n)
   await app.open(`/${NAME}`, { accounts: [HOLDER] })
   await expect(page.getByText(`Register ${NAME}`, { exact: true })).toBeVisible()
   await expect(page.getByTestId('public-sales-closed')).toBeVisible()
@@ -114,7 +105,7 @@ test('editing the SimpleX links', async ({ page, app }) => {
   await page.getByTestId('profile-action-Edit profile').click()
   const editor = page.getByTestId('profile-editor')
   await expect(editor.getByTestId('multi-url-field-simplex.contact-input-1')).toHaveValue(
-    CONTACTS[1],
+    CONTACT_LINKS[1],
   )
   await expect(editor.getByTestId('multi-url-field-simplex.channel-add')).toHaveCount(0)
   await editor.getByTestId('multi-url-field-simplex.channel-input-0').fill(SECOND_CHANNEL)
@@ -125,7 +116,7 @@ test('editing the SimpleX links', async ({ page, app }) => {
   await matchCompleteStage(page, 'editor-complete')
   await closeTransactionDialog(page)
   expect(await textOf(NAME, 'simplex.channel')).toBe(SECOND_CHANNEL)
-  expect(await textOf(NAME, 'simplex.contact')).toBe(CONTACTS.join(SIMPLEX_LINK_SEPARATOR))
+  expect(await textOf(NAME, 'simplex.contact')).toBe(CONTACTS_RECORD)
   await expect(page.getByTestId('profile-section-simplex')).toContainText('smp7.simplex.im')
   await matchScreen(page, 'edited-profile.png')
 })
@@ -160,14 +151,14 @@ test('creating, listing and deleting a subname', async ({ page, app }) => {
   await expect(page.getByTestId('create-subname-next')).toBeEnabled()
   await matchDialog(page, 'subname-create')
   await page.getByTestId('create-subname-next').click()
-  await page.getByTestId('multi-url-field-simplex.contact-input-0').fill(CONTACTS[0])
+  await page.getByTestId('multi-url-field-simplex.contact-input-0').fill(CONTACT_LINKS[0])
   await matchDialog(page, 'subname-profile')
   await page.getByTestId('create-subname-profile-next').click()
   await matchTransactionDialog(page, 'subname-create-confirm')
   await completeTransactions(page, 2)
   await expect(transactionDialog(page)).toBeHidden()
   expect(await subnameHolderOf(`shop.${NAME}`)).toBe(accountOf(HOLDER).address)
-  expect(await textOf(`shop.${NAME}`, 'simplex.contact')).toBe(CONTACTS[0])
+  expect(await textOf(`shop.${NAME}`, 'simplex.contact')).toBe(CONTACT_LINKS[0])
   await expect(page.getByTestId('profile-snippet-name')).toHaveText(`shop.${NAME}`)
   await matchScreen(page, 'subname-created.png')
 

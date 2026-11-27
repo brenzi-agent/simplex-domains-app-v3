@@ -11,6 +11,8 @@ import { localhost, mainnet } from 'viem/chains'
 const GENESIS_TIMESTAMP = '1767225600'
 const ETH_USD = 169664538978n
 const BATCH = 200
+const COMMUNITY_TERMS_URL =
+  'https://raw.githubusercontent.com/simplex-chat/simplex-chat/d94981224a366a433f2d42388effff720419f9fd/docs/NAMES-CONDITIONS.md'
 const POLICY_EVENTS = parseAbi([
   'event ReservedNameAdded(string name, uint8 reason)',
   'event ReservedNameReasonChanged(string name, uint8 reason)',
@@ -26,17 +28,39 @@ if (!mainnetRpc)
 
 const git = (...args) =>
   execFileSync('git', ['-C', namespace, ...args], { encoding: 'utf8' }).trim()
-const termsLinks = JSON.parse(readFileSync(join(namespace, 'terms.simplex.json'), 'utf8'))
+const mainnetTerms = JSON.parse(readFileSync(join(namespace, 'terms.simplex.json'), 'utf8'))
 
-const termsFile = async (link) => {
-  const url = new URL(link.slice(0, link.indexOf('#')))
-  const text = Buffer.from(await (await fetch(url)).arrayBuffer())
+const fetchTerms = async (url) => {
+  const response = await fetch(url)
+  if (!response.ok) throw new Error(`${url}: status ${response.status}`)
+  const text = Buffer.from(await response.arrayBuffer())
   const digest = createHash('sha256').update(text).digest('hex')
-  if (!link.endsWith(`#sha256=${digest}`)) throw new Error(`${url}: sha256 ${digest}`)
-  const file = join(here, 'terms', url.host, url.pathname)
-  mkdirSync(dirname(file), { recursive: true })
-  writeFileSync(file, text)
+  return {
+    url,
+    text,
+    contentType: response.headers.get('content-type'),
+    link: `${url}#sha256=${digest}`,
+  }
 }
+
+const writeTermsFiles = (terms) => {
+  const files = {}
+  for (const { url, text, contentType } of terms) {
+    const { host, pathname } = new URL(url)
+    const file = join('terms', host, pathname)
+    mkdirSync(dirname(join(here, file)), { recursive: true })
+    writeFileSync(join(here, file), text)
+    files[url] = { file, contentType }
+  }
+  writeFileSync(join(here, 'terms.json'), `${JSON.stringify(files, null, 2)}\n`)
+}
+
+const generalTerms = await fetchTerms(
+  mainnetTerms.generalTerms.slice(0, mainnetTerms.generalTerms.indexOf('#')),
+)
+if (generalTerms.link !== mainnetTerms.generalTerms)
+  throw new Error(`${generalTerms.url}: ${generalTerms.link} differs from the mainnet link`)
+const communityTerms = await fetchTerms(COMMUNITY_TERMS_URL)
 
 const policyDeployment = readFileSync(
   join(namespace, 'deployments.mainnet.simplex.journal.jsonl'),
@@ -141,10 +165,10 @@ try {
   await send(addresses.DummyOracle, 'function set(int256 value)', [ETH_USD])
   await send(addresses.ETHRegistrarController, 'function setPublicSalesOpen(bool open)', [false])
   await send(addresses.SimplexNamePolicy, 'function setGeneralTerms(string link)', [
-    termsLinks.generalTerms,
+    generalTerms.link,
   ])
   await send(addresses.SimplexNamePolicy, 'function setCommunityTerms(string link)', [
-    termsLinks.communityTerms,
+    communityTerms.link,
   ])
   for (const reason of new Set(reserved.values())) {
     const names = [...reserved.keys()].filter((name) => reserved.get(name) === reason)
@@ -159,9 +183,7 @@ try {
   for (const batch of batches([...community])) {
     await send(addresses.SimplexNamePolicy, 'function addCommunityNames(string[] names)', [batch])
   }
-  for (const link of new Set([termsLinks.generalTerms, termsLinks.communityTerms])) {
-    await termsFile(link)
-  }
+  writeTermsFiles([generalTerms, communityTerms])
   const state = await client.request({ method: 'anvil_dumpState' })
   writeFileSync(join(here, 'state.json.gz'), Buffer.from(state.slice(2), 'hex'))
   copyFileSync(join(namespace, 'deployments.local.json'), join(here, 'addresses.json'))

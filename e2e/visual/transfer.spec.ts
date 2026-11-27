@@ -1,5 +1,7 @@
 import { type Page } from '@playwright/test'
 
+import { Web3RequestKind } from '@ensdomains/headless-web3-provider'
+
 import {
   accountOf,
   expiryOf,
@@ -22,7 +24,10 @@ import {
   matchScreen,
   matchTransactionDialog,
   networkFeeEstimated,
+  refuseTransaction,
+  TERMS_TITLE,
   test,
+  USER_REJECTED,
   type App,
 } from './fixtures'
 
@@ -32,7 +37,6 @@ const SELECTED: User = 'user2'
 const TEMPORARY_OWNER: User = 'user3'
 const OTHER: User = 'user4'
 const ONE_YEAR = 365n * ONE_DAY
-const TERMS_TITLE = 'SimpleX Names Conditions of Use'
 
 const offerTo = async (page: Page, recipient: User) => {
   const { address } = accountOf(recipient)
@@ -103,6 +107,33 @@ test('offering a name and withdrawing the offer', async ({ page, app }) => {
   await closeTransactionDialog(page)
   expect(await offeredTo(label)).toBeUndefined()
   await expect(page.getByText('Offer pending', { exact: true })).toHaveCount(0)
+})
+
+test('an offer whose transaction the wallet refuses', async ({ page, app }) => {
+  const label = 'offeredname'
+  await register(label, HOLDER)
+  const { refuse } = await app.open(`/${label}.${TLD}?tab=ownership`, { accounts: [HOLDER] })
+  await offerTo(page, RECIPIENT)
+  await page.getByTestId('offer-name-confirm').click()
+  refuse(Web3RequestKind.SendTransaction)
+  await refuseTransaction(page)
+  await matchDialog(page, 'offer-refused')
+  expect(await offeredTo(label)).toBeUndefined()
+})
+
+test('a relayed offer whose signature the wallet refuses', async ({ page, app }) => {
+  const label = 'relayedname'
+  await register(label, TEMPORARY_OWNER)
+  await setAllowance(SELECTED, 1000)
+  const { refuse } = await app.open(`/${label}.${TLD}?tab=ownership`, {
+    accounts: [SELECTED, TEMPORARY_OWNER],
+  })
+  await offerTo(page, OTHER)
+  refuse(Web3RequestKind.SignTypedDataV4)
+  await page.getByTestId('offer-name-confirm').click()
+  await expect(page.getByText(USER_REJECTED)).toBeVisible()
+  await matchDialog(page, 'relayed-offer-refused')
+  expect(await offeredTo(label)).toBeUndefined()
 })
 
 test('relaying an offer and its withdrawal for a temporary owner', async ({ page, app }) => {
