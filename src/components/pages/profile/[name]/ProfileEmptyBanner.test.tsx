@@ -150,6 +150,7 @@ describe('ProfileEmptyBanner', () => {
       ],
     }))
 
+    mockBanner.mockClear()
     render(<ProfileEmptyBanner name="test" />)
     expect(mockBanner.mock.lastCall?.[0]).toMatchObject({
       alert: 'info',
