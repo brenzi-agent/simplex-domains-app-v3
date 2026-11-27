@@ -49,6 +49,7 @@ const registerOnPayablePath = async (page: Page, app: App, label: string, terms:
   await matchScreen(page, `${terms}-pricing.png`)
 
   await page.getByTestId('terms-accept').check()
+  await app.rpcSettled()
   await expect(page.getByTestId('next-button')).toHaveText('Next')
   await networkFeeEstimated(page)
   await matchScreen(page, `${terms}-pricing-accepted.png`)
@@ -113,6 +114,7 @@ test('registration from a registrar allowance while sales are closed', async ({ 
   await setAllowance(PARTNER, 1000)
   await app.open(`/${label}.${TLD}/register`, { accounts: [PARTNER] })
   await page.getByTestId('terms-accept').check()
+  await app.rpcSettled()
   await expect(page.getByTestId('next-button')).toHaveText('Register with allowance')
   await expect(page.getByTestId('next-button')).toBeEnabled()
   await expect(page.getByText('$900.00')).toBeVisible()
@@ -140,6 +142,7 @@ test('registration from an allowance that is too low', async ({ page, app }) => 
   await setAllowance(PARTNER, 10)
   await app.open(`/partnername.${TLD}/register`, { accounts: [PARTNER] })
   await page.getByTestId('terms-accept').check()
+  await app.rpcSettled()
   await expect(page.getByTestId('next-button')).toHaveText('Allowance too low')
   await expect(page.getByText('-$90.00')).toBeVisible()
   await matchScreen(page, 'allowance-too-low.png')
@@ -153,6 +156,7 @@ test('registration from an allowance to a temporary owner', async ({ page, app }
     accounts: [PARTNER, TEMPORARY_OWNER],
   })
   await page.getByTestId('terms-accept').check()
+  await app.rpcSettled()
   await expect(page.getByTestId(`owner-${owner}`)).toBeVisible()
   await expect(page.getByTestId('next-button')).toBeEnabled()
   await matchScreen(page, 'owner-choice.png')

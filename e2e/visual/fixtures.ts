@@ -7,6 +7,7 @@ import {
   type Frame,
   type Locator,
   type Page,
+  type Request,
   type Route,
 } from '@playwright/test'
 import { isAddress, isAddressEqual, type Address, type TypedDataDefinition } from 'viem'
@@ -29,6 +30,7 @@ const TERMS = join(__dirname, 'chain', 'terms')
 const DNS_OVER_HTTPS = 'https://1.1.1.1/dns-query'
 const NXDOMAIN = { Status: 3, TC: false, RD: true, RA: true, AD: true, CD: false }
 const LASTING_SCREEN_MS = 3_000
+const RPC_QUIET_MS = 500
 const TRANSACTION_SUCCESSFUL = 'Transaction Successful'
 
 const isFile = (path: string) => statSync(path, { throwIfNoEntry: false })?.isFile() ?? false
@@ -129,6 +131,7 @@ export type App = {
   open: (path: string, wallet?: Wallet) => Promise<{ typedData: SignedTypedData[] }>
   goto: (path: string) => Promise<void>
   syncClock: () => Promise<void>
+  rpcSettled: () => Promise<void>
 }
 
 export const test = base.extend<{ app: App }>({
@@ -139,8 +142,28 @@ export const test = base.extend<{ app: App }>({
     await context.routeWebSocket(/.*/, () => {})
     const syncClock = async () =>
       page.clock.setFixedTime(new Date(Number(await latestTimestamp()) * 1000))
+    const rpc = { pending: 0, lastActivity: 0 }
+    const isRpc = (request: Request) => new URL(request.url()).origin === new URL(RPC_URL).origin
+    page.on('request', (request) => {
+      if (!isRpc(request)) return
+      rpc.pending += 1
+      rpc.lastActivity = Date.now()
+    })
+    const settle = (request: Request) => {
+      if (!isRpc(request)) return
+      rpc.pending -= 1
+      rpc.lastActivity = Date.now()
+    }
+    page.on('requestfinished', settle)
+    page.on('requestfailed', settle)
     await use({
       syncClock,
+      rpcSettled: async () => {
+        const since = Date.now()
+        await expect
+          .poll(() => (rpc.pending ? 0 : Date.now() - Math.max(since, rpc.lastActivity)))
+          .toBeGreaterThanOrEqual(RPC_QUIET_MS)
+      },
       goto: async (path) => {
         await syncClock()
         await page.goto(path)

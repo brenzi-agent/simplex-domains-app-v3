@@ -23,6 +23,7 @@ import {
   matchTransactionDialog,
   networkFeeEstimated,
   test,
+  type App,
 } from './fixtures'
 
 const HOLDER: User = 'user2'
@@ -63,11 +64,12 @@ const claim = async (page: Page, label: string, screens: string) => {
   expect(await holderOf(label)).toBe(accountOf(RECIPIENT).address)
 }
 
-const extendAsHolder = async (page: Page, label: string, screens: string) => {
+const extendAsHolder = async (page: Page, app: App, label: string, screens: string) => {
   const expiry = await expiryOf(label)
   await expect(page.getByTestId('terms-text')).toContainText(TERMS_TITLE)
   await matchDialog(page, `${screens}-terms`)
   await page.getByTestId('terms-accept').check()
+  await app.rpcSettled()
   await expect(page.getByTestId('extend-names-confirm')).toBeEnabled()
   await networkFeeEstimated(page)
   await matchDialog(page, screens)
@@ -179,7 +181,7 @@ test('extending a name as its holder', async ({ page, app }) => {
   await register(label, HOLDER)
   await app.open(`/${label}.${TLD}?tab=ownership`, { accounts: [HOLDER] })
   await page.getByTestId('expiry-action-extend').click()
-  await extendAsHolder(page, label, 'extend')
+  await extendAsHolder(page, app, label, 'extend')
 })
 
 test('extending a community name as its holder', async ({ page, app }) => {
@@ -187,7 +189,7 @@ test('extending a community name as its holder', async ({ page, app }) => {
   await register(label, HOLDER)
   await app.open(`/${label}.${TLD}?tab=ownership`, { accounts: [HOLDER] })
   await page.getByTestId('expiry-action-extend').click()
-  await extendAsHolder(page, label, 'community-extend')
+  await extendAsHolder(page, app, label, 'community-extend')
 })
 
 test('extending a name in its dispute period', async ({ page, app }) => {
@@ -208,7 +210,7 @@ test('a renewal link opened by the holder', async ({ page, app }) => {
   await register(label, HOLDER)
   await app.open(`/${label}.${TLD}?renew=31536000`, { accounts: [HOLDER] })
   await expect(page.getByTestId('extend-names-modal')).toBeVisible()
-  await extendAsHolder(page, label, 'renew-link')
+  await extendAsHolder(page, app, label, 'renew-link')
 })
 
 test('a renewal link opened by a non-holder', async ({ page, app }) => {
