@@ -33,7 +33,7 @@ const SCREENSHOT_CSS = join(__dirname, 'screenshot.css')
 const WHOLE_PAGE_CSS = join(__dirname, 'whole-page.css')
 const LASTING_SCREEN_MS = 3_000
 const RPC_QUIET_MS = 500
-const RPC_POLL_MS = 100
+const POLL_MS = 100
 const TRANSACTION_SUCCESSFUL = 'Transaction Successful'
 export const TERMS_TITLE = 'SimpleX Names Conditions of Use'
 export const USER_REJECTED = 'User rejected the request.'
@@ -205,7 +205,7 @@ const rpcSettled = async (page: Page) => {
   const since = Date.now()
   await expect
     .poll(() => (activity.pending ? 0 : Date.now() - Math.max(since, activity.lastActivity)), {
-      intervals: [RPC_POLL_MS],
+      intervals: [POLL_MS],
     })
     .toBeGreaterThanOrEqual(RPC_QUIET_MS)
 }
@@ -319,6 +319,14 @@ export const networkFeeEstimated = (page: Page) =>
 const toast = (page: Page) =>
   page.locator('[data-testid="toast-desktop"], [data-testid="toast-touch"]')
 
+const toastSettled = (page: Page) =>
+  expect
+    .poll(
+      () => toast(page).evaluate((element) => element.getAnimations({ subtree: true }).length),
+      { intervals: [POLL_MS] },
+    )
+    .toBe(0)
+
 export const matchTransactionDialog = async (page: Page, name: string, mask: Locator[] = []) => {
   await expect(transactionConfirm(page)).toBeEnabled()
   await matchDialog(page, name, mask)
@@ -328,7 +336,9 @@ const confirmTransaction = async (page: Page) => {
   await expect(transactionConfirm(page)).toBeEnabled()
   await transactionConfirm(page).click()
   await expect(toast(page)).toContainText(TRANSACTION_SUCCESSFUL)
+  await toastSettled(page)
   await toast(page).getByText(TRANSACTION_SUCCESSFUL).click()
+  await toastSettled(page)
   await page.getByTestId('toast-close-icon').click()
   await expect(toast(page)).toHaveCount(0)
 }

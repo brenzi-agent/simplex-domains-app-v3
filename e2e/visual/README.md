@@ -40,7 +40,7 @@ The workflow Visual runs on pull requests and on pushes to `simplex`. Before a p
 | terms checkbox | ticked by a click event dispatched on it: inside a phone dialog, WebKit's hit test at its centre reaches the terms box around it |
 | wallet | the test mnemonic's accounts; `desktop` connects the wallet listed as installed, `phone` the browser wallet of the mobile list; a test can make it refuse the next transaction or signature, as a user does, with the error code 4001 |
 | dialogs | compared at the top and, when their body scrolls, again scrolled to its end (`-end`); a desktop dialog is at most 576 px high at any viewport height, a phone dialog's body at most 60% of the viewport height |
-| transactions | each confirmed transaction shows the toast "Transaction Successful", which the test closes; each flow with a dialog that stays open compares its complete stage |
+| transactions | each confirmed transaction shows the toast "Transaction Successful", which the test closes by clicks made once its CSS transitions are complete, as a click made during the entry transition of the phone toast was lost; each flow with a dialog that stays open compares its complete stage |
 | hidden in screenshots | `canvas` (confetti of the registration) |
 | phone tab bar | fixed to the bottom of the screen in the dApp, drawn after the page's content in screenshots of whole pages, so that a whole page shows it once and it covers no content |
 | pixel tolerance | Playwright `threshold` 0.02 (YIQ colour distance): a grey change of up to 5 per channel is accepted; the rendering of icon edges and gradients varies by up to 4 per channel between runs on one machine |
