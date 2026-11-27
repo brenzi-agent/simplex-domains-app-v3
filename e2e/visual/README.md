@@ -32,9 +32,9 @@ The workflow Visual runs on pull requests and on pushes to `simplex`. Before a p
 | block time | previous block + 1 s |
 | browser clock | fixed at the time of the latest block, set at each page load, before a screen of the commitment wait and after the wait |
 | registration secret | random; `owner-typed-data.json` holds `<random>` for its commitment, and the test reads the commitment on chain |
-| pointer and scroll | the pointer at (0, 0), the page and a dialog's body at their top and the elements of a dialog at their left edge before each screenshot, as the scroll into view before a click can move a dialog's content sideways; behind an open dialog, which fixes the page at its scroll position, the page is moved to its top |
+| pointer and scroll | the pointer at (0, 0), the page and a dialog's body at their top and the elements of a dialog other than text fields at their left edge before each screenshot, as the scroll into view before a click can move a dialog's content sideways; behind an open dialog, which fixes the page at its scroll position, the page is moved to its top |
 | countdown | the commitment wait is compared once it shows 60 |
-| data loading | each screenshot is taken once the dApp has had no pending RPC request for 0.5 s; a screen with a fee estimate is compared once the estimate is shown |
+| data loading | each screenshot is taken, and each loaded page is used, once the dApp has had no pending RPC request for 0.5 s, as content loaded later moves the buttons a test clicks; a screen with a fee estimate is compared once the estimate is shown |
 | network | the dApp and the node; the dApp's fallback RPC endpoints answered by the node, as they answer with mainnet's state; each terms file at the exact URL of its link, with GitHub's content type; NXDOMAIN for DNS-over-HTTPS queries; other requests refused; WebSockets accepted and left unanswered |
 | browser | `mcr.microsoft.com/playwright:v1.50.1-jammy`, `en-US`, UTC, light, scale 1; `desktop` Chromium at 1280×1000; `phone` the iPhone 13 of Playwright, with its engine WebKit, its user agent and touch, at 390×844 |
 | terms checkbox | ticked by a click event dispatched on it: inside a phone dialog, WebKit's hit test at its centre reaches the terms box around it |

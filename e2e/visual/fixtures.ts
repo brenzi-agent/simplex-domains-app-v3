@@ -230,6 +230,7 @@ export const test = base.extend<{ app: App }>({
       goto: async (path) => {
         await syncClock()
         await page.goto(path)
+        await rpcSettled(page)
       },
       open: async (path, wallet) => {
         await syncClock()
@@ -238,6 +239,7 @@ export const test = base.extend<{ app: App }>({
           : { typedData: [], refuse: () => {} }
         await page.goto(path)
         if (wallet && (wallet.connected ?? true)) await connect(page, isMobile)
+        await rpcSettled(page)
         return injected
       },
     })
@@ -254,7 +256,7 @@ const matchAtTop = async (
     window.scrollTo(0, 0)
     if (document.body.style.position === 'fixed') document.body.style.top = '0px'
     document
-      .querySelectorAll('body > div.modal *, [role="dialog"] *')
+      .querySelectorAll(':is(body > div.modal, [role="dialog"]) :not(input, textarea)')
       .forEach((element) => element.scrollTo({ left: 0 }))
   })
   await page.mouse.move(0, 0)
