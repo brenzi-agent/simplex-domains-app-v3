@@ -193,6 +193,15 @@ describe('chains', () => {
       expect(localhostWithEns.id).toBe(localhost.id)
     })
 
+    it('should link mainnet and sepolia to their own block explorers', () => {
+      expect(mainnetWithEns.blockExplorers.default.url).toBe('https://etherscan.io')
+      expect(sepoliaWithEns.blockExplorers.default.url).toBe('https://sepolia.etherscan.io')
+    })
+
+    it('should link localhost to the placeholder block explorer', () => {
+      expect(localhostWithEns.blockExplorers?.default.url).toBe('https://localhost.etherscan.io')
+    })
+
     it('should reflect SNRC addresses on sepolia (parsed from env)', () => {
       // sepoliaWithEns is built from `sepoliaDeploymentAddresses` (parsed
       // from NEXT_PUBLIC_SEPOLIA_DEPLOYMENT_ADDRESSES at module load

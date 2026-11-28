@@ -708,7 +708,7 @@ const Pricing = ({
     name,
     registrationData: {
       ...registrationData,
-      reverseRecord,
+      reverseRecord: SHOW_PRIMARY_NAME && reverseRecord,
       seconds,
       records: [{ key: 'ETH', value: resolverAddress, type: 'addr', group: 'address' }],
       clearRecords: resolverExists,

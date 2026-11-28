@@ -10,7 +10,7 @@ export const makeLocalhostChainWithEns = <T extends Chain>(
 ): ChainWithEns<T> => {
   return {
     ...localhost,
-    blockExplorers: {
+    blockExplorers: localhost.blockExplorers ?? {
       default: {
         name: 'Etherscan',
         url: 'https://localhost.etherscan.io',
