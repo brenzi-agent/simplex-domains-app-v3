@@ -536,6 +536,7 @@ const addHistoryDropdownItems =
       const filteredHistoryItems = history
         .filter(
           (historyItem: HistoryItem) =>
+            historyItem.nameType !== 'tld' &&
             historyItem.text.includes(name) &&
             dropdownItems.findIndex(
               (dropdownItem) =>
@@ -618,7 +619,6 @@ const useBuildDropdownItems = (inputVal: string, history: HistoryItem[]) => {
         addEthDropdownItem({ name, isETH }),
         addDnsDropdownItem({ name, isETH }),
         addAddressItem({ name, inputIsAddress }),
-        addTldDropdownItem({ name }),
         addHistoryDropdownItems({ name, history }),
         addErrorDropdownItem({ name, isValid }),
         addInfoDropdownItem({ t }),

@@ -267,6 +267,34 @@ describe('SearchInput', () => {
     await userEvent.type(screen.getByTestId('search-input-box'), '.')
     await waitFor(() => expect(screen.queryByText(`Invalid name`)).toBeInTheDocument())
   })
+  it('should show a bare label only with the TLD appended, also among history items', async () => {
+    mockUseLocalStorage.mockReturnValue([
+      [
+        { nameType: 'tld', text: 'freshnames', lastAccessed: 2 },
+        { nameType: 'eth', text: 'freshnames.testing', lastAccessed: 1 },
+      ],
+    ])
+    mockUseBreakpoint.mockReturnValue({
+      xs: true,
+      sm: true,
+      md: true,
+      lg: false,
+      xl: false,
+    })
+    render(<SearchInput />)
+    act(() => {
+      screen.getByTestId('search-input-box').focus()
+    })
+    await waitFor(() => screen.getByTestId('search-input-results'), {
+      timeout: 500,
+    })
+    await userEvent.type(screen.getByTestId('search-input-box'), 'freshname')
+    await waitFor(() =>
+      expect(
+        screen.getAllByTestId('search-result-text').map(({ textContent }) => textContent),
+      ).toEqual(['freshname.testing', 'freshnames.testing']),
+    )
+  })
   it('should debounce search input changes', async () => {
     mockUseBreakpoint.mockReturnValue({
       xs: true,
