@@ -2,7 +2,7 @@ import { mockFunction, render, screen } from '@app/test-utils'
 
 import { makeMockUseWrapperDataData } from '@root/test/mock/makeMockUseWrapperDataData.ts'
 import { labelhash, namehash } from 'viem'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { useChainName } from '@app/hooks/chain/useChainName'
 import { useContractAddress } from '@app/hooks/chain/useContractAddress'
@@ -36,20 +36,14 @@ mockUseParentBasicName.mockImplementation(() => {
 })
 
 describe('Token', () => {
-  beforeEach(() => {
-    vi.stubEnv('NEXT_PUBLIC_SIMPLEX_TLD', 'simplex')
-  })
-  afterEach(() => {
-    vi.unstubAllEnvs()
-  })
   describe('tokenids', () => {
     it('should not show tokenid section for unwrapped non .eth 2ld', () => {
       const name = 'sub.nick.eth'
       render(<Token {...({ name, isWrapped: false } as any)} />)
       expect(screen.queryByTestId('token-ids')).not.toBeInTheDocument()
     })
-    it('should show correct decimal and hex for unwrapped .simplex 2ld', () => {
-      const name = 'nick.simplex'
+    it('should show correct decimal and hex for unwrapped .eth 2ld', () => {
+      const name = 'nick.eth'
       const label = 'nick'
       const labelHash = labelhash(label)
       const tokenId = BigInt(labelHash).toString(10)
@@ -57,17 +51,6 @@ describe('Token', () => {
       render(<Token {...({ name, isWrapped: false } as any)} />)
       expect(screen.getByText(labelHash)).toBeVisible()
       expect(screen.getByText(tokenId)).toBeVisible()
-    })
-    it('should not show tokenid section for unwrapped .eth 2ld', () => {
-      const name = 'nick.eth'
-      render(<Token {...({ name, isWrapped: false } as any)} />)
-      expect(screen.queryByTestId('token-ids')).not.toBeInTheDocument()
-    })
-    it('should not show tokenid section or link for unwrapped .simplex subname', () => {
-      const name = 'sub.nick.simplex'
-      render(<Token {...({ name, isWrapped: false } as any)} />)
-      expect(screen.queryByTestId('token-ids')).not.toBeInTheDocument()
-      expect(screen.queryByTestId('etherscan-nft-link')).not.toBeInTheDocument()
     })
     it('should show correct decimal and hex for wrapped .eth 2ld name', () => {
       const name = 'nick.eth'
@@ -110,8 +93,8 @@ describe('Token', () => {
       render(<Token {...({ name, isWrapped: false } as any)} />)
       expect(screen.queryByTestId('etherscan-nft-link')).not.toBeInTheDocument()
     })
-    it('should show correct link for unwrapped .simplex 2ld', () => {
-      const name = 'nick.simplex'
+    it('should show correct link for unwrapped .eth 2ld', () => {
+      const name = 'nick.eth'
       const label = 'nick'
       const labelHash = labelhash(label)
       const tokenId = BigInt(labelHash).toString(10)
