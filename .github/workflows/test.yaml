@@ -10,8 +10,8 @@ env:
 # Docker stack (flaky Docker Hub pulls in CI), require secrets the fork doesn't
 # hold (SECRET_WORDS) and Cloudflare `wrangler`, and exercise upstream `.eth`
 # flows the fork has intentionally diverged from. CI keeps the unit tests
-# (coverage) and the cross-chain build checks below. Re-add a SNRC-specific E2E
-# suite here if/when one exists.
+# (coverage) and the cross-chain build checks below. The SNRC E2E suite runs in
+# visual.yaml.
 
 jobs:
   coverage:
