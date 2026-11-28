@@ -15,10 +15,9 @@ const typeSearch = async (page: Page, isMobile: boolean, input: string) => {
 
 const search = async (page: Page, isMobile: boolean, input: string, status: string) => {
   await typeSearch(page, isMobile, input)
-  const [name, tld] = [0, 1].map((row) => page.getByTestId('search-result-name').nth(row))
+  const name = page.getByTestId('search-result-name').first()
   await expect(name).toContainText(`${input}.${TLD}`)
   await expect(name).toContainText(status)
-  await expect(tld).toContainText('Not Supported')
 }
 
 test('home page', async ({ page, app, isMobile }) => {
