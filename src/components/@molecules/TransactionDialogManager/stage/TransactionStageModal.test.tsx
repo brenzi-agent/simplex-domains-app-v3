@@ -6,7 +6,7 @@ import { ComponentProps } from 'react'
 import { Account, TransactionRequest } from 'viem'
 import { estimateGas, prepareTransactionRequest } from 'viem/actions'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useClient, useConnectorClient, useSendTransaction } from 'wagmi'
+import { useClient, useConnections, useConnectorClient, useSendTransaction } from 'wagmi'
 
 import { useAccountSafely } from '@app/hooks/account/useAccountSafely'
 import { useChainName } from '@app/hooks/chain/useChainName'
@@ -86,6 +86,7 @@ const mockClient = {
 
 const mockUseClient = mockFunction(useClient)
 const mockUseConnectorClient = mockFunction(useConnectorClient)
+const mockUseConnections = mockFunction(useConnections)
 
 const mockEstimateGas = mockFunction(estimateGas)
 const mockCreateAccessList = createAccessList as MockedFunctionDeep<typeof createAccessList>
@@ -152,6 +153,7 @@ describe('TransactionStageModal', () => {
     mockUseConnectorClient.mockReturnValue({
       data: { account: { address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' } },
     })
+    mockUseConnections.mockReturnValue([])
     mockUseIsSafeApp.mockReturnValue({ data: false })
     mockEstimateGas.mockReset()
     mockPrepareTransactionRequest.mockReset()
@@ -319,6 +321,28 @@ describe('TransactionStageModal', () => {
               accessList: [],
             }),
           ),
+        )
+      })
+      it('should pass the request without the access list to MetaMask', async () => {
+        mockUseConnections.mockReturnValue([
+          {
+            connector: { id: 'io.metamask' },
+            accounts: ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'],
+          },
+        ] as unknown as ReturnType<typeof useConnections>)
+        mockCreateAccessList.mockResolvedValue({
+          accessList: [{ address: mockTransactionRequest.to!, storageKeys: [] }],
+          gasUsed: '0x64',
+        })
+        mockEstimateGas.mockResolvedValue(1n)
+        const mockSendTransaction = vi.fn()
+        mockUseSendTransaction.mockReturnValue({
+          sendTransaction: mockSendTransaction,
+        })
+        await renderHelper({ transaction: mockTransaction })
+        await clickRequest()
+        await waitFor(() =>
+          expect(mockSendTransaction.mock.lastCall![0]!).not.toHaveProperty('accessList'),
         )
       })
       it('should add to recent transactions and run dispatch from success callback', async () => {

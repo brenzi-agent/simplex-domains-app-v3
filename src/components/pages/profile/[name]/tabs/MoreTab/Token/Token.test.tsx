@@ -119,7 +119,7 @@ describe('Token', () => {
       render(<Token {...({ name, isWrapped: false } as any)} />)
       expect(screen.getByTestId('etherscan-nft-link')).toHaveAttribute(
         'href',
-        `https://localhost.etherscan.io/nft/unwrapped/${tokenId}`,
+        `https://etherscan.io/nft/unwrapped/${tokenId}`,
       )
     })
     it('should show correct link for wrapped .eth 2ld', () => {
@@ -138,7 +138,7 @@ describe('Token', () => {
       )
       expect(screen.getByTestId('etherscan-nft-link')).toHaveAttribute(
         'href',
-        `https://localhost.etherscan.io/nft/wrapped/${decId}`,
+        `https://etherscan.io/nft/wrapped/${decId}`,
       )
     })
     it('should show correct link for wrapped other', () => {
@@ -157,7 +157,7 @@ describe('Token', () => {
       )
       expect(screen.getByTestId('etherscan-nft-link')).toHaveAttribute(
         'href',
-        `https://localhost.etherscan.io/nft/wrapped/${decId}`,
+        `https://etherscan.io/nft/wrapped/${decId}`,
       )
     })
   })
